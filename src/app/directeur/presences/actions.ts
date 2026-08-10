@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
+import { assertClassAccess } from "@/lib/teacher-scope";
 
 interface AttendanceEntry {
   studentId: string;
@@ -19,10 +20,8 @@ export async function saveAttendance(
 ) {
   const user = await requireRole(ROLES.DIRECTOR, ROLES.TEACHER);
 
-  const cls = await prisma.classRoom.findFirst({
-    where: { id: classId, schoolId: user.schoolId },
-  });
-  if (!cls) throw new Error("Classe introuvable.");
+  // Un enseignant ne peut faire l'appel que dans ses propres classes.
+  await assertClassAccess(user, classId);
 
   // La date est normalisée à minuit UTC : la contrainte d'unicité
   // (studentId, date) ne fonctionne que si toutes les saisies d'un même
@@ -56,4 +55,6 @@ export async function saveAttendance(
 
   revalidatePath("/directeur/presences");
   revalidatePath("/directeur");
+  revalidatePath("/enseignant/presences");
+  revalidatePath("/enseignant");
 }

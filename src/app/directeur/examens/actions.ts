@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { examSchema, type ExamFormValues } from "./schema";
+import { assertClassAccess } from "@/lib/teacher-scope";
 
 export async function createExam(values: ExamFormValues) {
   const user = await requireRole(ROLES.DIRECTOR);
@@ -59,6 +60,9 @@ export async function saveGrades(examId: string, entries: GradeEntry[]) {
   });
   if (!exam) throw new Error("Examen introuvable.");
 
+  // Un enseignant ne peut noter que dans ses propres classes.
+  await assertClassAccess(user, exam.classId);
+
   const studentsInClass = await prisma.student.findMany({
     where: { schoolId: user.schoolId, classId: exam.classId },
     select: { id: true },
@@ -89,4 +93,5 @@ export async function saveGrades(examId: string, entries: GradeEntry[]) {
   }
 
   revalidatePath("/directeur/examens");
+  revalidatePath("/enseignant/notes");
 }

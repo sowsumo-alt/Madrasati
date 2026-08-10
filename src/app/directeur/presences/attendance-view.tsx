@@ -46,6 +46,7 @@ export function AttendanceView({
   selectedDate,
   schoolName,
   absenceTemplate,
+  basePath = "/directeur/presences",
 }: {
   classes: AttendanceClassOption[];
   students: AttendanceStudent[];
@@ -54,6 +55,8 @@ export function AttendanceView({
   selectedDate: string;
   schoolName: string;
   absenceTemplate: string;
+  /** Permet de réutiliser cette vue dans l'espace enseignant. */
+  basePath?: string;
 }) {
   const router = useRouter();
   const [marks, setMarks] = useState<Record<string, string>>(existingRecords);
@@ -64,7 +67,7 @@ export function AttendanceView({
   }, [existingRecords]);
 
   function updateFilters(classId: string, date: string) {
-    router.push(`/directeur/presences?classId=${classId}&date=${date}`);
+    router.push(`${basePath}?classId=${classId}&date=${date}`);
   }
 
   function markAll(status: string) {

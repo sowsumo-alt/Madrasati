@@ -12,6 +12,7 @@ import {
   FileText,
   MessageCircle,
   BarChart3,
+  Settings,
 } from "lucide-react";
 
 export interface NavItem {
@@ -33,6 +34,18 @@ const directorNavItems: NavItem[] = [
   { href: "/directeur/finance", labelKey: "nav.finance", icon: Wallet },
   { href: "/directeur/communication", labelKey: "nav.communication", icon: MessageCircle },
   { href: "/directeur/statistiques", labelKey: "nav.statistics", icon: BarChart3 },
+  { href: "/directeur/parametres", labelKey: "nav.settings", icon: Settings },
+];
+
+const teacherNavItems: NavItem[] = [
+  { href: "/enseignant", labelKey: "nav.dashboard", icon: LayoutDashboard },
+  { href: "/enseignant/presences", labelKey: "nav.attendance", icon: ClipboardCheck },
+  { href: "/enseignant/notes", labelKey: "nav.exams", icon: GraduationCap },
+  { href: "/enseignant/emploi-du-temps", labelKey: "nav.schedule", icon: CalendarDays },
+];
+
+const parentNavItems: NavItem[] = [
+  { href: "/parent", labelKey: "nav.dashboard", icon: LayoutDashboard },
 ];
 
 // Les composants d'icônes (fonctions React) ne peuvent pas traverser la
@@ -42,6 +55,8 @@ const directorNavItems: NavItem[] = [
 // layout serveur.
 export const navItemsByRole = {
   director: directorNavItems,
+  teacher: teacherNavItems,
+  parent: parentNavItems,
 } as const;
 
 export type NavKey = keyof typeof navItemsByRole;

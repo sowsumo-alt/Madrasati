@@ -12,6 +12,7 @@ export const dictionaries = {
     "nav.finance": "Finance",
     "nav.communication": "Communication",
     "nav.statistics": "Statistiques",
+    "nav.settings": "Paramètres",
     "nav.logout": "Déconnexion",
 
     "common.search": "Rechercher…",
@@ -105,6 +106,7 @@ export const dictionaries = {
     "nav.finance": "Finance",
     "nav.communication": "Communication",
     "nav.statistics": "Statistics",
+    "nav.settings": "Settings",
     "nav.logout": "Log out",
 
     "common.search": "Search…",

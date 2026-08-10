@@ -64,10 +64,110 @@ const DEFAULT_TEMPLATES: Array<{
   },
 ];
 
+const DEMO_PASSWORD = "Madrasati2026!";
+
+/**
+ * Crée les comptes de démonstration enseignant et parent, et les rattache à
+ * des données existantes. Idempotent : peut être relancé sur une base déjà
+ * remplie sans rien dupliquer.
+ */
+async function ensureDemoAccounts(schoolId: string) {
+  // — Enseignant
+  const teacherEmail = "enseignant@ecole-demo.mr";
+  let teacherUser = await prisma.user.findUnique({ where: { email: teacherEmail } });
+  if (!teacherUser) {
+    teacherUser = await prisma.user.create({
+      data: {
+        schoolId,
+        email: teacherEmail,
+        passwordHash: await bcrypt.hash(DEMO_PASSWORD, 10),
+        role: "TEACHER",
+        name: "Khadijetou Mint Ely",
+        phone: "+22246778899",
+      },
+    });
+  }
+
+  let teacher = await prisma.teacher.findFirst({ where: { userId: teacherUser.id } });
+  if (!teacher) {
+    teacher = await prisma.teacher.create({
+      data: {
+        schoolId,
+        userId: teacherUser.id,
+        firstName: "Khadijetou",
+        lastName: "Mint Ely",
+        phone: "+22246778899",
+        email: teacherEmail,
+        subjectSpecialty: "Mathématiques",
+        diploma: "Licence en Mathématiques",
+        monthlySalary: 45000,
+        hireDate: new Date("2024-09-01"),
+        status: "ACTIVE",
+      },
+    });
+  }
+
+  // Elle est professeure principale de la 6ème A et y enseigne les maths.
+  const mainClass = await prisma.classRoom.findFirst({
+    where: { schoolId, name: "6ème A" },
+  });
+  const maths = await prisma.subject.findFirst({
+    where: { schoolId, name: "Mathématiques" },
+  });
+
+  if (mainClass) {
+    await prisma.classRoom.update({
+      where: { id: mainClass.id },
+      data: { mainTeacherId: teacher.id },
+    });
+
+    if (maths) {
+      await prisma.classSubject.upsert({
+        where: {
+          classId_subjectId: { classId: mainClass.id, subjectId: maths.id },
+        },
+        create: { classId: mainClass.id, subjectId: maths.id, teacherId: teacher.id },
+        update: { teacherId: teacher.id },
+      });
+    }
+  }
+
+  // — Parent : on rattache un compte au premier parent déjà créé.
+  const parentRecord = await prisma.parent.findFirst({
+    where: { schoolId },
+    orderBy: { createdAt: "asc" },
+  });
+  if (parentRecord && !parentRecord.userId) {
+    const parentEmail = "parent@ecole-demo.mr";
+    let parentUser = await prisma.user.findUnique({ where: { email: parentEmail } });
+    if (!parentUser) {
+      parentUser = await prisma.user.create({
+        data: {
+          schoolId,
+          email: parentEmail,
+          passwordHash: await bcrypt.hash(DEMO_PASSWORD, 10),
+          role: "PARENT",
+          name: `${parentRecord.firstName} ${parentRecord.lastName}`,
+          phone: parentRecord.phone,
+        },
+      });
+    }
+    await prisma.parent.update({
+      where: { id: parentRecord.id },
+      data: { userId: parentUser.id },
+    });
+  }
+
+  console.log("Comptes de démonstration :");
+  console.log(`  Enseignant : ${teacherEmail} / ${DEMO_PASSWORD}`);
+  console.log(`  Parent     : parent@ecole-demo.mr / ${DEMO_PASSWORD}`);
+}
+
 async function main() {
   const existing = await prisma.school.findFirst();
   if (existing) {
-    console.log(`Une école existe déjà (${existing.name}) — seed ignoré.`);
+    console.log(`Une école existe déjà (${existing.name}) — création ignorée.`);
+    await ensureDemoAccounts(existing.id);
     return;
   }
 
@@ -240,6 +340,8 @@ async function main() {
       });
     }
   }
+
+  await ensureDemoAccounts(school.id);
 
   console.log("Seed terminé.");
   console.log("École :", school.name);

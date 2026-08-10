@@ -39,9 +39,12 @@ export interface ExamRow {
 export function ExamsView({
   exams,
   classes,
+  canManageExams = true,
 }: {
   exams: ExamRow[];
   classes: ExamClassOption[];
+  /** L'enseignant saisit les notes mais ne crée ni ne supprime les examens. */
+  canManageExams?: boolean;
 }) {
   const router = useRouter();
   const [termFilter, setTermFilter] = useState<string>("ALL");
@@ -78,13 +81,17 @@ export function ExamsView({
         <div>
           <h1 className="text-xl font-semibold text-foreground">Examens & Notes</h1>
           <p className="mt-1 text-sm text-foreground/60">
-            Planifiez les examens et saisissez les notes de chaque élève.
+            {canManageExams
+              ? "Planifiez les examens et saisissez les notes de chaque élève."
+              : "Saisissez les notes de vos élèves pour chaque examen."}
           </p>
         </div>
-        <Button onClick={() => setFormOpen(true)}>
-          <Plus className="h-4 w-4" />
-          Nouvel examen
-        </Button>
+        {canManageExams && (
+          <Button onClick={() => setFormOpen(true)}>
+            <Plus className="h-4 w-4" />
+            Nouvel examen
+          </Button>
+        )}
       </div>
 
       <div className="max-w-xs">
@@ -168,13 +175,15 @@ export function ExamsView({
                         >
                           <PenLine className="h-4 w-4" />
                         </button>
-                        <button
-                          title="Supprimer"
-                          onClick={() => setDeleteTarget(e)}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground/60 transition-colors hover:bg-red-50 hover:text-danger"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        {canManageExams && (
+                          <button
+                            title="Supprimer"
+                            onClick={() => setDeleteTarget(e)}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground/60 transition-colors hover:bg-red-50 hover:text-danger"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
