@@ -10,6 +10,8 @@ export const dictionaries = {
     "nav.exams": "Examens",
     "nav.reportCards": "Bulletins",
     "nav.finance": "Finance",
+    "nav.communication": "Communication",
+    "nav.statistics": "Statistiques",
     "nav.logout": "Déconnexion",
 
     "common.search": "Rechercher…",
@@ -101,6 +103,8 @@ export const dictionaries = {
     "nav.exams": "Exams",
     "nav.reportCards": "Report cards",
     "nav.finance": "Finance",
+    "nav.communication": "Communication",
+    "nav.statistics": "Statistics",
     "nav.logout": "Log out",
 
     "common.search": "Search…",

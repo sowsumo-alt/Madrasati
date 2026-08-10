@@ -10,6 +10,8 @@ import {
   ClipboardCheck,
   GraduationCap,
   FileText,
+  MessageCircle,
+  BarChart3,
 } from "lucide-react";
 
 export interface NavItem {
@@ -29,6 +31,8 @@ const directorNavItems: NavItem[] = [
   { href: "/directeur/examens", labelKey: "nav.exams", icon: GraduationCap },
   { href: "/directeur/bulletins", labelKey: "nav.reportCards", icon: FileText },
   { href: "/directeur/finance", labelKey: "nav.finance", icon: Wallet },
+  { href: "/directeur/communication", labelKey: "nav.communication", icon: MessageCircle },
+  { href: "/directeur/statistiques", labelKey: "nav.statistics", icon: BarChart3 },
 ];
 
 // Les composants d'icônes (fonctions React) ne peuvent pas traverser la

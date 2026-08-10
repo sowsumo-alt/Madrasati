@@ -1,0 +1,308 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { MessageCircle, Search, Users2, Plus, Pencil, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { buildWhatsAppUrl, fillTemplate } from "@/lib/whatsapp";
+import { formatDate } from "@/lib/format";
+import { TemplateDialog, type TemplateEditTarget } from "./template-dialog";
+import { deleteTemplate } from "./actions";
+
+export interface Recipient {
+  id: string;
+  name: string;
+  phone: string;
+  kind: "PARENT" | "TEACHER";
+  /** Pour un parent : les enfants inscrits. */
+  children: string[];
+}
+
+export interface TemplateRow {
+  id: string;
+  key: string;
+  title: string;
+  body: string;
+}
+
+export function CommunicationView({
+  recipients,
+  templates,
+  schoolName,
+}: {
+  recipients: Recipient[];
+  templates: TemplateRow[];
+  schoolName: string;
+}) {
+  const router = useRouter();
+  const [query, setQuery] = useState("");
+  const [kindFilter, setKindFilter] = useState<"ALL" | "PARENT" | "TEACHER">("ALL");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [templateId, setTemplateId] = useState<string | null>(null);
+  const [message, setMessage] = useState("");
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<TemplateEditTarget | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<TemplateRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const selected = recipients.find((r) => r.id === selectedId) ?? null;
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return recipients.filter((r) => {
+      const matchesKind = kindFilter === "ALL" || r.kind === kindFilter;
+      const matchesQuery =
+        !q ||
+        r.name.toLowerCase().includes(q) ||
+        r.children.some((c) => c.toLowerCase().includes(q));
+      return matchesKind && matchesQuery;
+    });
+  }, [recipients, query, kindFilter]);
+
+  /** Remplit les variables du modèle avec les données du destinataire choisi. */
+  function applyTemplate(tpl: TemplateRow, recipient: Recipient | null) {
+    return fillTemplate(tpl.body, {
+      parentName: recipient?.name ?? "",
+      teacherName: recipient?.name ?? "",
+      studentName: recipient?.children[0] ?? "",
+      schoolName,
+      date: formatDate(new Date()),
+      amount: "",
+    });
+  }
+
+  function handlePickTemplate(tpl: TemplateRow) {
+    setTemplateId(tpl.id);
+    setMessage(applyTemplate(tpl, selected));
+  }
+
+  function handlePickRecipient(recipient: Recipient) {
+    setSelectedId(recipient.id);
+    const tpl = templates.find((t) => t.id === templateId);
+    if (tpl) setMessage(applyTemplate(tpl, recipient));
+  }
+
+  async function handleDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await deleteTemplate(deleteTarget.id);
+      toast.success("Modèle supprimé.");
+      setDeleteTarget(null);
+      if (templateId === deleteTarget.id) setTemplateId(null);
+      router.refresh();
+    } catch {
+      toast.error("Une erreur est survenue.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  const canSend = Boolean(selected && message.trim());
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h1 className="text-xl font-semibold text-foreground">Communication</h1>
+        <p className="mt-1 text-sm text-foreground/60">
+          Choisissez un destinataire, un modèle de message, et envoyez sur WhatsApp
+          en un clic.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,320px)_1fr]">
+        {/* Destinataires */}
+        <Card className="flex flex-col">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Users2 className="h-4 w-4 text-foreground/40" />
+              Destinataire
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-1 flex-col gap-3 p-4 pt-0">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/40" />
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Rechercher…"
+                className="pl-9"
+              />
+            </div>
+
+            <div className="flex gap-1.5">
+              {(["ALL", "PARENT", "TEACHER"] as const).map((k) => (
+                <button
+                  key={k}
+                  onClick={() => setKindFilter(k)}
+                  className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                    kindFilter === k
+                      ? "bg-primary-700 text-white"
+                      : "bg-surface-muted text-foreground/60 hover:text-foreground"
+                  }`}
+                >
+                  {k === "ALL" ? "Tous" : k === "PARENT" ? "Parents" : "Enseignants"}
+                </button>
+              ))}
+            </div>
+
+            <div className="max-h-96 flex-1 overflow-y-auto rounded-lg border border-border">
+              {filtered.length === 0 ? (
+                <p className="px-3 py-8 text-center text-xs text-foreground/40">
+                  Aucun destinataire.
+                </p>
+              ) : (
+                filtered.map((r) => (
+                  <button
+                    key={r.id}
+                    onClick={() => handlePickRecipient(r)}
+                    className={`flex w-full flex-col items-start gap-0.5 border-b border-border px-3 py-2.5 text-left transition-colors last:border-b-0 ${
+                      selectedId === r.id ? "bg-primary-50" : "hover:bg-surface-muted"
+                    }`}
+                  >
+                    <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                      {r.name}
+                      <Badge variant={r.kind === "PARENT" ? "neutral" : "success"}>
+                        {r.kind === "PARENT" ? "Parent" : "Enseignant"}
+                      </Badge>
+                    </span>
+                    <span className="text-xs text-foreground/50">
+                      {r.children.length > 0 ? r.children.join(", ") : r.phone}
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Message */}
+        <div className="space-y-5">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-sm">Modèles de message</CardTitle>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  setEditTarget(null);
+                  setDialogOpen(true);
+                }}
+              >
+                <Plus className="h-4 w-4" />
+                Nouveau
+              </Button>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              <div className="flex flex-wrap gap-2">
+                {templates.map((t) => (
+                  <div
+                    key={t.id}
+                    className={`group flex items-center gap-1 rounded-lg border px-1 py-1 transition-colors ${
+                      templateId === t.id
+                        ? "border-primary-500 bg-primary-50"
+                        : "border-border hover:bg-surface-muted"
+                    }`}
+                  >
+                    <button
+                      onClick={() => handlePickTemplate(t)}
+                      className="px-2 py-1 text-sm text-foreground"
+                    >
+                      {t.title}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditTarget({ id: t.id, title: t.title, body: t.body });
+                        setDialogOpen(true);
+                      }}
+                      title="Modifier ce modèle"
+                      className="flex h-6 w-6 items-center justify-center rounded text-foreground/40 hover:bg-surface-muted hover:text-foreground"
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </button>
+                    <button
+                      onClick={() => setDeleteTarget(t)}
+                      title="Supprimer ce modèle"
+                      className="flex h-6 w-6 items-center justify-center rounded text-foreground/40 hover:bg-red-50 hover:text-danger"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">
+                Message
+                {selected && (
+                  <span className="ml-2 font-normal text-foreground/50">
+                    pour {selected.name}
+                  </span>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 p-4 pt-0">
+              <textarea
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                rows={7}
+                placeholder="Choisissez un modèle ci-dessus, ou écrivez votre message ici."
+                className="w-full rounded-lg border border-border bg-surface p-3 text-sm leading-relaxed text-foreground placeholder:text-foreground/40 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+
+              {!selected && (
+                <p className="text-xs text-foreground/50">
+                  Sélectionnez d&apos;abord un destinataire à gauche.
+                </p>
+              )}
+
+              <div className="flex justify-end">
+                {canSend ? (
+                  <a
+                    href={buildWhatsAppUrl(selected!.phone, message)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-lg bg-primary-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-800"
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    Ouvrir WhatsApp
+                  </a>
+                ) : (
+                  <Button disabled>
+                    <MessageCircle className="h-4 w-4" />
+                    Ouvrir WhatsApp
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      <TemplateDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        editTarget={editTarget}
+      />
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="Supprimer ce modèle ?"
+        description="Le modèle sera retiré de la liste. Vos messages déjà envoyés ne sont pas affectés."
+        confirmLabel="Supprimer"
+        variant="danger"
+        loading={deleting}
+        onConfirm={handleDelete}
+      />
+    </div>
+  );
+}
