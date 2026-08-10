@@ -1,0 +1,87 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f7f8f6;
+  --foreground: #1a2420;
+  --surface: #ffffff;
+  --surface-muted: #eef1ee;
+  --border: #dfe4e0;
+
+  /* Vert profond — couleur principale (drapeau mauritanien) */
+  --primary-50: #eaf6f0;
+  --primary-100: #cfeadd;
+  --primary-200: #9edabb;
+  --primary-300: #6cc397;
+  --primary-400: #3aa877;
+  --primary-500: #178a5c;
+  --primary-600: #0f7049;
+  --primary-700: #0a5b3c;
+  --primary-800: #094830;
+  --primary-900: #073626;
+
+  /* Or / sable — couleur d'accent */
+  --accent-50: #fbf7ec;
+  --accent-100: #f5ead0;
+  --accent-200: #ebd69c;
+  --accent-300: #dfbe6a;
+  --accent-400: #d1a542;
+  --accent-500: #bd8d2c;
+  --accent-600: #9c7322;
+  --accent-700: #7a5a1c;
+
+  --success: #178a5c;
+  --warning: #c2861a;
+  --danger: #b23b3b;
+
+  --radius: 0.75rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-border: var(--border);
+
+  --color-primary-50: var(--primary-50);
+  --color-primary-100: var(--primary-100);
+  --color-primary-200: var(--primary-200);
+  --color-primary-300: var(--primary-300);
+  --color-primary-400: var(--primary-400);
+  --color-primary-500: var(--primary-500);
+  --color-primary-600: var(--primary-600);
+  --color-primary-700: var(--primary-700);
+  --color-primary-800: var(--primary-800);
+  --color-primary-900: var(--primary-900);
+
+  --color-accent-50: var(--accent-50);
+  --color-accent-100: var(--accent-100);
+  --color-accent-200: var(--accent-200);
+  --color-accent-300: var(--accent-300);
+  --color-accent-400: var(--accent-400);
+  --color-accent-500: var(--accent-500);
+  --color-accent-600: var(--accent-600);
+  --color-accent-700: var(--accent-700);
+
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+
+  --font-sans: var(--font-inter);
+  --radius-md: var(--radius);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+@media print {
+  body {
+    background: white;
+  }
+  .no-print {
+    display: none !important;
+  }
+}

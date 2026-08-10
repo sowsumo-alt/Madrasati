@@ -1,0 +1,423 @@
+// Madrasati — schéma de base de données
+// Multi-écoles (multi-tenant) : chaque table métier porte un schoolId
+// et toutes les requêtes de l'application doivent filtrer dessus.
+//
+// Dev local : SQLite (fichier prisma/dev.db, zéro configuration).
+// Production : changer le provider pour "postgresql" et l'url dans .env
+// (le schéma évite volontairement les types spécifiques à un moteur
+// pour que cette bascule ne casse rien).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// École (tenant) & utilisateurs
+// ---------------------------------------------------------------------------
+
+model School {
+  id           String   @id @default(cuid())
+  name         String
+  address      String?
+  phone        String?
+  email        String?
+  logoUrl      String?
+  currency     String   @default("MRU")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  users         User[]
+  students      Student[]
+  teachers      Teacher[]
+  parents       Parent[]
+  classes       ClassRoom[]
+  subjects      Subject[]
+  academicYears AcademicYear[]
+  exams         Exam[]
+  fees          Fee[]
+  payments      Payment[]
+  attendance    AttendanceRecord[]
+  templates     MessageTemplate[]
+  holidays      Holiday[]
+  reportComments ReportCardComment[]
+
+  @@map("schools")
+}
+
+// Rôle applicatif. Stocké en String (pas d'enum Prisma) pour rester
+// portable entre SQLite (dev) et PostgreSQL (prod) sans divergence.
+// Valeurs valides : "DIRECTOR" | "TEACHER" | "PARENT"
+model User {
+  id           String   @id @default(cuid())
+  schoolId     String
+  school       School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  email        String   @unique
+  passwordHash String
+  role         String
+  name         String
+  phone        String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  teacherProfile Teacher?
+  parentProfile  Parent?
+
+  @@index([schoolId])
+  @@map("users")
+}
+
+// ---------------------------------------------------------------------------
+// Structure pédagogique
+// ---------------------------------------------------------------------------
+
+model AcademicYear {
+  id        String   @id @default(cuid())
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  label     String // ex: "2025-2026"
+  startDate DateTime
+  endDate   DateTime
+  isCurrent Boolean  @default(false)
+
+  classes ClassRoom[]
+  exams   Exam[]
+  fees    Fee[]
+
+  @@index([schoolId])
+  @@map("academic_years")
+}
+
+model ClassRoom {
+  id             String   @id @default(cuid())
+  schoolId       String
+  school         School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  name           String // ex: "6ème A"
+  level          String // ex: "6ème"
+  capacity       Int      @default(30)
+  mainTeacherId  String?
+  mainTeacher    Teacher? @relation(fields: [mainTeacherId], references: [id])
+  createdAt      DateTime @default(now())
+
+  students      Student[]
+  classSubjects ClassSubject[]
+  scheduleSlots ScheduleSlot[]
+  exams         Exam[]
+  attendance    AttendanceRecord[]
+
+  @@index([schoolId])
+  @@index([academicYearId])
+  @@map("classes")
+}
+
+model Subject {
+  id          String   @id @default(cuid())
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  name        String // ex: "Mathématiques"
+  coefficient Int      @default(1)
+  isActive    Boolean  @default(true)
+
+  classSubjects ClassSubject[]
+  exams         Exam[]
+
+  @@index([schoolId])
+  @@map("subjects")
+}
+
+// Association classe <-> matière <-> enseignant, avec coefficient
+// éventuellement différent de celui par défaut de la matière.
+model ClassSubject {
+  id                  String   @id @default(cuid())
+  classId             String
+  classRoom           ClassRoom @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subjectId           String
+  subject             Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacherId           String?
+  teacher              Teacher? @relation(fields: [teacherId], references: [id])
+  coefficientOverride Int?
+
+  scheduleSlots ScheduleSlot[]
+
+  @@unique([classId, subjectId])
+  @@map("class_subjects")
+}
+
+// Créneau d'emploi du temps. dayOfWeek : 1 = lundi ... 5 = vendredi.
+// startMinutes/endMinutes = minutes depuis minuit (ex: 8h00 = 480).
+model ScheduleSlot {
+  id             String   @id @default(cuid())
+  classId        String
+  classRoom      ClassRoom @relation(fields: [classId], references: [id], onDelete: Cascade)
+  classSubjectId String
+  classSubject   ClassSubject @relation(fields: [classSubjectId], references: [id], onDelete: Cascade)
+  dayOfWeek      Int
+  startMinutes   Int
+  endMinutes     Int
+  room           String?
+
+  @@index([classId])
+  @@map("schedule_slots")
+}
+
+// ---------------------------------------------------------------------------
+// Personnes
+// ---------------------------------------------------------------------------
+
+// Statut élève, en String : "ACTIVE" | "INACTIVE" | "TRANSFERRED" | "GRADUATED"
+// Genre, en String : "M" | "F"
+model Student {
+  id             String   @id @default(cuid())
+  schoolId       String
+  school         School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  firstName      String
+  lastName       String
+  dateOfBirth    DateTime?
+  gender         String?
+  classId        String?
+  classRoom      ClassRoom? @relation(fields: [classId], references: [id])
+  status         String   @default("ACTIVE")
+  enrollmentDate DateTime @default(now())
+  photoUrl       String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  parentLinks StudentParent[]
+  attendance  AttendanceRecord[]
+  grades      Grade[]
+  fees        Fee[]
+  payments    Payment[]
+  reportComments ReportCardComment[]
+
+  @@index([schoolId])
+  @@index([classId])
+  @@map("students")
+}
+
+model Parent {
+  id           String  @id @default(cuid())
+  schoolId     String
+  school       School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  userId       String? @unique
+  user         User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  firstName    String
+  lastName     String
+  phone        String // format international, ex: +2224xxxxxxx (pour WhatsApp)
+  email        String?
+  address      String?
+  relationship String? // "père" | "mère" | "tuteur"
+  createdAt    DateTime @default(now())
+
+  studentLinks StudentParent[]
+
+  @@index([schoolId])
+  @@map("parents")
+}
+
+model StudentParent {
+  id        String  @id @default(cuid())
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  parentId  String
+  parent    Parent  @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  isPrimary Boolean @default(false)
+
+  @@unique([studentId, parentId])
+  @@map("student_parents")
+}
+
+model Teacher {
+  id              String   @id @default(cuid())
+  schoolId        String
+  school          School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  userId          String?  @unique
+  user            User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  firstName       String
+  lastName        String
+  phone           String
+  email           String?
+  diploma         String?
+  subjectSpecialty String?
+  monthlySalary   Int? // en MRU (Ouguiya), montant entier
+  hireDate        DateTime?
+  status          String   @default("ACTIVE")
+  createdAt       DateTime @default(now())
+
+  mainOfClasses ClassRoom[]
+  classSubjects ClassSubject[]
+
+  @@index([schoolId])
+  @@map("teachers")
+}
+
+// ---------------------------------------------------------------------------
+// Présences
+// ---------------------------------------------------------------------------
+
+// status : "PRESENT" | "ABSENT" | "LATE"
+model AttendanceRecord {
+  id               String   @id @default(cuid())
+  schoolId         String
+  school           School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  studentId        String
+  student          Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  classId          String
+  classRoom        ClassRoom @relation(fields: [classId], references: [id], onDelete: Cascade)
+  date             DateTime
+  status           String
+  note             String?
+  markedByUserId   String?
+  createdAt        DateTime @default(now())
+
+  @@unique([studentId, date])
+  @@index([schoolId])
+  @@index([classId, date])
+  @@map("attendance_records")
+}
+
+// ---------------------------------------------------------------------------
+// Examens & notes
+// ---------------------------------------------------------------------------
+
+model Exam {
+  id             String   @id @default(cuid())
+  schoolId       String
+  school         School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  classId        String
+  classRoom      ClassRoom @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subjectId      String
+  subject        Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  title          String // ex: "Devoir surveillé n°1"
+  term           String // "Trimestre 1" | "Trimestre 2" | "Trimestre 3"
+  date           DateTime
+  durationMinutes Int?
+  maxScore       Float    @default(20)
+  createdAt      DateTime @default(now())
+
+  grades Grade[]
+
+  @@index([schoolId])
+  @@index([classId])
+  @@map("exams")
+}
+
+model Grade {
+  id        String   @id @default(cuid())
+  examId    String
+  exam      Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  score     Float?
+  isAbsent  Boolean  @default(false)
+  comment   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([examId, studentId])
+  @@map("grades")
+}
+
+// ---------------------------------------------------------------------------
+// Finance
+// ---------------------------------------------------------------------------
+
+// status : "PENDING" | "PAID" | "OVERDUE" | "PARTIAL"
+model Fee {
+  id             String   @id @default(cuid())
+  schoolId       String
+  school         School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  studentId      String
+  student        Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  label          String // ex: "Frais de scolarité - Trimestre 1"
+  amount         Int // MRU, montant entier
+  dueDate        DateTime
+  status         String   @default("PENDING")
+  createdAt      DateTime @default(now())
+
+  payments Payment[]
+
+  @@index([schoolId])
+  @@index([studentId])
+  @@map("fees")
+}
+
+// method : "CASH" | "BANK_TRANSFER" | "MASRVI" | "SEDAD"
+model Payment {
+  id             String   @id @default(cuid())
+  schoolId       String
+  school         School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  feeId          String
+  fee            Fee      @relation(fields: [feeId], references: [id], onDelete: Cascade)
+  studentId      String
+  student        Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  amount         Int // MRU
+  method         String
+  receiptNumber  String   @unique
+  paidAt         DateTime @default(now())
+  recordedByUserId String?
+  note           String?
+
+  @@index([schoolId])
+  @@index([studentId])
+  @@map("payments")
+}
+
+// ---------------------------------------------------------------------------
+// Communication & calendrier
+// ---------------------------------------------------------------------------
+
+// key : "PAYMENT_REMINDER" | "ABSENCE_ALERT" | "GRADES_AVAILABLE" | "MEETING_INVITE" | "CUSTOM"
+model MessageTemplate {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  key      String
+  title    String
+  body     String // avec placeholders {parentName}, {studentName}, {amount}, {schoolName}, {date}
+
+  @@index([schoolId])
+  @@map("message_templates")
+}
+
+// Appréciation de bulletin, par élève et par trimestre.
+// Rédigée à la main par le directeur, ou générée par IA puis modifiable.
+model ReportCardComment {
+  id            String   @id @default(cuid())
+  schoolId      String
+  school        School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  studentId     String
+  student       Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  term          String
+  body          String
+  bodyAr        String?
+  isAiGenerated Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([studentId, term])
+  @@index([schoolId])
+  @@map("report_card_comments")
+}
+
+model Holiday {
+  id       String   @id @default(cuid())
+  schoolId String?
+  school   School?  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  name     String
+  date     DateTime
+  isReligious Boolean @default(false)
+
+  @@index([schoolId])
+  @@map("holidays")
+}
