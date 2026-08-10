@@ -1,11 +1,14 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
+import { LandingPage } from "./(marketing)/landing-page";
 
 export default async function Home() {
   const user = await getCurrentUser();
 
-  if (!user) redirect("/login");
+  // Visiteur non connecté : page de présentation.
+  // Utilisateur connecté : on l'envoie directement dans son espace.
+  if (!user) return <LandingPage />;
 
   switch (user.role) {
     case ROLES.DIRECTOR:
