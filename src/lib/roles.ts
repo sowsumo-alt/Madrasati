@@ -6,6 +6,12 @@ export const ROLES = {
 
 export type Role = (typeof ROLES)[keyof typeof ROLES];
 
+export const ROLE_LABELS: Record<string, string> = {
+  DIRECTOR: "Directeur",
+  TEACHER: "Enseignant",
+  PARENT: "Parent",
+};
+
 export const STUDENT_STATUS = {
   ACTIVE: "ACTIVE",
   INACTIVE: "INACTIVE",

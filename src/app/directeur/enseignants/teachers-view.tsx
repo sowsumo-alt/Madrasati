@@ -12,6 +12,8 @@ import {
   Phone,
   UserX,
   UserCheck,
+  KeyRound,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +30,12 @@ import {
   type TeacherEditTarget,
 } from "./teacher-form-dialog";
 import { setTeacherStatus } from "./actions";
+import {
+  createTeacherAccount,
+  resetUserPassword,
+  type AccountResult,
+} from "@/app/directeur/comptes/actions";
+import { CredentialsDialog } from "@/app/directeur/comptes/credentials-dialog";
 import { buildWhatsAppUrl, buildTelUrl } from "@/lib/whatsapp";
 import { formatMRU, formatDate } from "@/lib/format";
 
@@ -42,6 +50,9 @@ export interface TeacherRow {
   monthlySalary: number | null;
   hireDate: string | null;
   status: string;
+  /** Identifiant du compte de connexion, s'il en a un. */
+  userId: string | null;
+  accountEmail: string | null;
 }
 
 export function TeachersView({
@@ -59,6 +70,33 @@ export function TeachersView({
   const [editTarget, setEditTarget] = useState<TeacherEditTarget | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<TeacherRow | null>(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
+  const [credentials, setCredentials] = useState<AccountResult | null>(null);
+  const [accountBusyId, setAccountBusyId] = useState<string | null>(null);
+
+  async function handleCreateAccount(t: TeacherRow) {
+    setAccountBusyId(t.id);
+    try {
+      setCredentials(await createTeacherAccount(t.id));
+      router.refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Une erreur est survenue.");
+    } finally {
+      setAccountBusyId(null);
+    }
+  }
+
+  async function handleResetPassword(t: TeacherRow) {
+    if (!t.userId) return;
+    setAccountBusyId(t.id);
+    try {
+      setCredentials(await resetUserPassword(t.userId));
+      router.refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Une erreur est survenue.");
+    } finally {
+      setAccountBusyId(null);
+    }
+  }
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -148,10 +186,10 @@ export function TeachersView({
                 <tr className="border-b border-border bg-surface-muted/60 text-left text-xs font-medium uppercase tracking-wide text-foreground/50">
                   <th className="px-5 py-3">Nom</th>
                   <th className="px-5 py-3">Matière</th>
-                  <th className="px-5 py-3">Diplôme</th>
                   <th className="px-5 py-3">Salaire</th>
                   <th className="px-5 py-3">Embauché le</th>
                   <th className="px-5 py-3">Statut</th>
+                  <th className="px-5 py-3">Accès</th>
                   <th className="px-5 py-3 text-right">Actions</th>
                 </tr>
               </thead>
@@ -167,9 +205,6 @@ export function TeachersView({
                         {t.subjectSpecialty ?? (
                           <span className="text-foreground/40">—</span>
                         )}
-                      </td>
-                      <td className="px-5 py-3 text-foreground/70">
-                        {t.diploma ?? <span className="text-foreground/40">—</span>}
                       </td>
                       <td className="px-5 py-3 text-foreground/70">
                         {t.monthlySalary != null ? (
@@ -189,6 +224,30 @@ export function TeachersView({
                         <Badge variant={t.status === "ACTIVE" ? "success" : "neutral"}>
                           {t.status === "ACTIVE" ? "Actif" : "Inactif"}
                         </Badge>
+                      </td>
+                      <td className="px-5 py-3">
+                        {t.userId ? (
+                          <span
+                            className="text-xs text-foreground/60"
+                            title={t.accountEmail ?? ""}
+                          >
+                            {t.accountEmail}
+                          </span>
+                        ) : (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            disabled={accountBusyId === t.id}
+                            onClick={() => handleCreateAccount(t)}
+                          >
+                            {accountBusyId === t.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <KeyRound className="h-3 w-3" />
+                            )}
+                            Créer un accès
+                          </Button>
+                        )}
                       </td>
                       <td className="px-5 py-3">
                         <div className="flex items-center justify-end gap-1">
@@ -219,6 +278,12 @@ export function TeachersView({
                                 <Pencil className="h-4 w-4" />
                                 Modifier
                               </DropdownMenuItem>
+                              {t.userId && (
+                                <DropdownMenuItem onClick={() => handleResetPassword(t)}>
+                                  <KeyRound className="h-4 w-4" />
+                                  Réinitialiser le mot de passe
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem
                                 onClick={() => setConfirmTarget(t)}
                                 className={
@@ -273,6 +338,11 @@ export function TeachersView({
         variant={confirmTarget?.status === "ACTIVE" ? "danger" : "primary"}
         loading={confirmLoading}
         onConfirm={handleConfirmToggle}
+      />
+      <CredentialsDialog
+        result={credentials}
+        onOpenChange={(open) => !open && setCredentials(null)}
+        schoolName={schoolName}
       />
     </div>
   );

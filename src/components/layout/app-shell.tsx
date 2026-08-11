@@ -123,9 +123,13 @@ export function AppShell({
               </span>
               <span className="text-xs text-foreground/50">{roleLabel}</span>
             </div>
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary-800">
+            <Link
+              href="/mon-compte"
+              title="Mon compte"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary-800 transition-colors hover:bg-primary-200"
+            >
               {userName.charAt(0).toUpperCase()}
-            </div>
+            </Link>
           </div>
         </header>
 

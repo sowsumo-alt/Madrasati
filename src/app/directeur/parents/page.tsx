@@ -10,7 +10,10 @@ export default async function ParentsPage() {
     prisma.parent.findMany({
       where: { schoolId: user.schoolId },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-      include: { studentLinks: { include: { student: true } } },
+      include: {
+        studentLinks: { include: { student: true } },
+        user: { select: { email: true } },
+      },
     }),
     prisma.student.findMany({
       where: { schoolId: user.schoolId, status: "ACTIVE" },
@@ -32,6 +35,8 @@ export default async function ParentsPage() {
       id: l.student.id,
       name: `${l.student.firstName} ${l.student.lastName}`,
     })),
+    userId: p.userId,
+    accountEmail: p.user?.email ?? null,
   }));
 
   const studentOptions = students.map((s) => ({

@@ -10,6 +10,7 @@ export default async function TeachersPage() {
     prisma.teacher.findMany({
       where: { schoolId: user.schoolId },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+      include: { user: { select: { email: true } } },
     }),
     prisma.subject.findMany({
       where: { schoolId: user.schoolId, isActive: true },
@@ -30,6 +31,8 @@ export default async function TeachersPage() {
     monthlySalary: t.monthlySalary,
     hireDate: t.hireDate ? t.hireDate.toISOString() : null,
     status: t.status,
+    userId: t.userId,
+    accountEmail: t.user?.email ?? null,
   }));
 
   return (

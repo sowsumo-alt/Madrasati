@@ -1,9 +1,25 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, Plus, Pencil, MessageCircle, Phone } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import {
+  Search,
+  Plus,
+  Pencil,
+  MessageCircle,
+  Phone,
+  KeyRound,
+  Loader2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  createParentAccount,
+  resetUserPassword,
+  type AccountResult,
+} from "@/app/directeur/comptes/actions";
+import { CredentialsDialog } from "@/app/directeur/comptes/credentials-dialog";
 import {
   ParentFormDialog,
   type ParentEditTarget,
@@ -20,6 +36,9 @@ export interface ParentRow {
   address: string | null;
   relationship: string | null;
   children: { id: string; name: string }[];
+  /** Identifiant du compte de connexion, s'il en a un. */
+  userId: string | null;
+  accountEmail: string | null;
 }
 
 export function ParentsView({
@@ -31,9 +50,28 @@ export function ParentsView({
   students: ParentStudentOption[];
   schoolName: string;
 }) {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<ParentEditTarget | null>(null);
+  const [credentials, setCredentials] = useState<AccountResult | null>(null);
+  const [accountBusyId, setAccountBusyId] = useState<string | null>(null);
+
+  async function handleAccount(p: ParentRow) {
+    setAccountBusyId(p.id);
+    try {
+      setCredentials(
+        p.userId
+          ? await resetUserPassword(p.userId)
+          : await createParentAccount(p.id),
+      );
+      router.refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Une erreur est survenue.");
+    } finally {
+      setAccountBusyId(null);
+    }
+  }
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -104,6 +142,7 @@ export function ParentsView({
                   <th className="px-5 py-3">Nom</th>
                   <th className="px-5 py-3">Téléphone</th>
                   <th className="px-5 py-3">Enfant(s)</th>
+                  <th className="px-5 py-3">Accès</th>
                   <th className="px-5 py-3 text-right">Actions</th>
                 </tr>
               </thead>
@@ -129,6 +168,27 @@ export function ParentsView({
                         )}
                       </td>
                       <td className="px-5 py-3">
+                        {p.userId ? (
+                          <span className="text-xs text-foreground/60">
+                            {p.accountEmail}
+                          </span>
+                        ) : (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            disabled={accountBusyId === p.id}
+                            onClick={() => handleAccount(p)}
+                          >
+                            {accountBusyId === p.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <KeyRound className="h-3 w-3" />
+                            )}
+                            Créer un accès
+                          </Button>
+                        )}
+                      </td>
+                      <td className="px-5 py-3">
                         <div className="flex items-center justify-end gap-1">
                           <a
                             href={buildWhatsAppUrl(p.phone, waMessage)}
@@ -146,6 +206,20 @@ export function ParentsView({
                           >
                             <Phone className="h-4 w-4" />
                           </a>
+                          {p.userId && (
+                            <button
+                              onClick={() => handleAccount(p)}
+                              disabled={accountBusyId === p.id}
+                              title="Réinitialiser le mot de passe"
+                              className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground/60 transition-colors hover:bg-surface-muted disabled:opacity-50"
+                            >
+                              {accountBusyId === p.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <KeyRound className="h-4 w-4" />
+                              )}
+                            </button>
+                          )}
                           <button
                             onClick={() => openEdit(p)}
                             title="Modifier"
@@ -169,6 +243,11 @@ export function ParentsView({
         onOpenChange={setFormOpen}
         students={students}
         editTarget={editTarget}
+      />
+      <CredentialsDialog
+        result={credentials}
+        onOpenChange={(open) => !open && setCredentials(null)}
+        schoolName={schoolName}
       />
     </div>
   );
