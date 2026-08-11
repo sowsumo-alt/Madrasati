@@ -22,6 +22,7 @@ import { createSubject, updateSubject } from "./actions";
 export interface SubjectEditTarget {
   id: string;
   name: string;
+  nameAr: string | null;
   coefficient: number;
 }
 
@@ -31,7 +32,7 @@ interface SubjectFormDialogProps {
   editTarget?: SubjectEditTarget | null;
 }
 
-const emptyValues: SubjectFormValues = { name: "", coefficient: 1 };
+const emptyValues: SubjectFormValues = { name: "", nameAr: "", coefficient: 1 };
 
 export function SubjectFormDialog({ open, onOpenChange, editTarget }: SubjectFormDialogProps) {
   const router = useRouter();
@@ -50,7 +51,11 @@ export function SubjectFormDialog({ open, onOpenChange, editTarget }: SubjectFor
     if (open) {
       reset(
         editTarget
-          ? { name: editTarget.name, coefficient: editTarget.coefficient }
+          ? {
+              name: editTarget.name,
+              nameAr: editTarget.nameAr ?? "",
+              coefficient: editTarget.coefficient,
+            }
           : emptyValues,
       );
     }
@@ -86,6 +91,22 @@ export function SubjectFormDialog({ open, onOpenChange, editTarget }: SubjectFor
             {errors.name && (
               <p className="text-xs text-danger">{errors.name.message}</p>
             )}
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="nameAr">
+              Nom en arabe{" "}
+              <span className="font-normal text-foreground/40">(optionnel)</span>
+            </Label>
+            <Input
+              id="nameAr"
+              dir="rtl"
+              lang="ar"
+              placeholder="الرياضيات"
+              {...register("nameAr")}
+            />
+            <p className="text-xs text-foreground/40">
+              Il apparaîtra à droite du nom français sur les bulletins.
+            </p>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="coefficient">Coefficient</Label>

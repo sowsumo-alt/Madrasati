@@ -3,8 +3,13 @@ import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { StudentsView, type StudentRow } from "./students-view";
 
-export default async function StudentsPage() {
+export default async function StudentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   const user = await requireRole(ROLES.DIRECTOR);
+  const { q } = await searchParams;
 
   const [students, classes, school] = await Promise.all([
     prisma.student.findMany({
@@ -50,9 +55,13 @@ export default async function StudentsPage() {
 
   return (
     <StudentsView
+      // Remonte la vue quand la recherche globale change de terme, sinon
+      // l'état local garderait l'ancien filtre.
+      key={q ?? ""}
       students={rows}
       classes={classes}
       schoolName={school?.name ?? "Madrasati"}
+      initialQuery={q ?? ""}
     />
   );
 }

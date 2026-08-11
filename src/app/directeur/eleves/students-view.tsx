@@ -65,13 +65,16 @@ export function StudentsView({
   students,
   classes,
   schoolName,
+  initialQuery = "",
 }: {
   students: StudentRow[];
   classes: StudentClassOption[];
   schoolName: string;
+  /** Terme envoyé par la recherche globale de l'en-tête (?q=…). */
+  initialQuery?: string;
 }) {
   const router = useRouter();
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [statusFilter, setStatusFilter] =
     useState<(typeof STATUS_FILTERS)[number]>("ALL");
   const [formOpen, setFormOpen] = useState(false);

@@ -78,6 +78,7 @@ export async function createSubject(values: SubjectFormValues) {
     data: {
       schoolId: user.schoolId,
       name: data.name,
+      nameAr: data.nameAr || null,
       coefficient: data.coefficient,
     },
   });
@@ -91,7 +92,11 @@ export async function updateSubject(subjectId: string, values: SubjectFormValues
 
   await prisma.subject.updateMany({
     where: { id: subjectId, schoolId: user.schoolId },
-    data: { name: data.name, coefficient: data.coefficient },
+    data: {
+      name: data.name,
+      nameAr: data.nameAr || null,
+      coefficient: data.coefficient,
+    },
   });
 
   revalidatePath("/directeur/classes");

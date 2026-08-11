@@ -50,6 +50,7 @@ export default async function ClassesPage() {
   const subjectRows: SubjectRow[] = subjects.map((s) => ({
     id: s.id,
     name: s.name,
+    nameAr: s.nameAr,
     coefficient: s.coefficient,
     isActive: s.isActive,
   }));

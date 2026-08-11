@@ -10,10 +10,21 @@ export default async function DirectorLayout({
   children: ReactNode;
 }) {
   const user = await requireRole(ROLES.DIRECTOR);
-  const school = await prisma.school.findUnique({
-    where: { id: user.schoolId },
-    select: { name: true },
-  });
+  const [school, overdueFees] = await Promise.all([
+    prisma.school.findUnique({
+      where: { id: user.schoolId },
+      select: { name: true },
+    }),
+    // La cloche signale les frais échus non réglés : la seule alerte qui
+    // demande une action de la direction au quotidien.
+    prisma.fee.count({
+      where: {
+        schoolId: user.schoolId,
+        status: { not: "PAID" },
+        dueDate: { lt: new Date() },
+      },
+    }),
+  ]);
 
   return (
     <AppShell
@@ -21,6 +32,14 @@ export default async function DirectorLayout({
       schoolName={school?.name ?? "Madrasati"}
       userName={user.name ?? ""}
       roleLabel="Directeur"
+      searchHref="/directeur/eleves"
+      alertCount={overdueFees}
+      alertHref="/directeur/finance"
+      alertLabel={
+        overdueFees > 0
+          ? `${overdueFees} frais échus non réglés`
+          : "Aucun frais en retard"
+      }
     >
       {children}
     </AppShell>

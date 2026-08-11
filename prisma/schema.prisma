@@ -125,6 +125,7 @@ model Subject {
   schoolId    String
   school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   name        String // ex: "Mathématiques"
+  nameAr      String? // ex: "الرياضيات" — imprimé à côté du nom français
   coefficient Int      @default(1)
   isActive    Boolean  @default(true)
 

@@ -56,6 +56,7 @@ export async function buildReportCards(
   const subjects = classRoom.classSubjects.map((cs) => ({
     id: cs.subjectId,
     name: cs.subject.name,
+    nameAr: cs.subject.nameAr,
     coefficient: cs.coefficientOverride ?? cs.subject.coefficient,
   }));
 
@@ -102,6 +103,7 @@ export async function buildReportCards(
       }
       return {
         subjectName: subject.name,
+        subjectNameAr: subject.nameAr,
         coefficient: subject.coefficient,
         average:
           normalized.length > 0

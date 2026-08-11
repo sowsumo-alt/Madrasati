@@ -42,6 +42,7 @@ export interface ChildData {
   reportCard: {
     lines: {
       subject: string;
+      subjectAr: string | null;
       coefficient: number;
       average: number | null;
       classAverage: number | null;
@@ -251,6 +252,9 @@ export function ParentView({
                       <th className="px-5 py-3">Coef.</th>
                       <th className="px-5 py-3">Moyenne</th>
                       <th className="px-5 py-3">Moy. classe</th>
+                      <th className="px-5 py-3 text-right" dir="rtl" lang="ar">
+                        المادة
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -276,6 +280,13 @@ export function ParentView({
                           style={{ fontVariantNumeric: "tabular-nums" }}
                         >
                           {l.classAverage != null ? l.classAverage.toFixed(2) : "—"}
+                        </td>
+                        <td
+                          className="px-5 py-2.5 text-right font-medium text-foreground"
+                          dir="rtl"
+                          lang="ar"
+                        >
+                          {l.subjectAr ?? "—"}
                         </td>
                       </tr>
                     ))}

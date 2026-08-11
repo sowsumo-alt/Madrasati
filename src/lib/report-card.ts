@@ -1,5 +1,7 @@
 export interface SubjectResult {
   subjectName: string;
+  /** Nom arabe, imprimé à droite du nom français. Null si non renseigné. */
+  subjectNameAr: string | null;
   coefficient: number;
   /** Moyenne de l'élève dans la matière, ramenée sur 20. Null si aucune note. */
   average: number | null;

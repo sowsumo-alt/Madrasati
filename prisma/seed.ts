@@ -3,18 +3,23 @@ import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
-// Matières du programme mauritanien, avec un coefficient par défaut.
+// Matières du programme mauritanien, avec un coefficient par défaut et le
+// nom arabe imprimé à côté du nom français sur les bulletins.
 const MAURITANIAN_SUBJECTS = [
-  { name: "Mathématiques", coefficient: 4 },
-  { name: "Français", coefficient: 3 },
-  { name: "Arabe", coefficient: 3 },
-  { name: "Études Islamiques", coefficient: 2 },
-  { name: "Physique-Chimie", coefficient: 3 },
-  { name: "Sciences de la Vie et de la Terre", coefficient: 2 },
-  { name: "Histoire-Géographie", coefficient: 2 },
-  { name: "Anglais", coefficient: 2 },
-  { name: "Informatique", coefficient: 1 },
-  { name: "Éducation Physique", coefficient: 1 },
+  { name: "Mathématiques", nameAr: "الرياضيات", coefficient: 4 },
+  { name: "Français", nameAr: "اللغة الفرنسية", coefficient: 3 },
+  { name: "Arabe", nameAr: "اللغة العربية", coefficient: 3 },
+  { name: "Études Islamiques", nameAr: "التربية الإسلامية", coefficient: 2 },
+  { name: "Physique-Chimie", nameAr: "الفيزياء والكيمياء", coefficient: 3 },
+  {
+    name: "Sciences de la Vie et de la Terre",
+    nameAr: "علوم الحياة والأرض",
+    coefficient: 2,
+  },
+  { name: "Histoire-Géographie", nameAr: "التاريخ والجغرافيا", coefficient: 2 },
+  { name: "Anglais", nameAr: "اللغة الإنجليزية", coefficient: 2 },
+  { name: "Informatique", nameAr: "المعلوماتية", coefficient: 1 },
+  { name: "Éducation Physique", nameAr: "التربية البدنية", coefficient: 1 },
 ];
 
 // Jours fériés civils mauritaniens (dates fixes chaque année).
@@ -71,6 +76,23 @@ const DEMO_PASSWORD = "Madrasati2026!";
  * des données existantes. Idempotent : peut être relancé sur une base déjà
  * remplie sans rien dupliquer.
  */
+/**
+ * Renseigne le nom arabe des matières déjà créées. Idempotent : on ne touche
+ * qu'aux matières dont le nom arabe est encore vide, pour ne pas écraser une
+ * traduction saisie par le directeur.
+ */
+async function ensureSubjectArabicNames(schoolId: string) {
+  let filled = 0;
+  for (const subject of MAURITANIAN_SUBJECTS) {
+    const result = await prisma.subject.updateMany({
+      where: { schoolId, name: subject.name, nameAr: null },
+      data: { nameAr: subject.nameAr },
+    });
+    filled += result.count;
+  }
+  if (filled > 0) console.log(`Noms arabes ajoutés à ${filled} matière(s).`);
+}
+
 async function ensureDemoAccounts(schoolId: string) {
   // — Enseignant
   const teacherEmail = "enseignant@ecole-demo.mr";
@@ -167,6 +189,7 @@ async function main() {
   const existing = await prisma.school.findFirst();
   if (existing) {
     console.log(`Une école existe déjà (${existing.name}) — création ignorée.`);
+    await ensureSubjectArabicNames(existing.id);
     await ensureDemoAccounts(existing.id);
     return;
   }

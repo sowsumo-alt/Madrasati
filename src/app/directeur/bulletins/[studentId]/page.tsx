@@ -114,6 +114,9 @@ export default async function ReportCardPage({
               <th className="px-3 py-2.5 text-center">Coef.</th>
               <th className="px-3 py-2.5 text-center">Moyenne</th>
               <th className="px-3 py-2.5 text-center">Moy. classe</th>
+              <th className="px-3 py-2.5 text-right" dir="rtl" lang="ar">
+                المادة
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
@@ -128,6 +131,13 @@ export default async function ReportCardPage({
                 </td>
                 <td className="px-3 py-2.5 text-center text-foreground/60">
                   {r.classAverage != null ? r.classAverage.toFixed(2) : "—"}
+                </td>
+                <td
+                  className="px-3 py-2.5 text-right text-foreground"
+                  dir="rtl"
+                  lang="ar"
+                >
+                  {r.subjectNameAr ?? "—"}
                 </td>
               </tr>
             ))}

@@ -83,6 +83,7 @@ export default async function ParentHome({
       reportCard = {
         lines: card.results.map((l) => ({
           subject: l.subjectName,
+          subjectAr: l.subjectNameAr,
           coefficient: l.coefficient,
           average: l.average,
           classAverage: l.classAverage,

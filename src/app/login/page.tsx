@@ -1,58 +1,53 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
+import { Logo } from "@/components/brand/logo";
 import { LoginForm } from "./login-form";
-import { GraduationCap } from "lucide-react";
 
 export default async function LoginPage() {
   const user = await getCurrentUser();
   if (user) redirect("/");
 
   return (
-    <div className="flex min-h-screen flex-1">
-      <div className="hidden lg:flex lg:w-1/2 flex-col justify-between bg-primary-800 px-12 py-10 text-white relative overflow-hidden">
-        <div
-          className="absolute inset-0 opacity-[0.06]"
-          style={{
-            backgroundImage:
-              "radial-gradient(circle at 20% 20%, white 0, transparent 45%), radial-gradient(circle at 80% 60%, white 0, transparent 40%)",
-          }}
-        />
-        <div className="relative flex items-center gap-2 text-lg font-semibold tracking-tight">
-          <GraduationCap className="h-7 w-7 text-accent-300" strokeWidth={2} />
-          Madrasati
-        </div>
-        <div className="relative max-w-md">
-          <h1 className="text-3xl font-semibold leading-tight tracking-tight">
-            La gestion de votre école, aussi simple que WhatsApp.
+    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-primary-700 via-primary-600 to-primary-400 px-4 py-10">
+      {/* Motifs discrets : pastilles en haut à gauche, halos diffus au fond. */}
+      <div
+        className="pointer-events-none absolute -left-10 -top-10 h-64 w-64 opacity-25"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle, rgba(255,255,255,0.9) 1.5px, transparent 1.6px)",
+          backgroundSize: "16px 16px",
+        }}
+      />
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.18]"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle at 85% 15%, white 0, transparent 35%), radial-gradient(circle at 15% 85%, white 0, transparent 40%)",
+        }}
+      />
+
+      <div className="relative w-full max-w-md rounded-2xl bg-surface p-8 shadow-2xl sm:p-10">
+        <div className="flex flex-col items-center text-center">
+          <Logo className="h-24 w-24" />
+          <h1 className="mt-2 text-4xl font-bold tracking-tight text-primary-800">
+            Madrasati
           </h1>
-          <p className="mt-4 text-primary-100/80 text-sm leading-relaxed">
-            Élèves, notes, présences, finances et communication avec les
-            parents — tout au même endroit, pensé pour les écoles
-            mauritaniennes.
+          <p className="mt-1 text-sm text-foreground/50">
+            Gestion scolaire · Mauritanie
           </p>
+          <h2 className="mt-6 text-lg font-semibold text-foreground">
+            Connexion à votre compte
+          </h2>
         </div>
-        <p className="relative text-xs text-primary-100/50">
-          © {new Date().getFullYear()} Madrasati — Nouakchott, Mauritanie
-        </p>
+
+        <div className="mt-6">
+          <LoginForm />
+        </div>
       </div>
 
-      <div className="flex flex-1 flex-col items-center justify-center px-6 py-12 bg-background">
-        <div className="w-full max-w-sm">
-          <div className="mb-8 flex items-center gap-2 text-primary-800 lg:hidden">
-            <GraduationCap className="h-7 w-7" strokeWidth={2} />
-            <span className="text-lg font-semibold tracking-tight">
-              Madrasati
-            </span>
-          </div>
-          <h2 className="text-xl font-semibold text-foreground">Connexion</h2>
-          <p className="mt-1 text-sm text-foreground/60">
-            Entrez vos identifiants pour accéder à votre espace.
-          </p>
-          <div className="mt-6">
-            <LoginForm />
-          </div>
-        </div>
-      </div>
+      <p className="relative mt-6 text-xs text-white/70">
+        © {new Date().getFullYear()} Madrasati · Tous droits réservés
+      </p>
     </div>
   );
 }

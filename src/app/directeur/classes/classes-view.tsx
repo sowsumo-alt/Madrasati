@@ -35,6 +35,7 @@ export interface ClassRow {
 export interface SubjectRow {
   id: string;
   name: string;
+  nameAr: string | null;
   coefficient: number;
   isActive: boolean;
 }
@@ -229,7 +230,18 @@ export function ClassesView({
               <tbody className="divide-y divide-border">
                 {subjects.map((s) => (
                   <tr key={s.id} className="hover:bg-surface-muted/40">
-                    <td className="px-5 py-3 font-medium text-foreground">{s.name}</td>
+                    <td className="px-5 py-3 font-medium text-foreground">
+                      {s.name}
+                      {s.nameAr && (
+                        <span
+                          className="ml-2 font-normal text-foreground/50"
+                          dir="rtl"
+                          lang="ar"
+                        >
+                          {s.nameAr}
+                        </span>
+                      )}
+                    </td>
                     <td className="px-5 py-3 text-foreground/70">{s.coefficient}</td>
                     <td className="px-5 py-3">
                       <Badge variant={s.isActive ? "success" : "neutral"}>

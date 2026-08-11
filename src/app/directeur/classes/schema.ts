@@ -10,6 +10,7 @@ export type ClassFormValues = z.infer<typeof classSchema>;
 
 export const subjectSchema = z.object({
   name: z.string().trim().min(1, "Le nom de la matière est requis"),
+  nameAr: z.string().trim().optional().or(z.literal("")),
   coefficient: z.coerce.number().int().positive("Le coefficient doit être positif"),
 });
 export type SubjectFormValues = z.infer<typeof subjectSchema>;

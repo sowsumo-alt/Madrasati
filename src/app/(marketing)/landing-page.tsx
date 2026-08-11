@@ -15,6 +15,7 @@ import {
   Coins,
   BookOpen,
 } from "lucide-react";
+import { Logo } from "@/components/brand/logo";
 import { buildWhatsAppUrl } from "@/lib/whatsapp";
 import { CONTACT_PHONE, CONTACT_EMAIL, DEMO_MESSAGE } from "./landing-config";
 
@@ -79,8 +80,8 @@ export function LandingPage() {
       <header className="sticky top-0 z-30 border-b border-border bg-surface/90 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <span className="flex items-center gap-2 text-primary-800">
-            <GraduationCap className="h-6 w-6" strokeWidth={2} />
-            <span className="text-lg font-semibold tracking-tight">Madrasati</span>
+            <Logo className="h-8 w-8" />
+            <span className="text-lg font-bold tracking-tight">Madrasati</span>
           </span>
           <div className="flex items-center gap-2">
             <Link
@@ -308,8 +309,8 @@ export function LandingPage() {
       <footer className="border-t border-border bg-surface">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-10 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <span className="flex items-center gap-2 text-primary-800">
-            <GraduationCap className="h-5 w-5" strokeWidth={2} />
-            <span className="font-semibold">Madrasati</span>
+            <Logo className="h-7 w-7" />
+            <span className="font-bold">Madrasati</span>
           </span>
           <div className="flex flex-col gap-1 text-sm text-foreground/60 sm:flex-row sm:gap-6">
             <a href={`tel:${CONTACT_PHONE}`} className="hover:text-foreground">
