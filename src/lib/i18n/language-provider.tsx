@@ -23,26 +23,25 @@ interface LanguageContextValue {
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 
-const STORAGE_KEY = "madrasati-locale";
+const COOKIE_NAME = "madrasati-locale";
+const ONE_YEAR = 60 * 60 * 24 * 365;
 
-function isLocale(value: string | null): value is Locale {
-  return value !== null && value in dictionaries;
-}
-
-export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>("fr");
+export function LanguageProvider({
+  children,
+  initialLocale = "fr",
+}: {
+  children: ReactNode;
+  /** Langue lue du cookie côté serveur : évite tout clignotement au chargement. */
+  initialLocale?: Locale;
+}) {
+  const [locale, setLocaleState] = useState<Locale>(initialLocale);
   const isRtl = RTL_LOCALES.includes(locale);
 
-  useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (isLocale(stored)) setLocaleState(stored);
-  }, []);
-
   /**
-   * L'arabe s'écrit de droite à gauche. On pose `dir` et `lang` sur la balise
-   * <html> plutôt que sur un conteneur : le navigateur inverse alors seul
-   * l'ordre des éléments flex et grid, la direction du texte et les barres de
-   * défilement, et les correctifs CSS de globals.css s'accrochent à [dir="rtl"].
+   * L'arabe s'écrit de droite à gauche. On pose `dir` et `lang` sur <html> :
+   * le navigateur inverse alors seul l'ordre des éléments flex et grid, la
+   * direction du texte et les barres de défilement, et les correctifs CSS de
+   * globals.css s'accrochent à [dir="rtl"].
    */
   useEffect(() => {
     document.documentElement.lang = locale;
@@ -51,7 +50,9 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   function setLocale(next: Locale) {
     setLocaleState(next);
-    window.localStorage.setItem(STORAGE_KEY, next);
+    // Cookie plutôt que localStorage : le serveur doit pouvoir lire la langue
+    // pour rendre les pages directement dans la bonne.
+    document.cookie = `${COOKIE_NAME}=${next}; path=/; max-age=${ONE_YEAR}; samesite=lax`;
   }
 
   function t(key: TranslationKey) {

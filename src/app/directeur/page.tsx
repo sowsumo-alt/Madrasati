@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/session";
-import { ROLES } from "@/lib/roles";
+import { ROLES, ROLE_LABELS } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { StatTile } from "@/components/ui/stat-tile";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LineChart, DonutChart, type Point } from "@/components/charts/chart-primitives";
 import { formatMRU, formatLongDate, formatEventTime } from "@/lib/format";
+import { getTranslations } from "@/lib/i18n/server";
 import {
   BookOpen,
   CalendarCheck,
@@ -20,27 +21,24 @@ import {
   Wallet,
 } from "lucide-react";
 
-const MONTH_LABELS = [
-  "Jan", "Fév", "Mar", "Avr", "Mai", "Juin",
-  "Juil", "Août", "Sept", "Oct", "Nov", "Déc",
-];
-
-/** Les 9 derniers mois, du plus ancien au plus récent (année scolaire). */
-function lastMonths(count: number) {
+/**
+ * Les N derniers mois, du plus ancien au plus récent (année scolaire).
+ * Le nom du mois vient d'Intl : il suit donc la langue choisie, y compris en
+ * arabe, sans table de correspondance à maintenir.
+ */
+function lastMonths(count: number, locale: string) {
+  const formatter = new Intl.DateTimeFormat(locale, { month: "short" });
   const months: { label: string; year: number; month: number }[] = [];
   const now = new Date();
   for (let i = count - 1; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    months.push({ label: MONTH_LABELS[d.getMonth()], year: d.getFullYear(), month: d.getMonth() });
+    months.push({
+      label: formatter.format(d),
+      year: d.getFullYear(),
+      month: d.getMonth(),
+    });
   }
   return months;
-}
-
-function attendanceQuality(rate: number, hasData: boolean) {
-  if (!hasData) return "Aucun appel fait";
-  if (rate >= 90) return "Très bien";
-  if (rate >= 75) return "Correct";
-  return "À surveiller";
 }
 
 interface ActivityItem {
@@ -63,7 +61,15 @@ export default async function DashboardPage() {
   const inSevenDays = new Date(startOfToday);
   inSevenDays.setDate(inSevenDays.getDate() + 7);
 
-  const months = lastMonths(9);
+  const { t, locale } = await getTranslations();
+  const months = lastMonths(9, locale);
+
+  function attendanceQuality(rate: number, hasData: boolean) {
+    if (!hasData) return t("dashboard.noRollCall");
+    if (rate >= 90) return t("dashboard.veryGood");
+    if (rate >= 75) return t("dashboard.correct");
+    return t("dashboard.toWatch");
+  }
   const since = new Date(months[0].year, months[0].month, 1);
 
   const [
@@ -225,7 +231,7 @@ export default async function DashboardPage() {
         {
           id: s.id,
           name: `${s.firstName} ${s.lastName}`,
-          className: s.classRoom?.name ?? "Sans classe",
+          className: s.classRoom?.name ?? t("students.noClass"),
           average: entry.total / entry.count,
         },
       ];
@@ -252,28 +258,28 @@ export default async function DashboardPage() {
   const activity: ActivityItem[] = [
     ...recentStudents.map((s) => ({
       at: s.createdAt,
-      title: "Nouvel élève inscrit",
-      detail: `${s.firstName} ${s.lastName}${s.classRoom ? ` en ${s.classRoom.name}` : ""}`,
+      title: t("activity.newStudent"),
+      detail: `${s.firstName} ${s.lastName}${s.classRoom ? ` — ${s.classRoom.name}` : ""}`,
       icon: UserPlus,
       tone: "bg-primary-50 text-primary-600",
     })),
     ...recentPayments.map((p) => ({
       at: p.paidAt,
-      title: "Paiement reçu",
-      detail: `${formatMRU(p.amount)} par ${p.student.firstName} ${p.student.lastName}`,
+      title: t("activity.paymentReceived"),
+      detail: `${formatMRU(p.amount)} — ${p.student.firstName} ${p.student.lastName}`,
       icon: Wallet,
       tone: "bg-accent-50 text-accent-600",
     })),
     ...[...attendanceBatches.values()].slice(0, 3).map((b) => ({
       at: b.at,
-      title: "Présence enregistrée",
-      detail: `${b.className} — ${Math.round((b.present / b.total) * 100)}% présents`,
+      title: t("activity.attendanceRecorded"),
+      detail: `${b.className} — ${Math.round((b.present / b.total) * 100)}%`,
       icon: ClipboardCheck,
       tone: "bg-sky-50 text-sky-600",
     })),
     ...recentExams.map((e) => ({
       at: e.createdAt,
-      title: "Examen créé",
+      title: t("activity.examCreated"),
       detail: `${e.subject.name} — ${e.title} (${e.classRoom.name})`,
       icon: GraduationCap,
       tone: "bg-violet-50 text-violet-600",
@@ -282,44 +288,52 @@ export default async function DashboardPage() {
     .sort((a, b) => b.at.getTime() - a.at.getTime())
     .slice(0, 6);
 
-  const firstName = (user.name ?? "").split(" ")[0] || "Directeur";
+  const firstName = (user.name ?? "").split(" ")[0] || ROLE_LABELS.DIRECTOR;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Bonjour, {firstName} <span aria-hidden>👋</span>
+            {t("dashboard.hello")}, {firstName} <span aria-hidden>👋</span>
           </h1>
-          <p className="mt-1 text-sm text-foreground/55">Tableau de bord</p>
+          <p className="mt-1 text-sm text-foreground/55">{t("dashboard.title")}</p>
         </div>
         <span className="flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2.5 text-sm text-foreground/70 shadow-sm">
-          Aujourd&apos;hui, {formatLongDate(now)}
+          {t("dashboard.today")}, {formatLongDate(now)}
           <CalendarDays className="h-4 w-4 text-foreground/40" />
         </span>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatTile
-          label="Élèves inscrits"
+          label={t("dashboard.totalStudents")}
           value={String(studentCount)}
           icon={Users}
           tone="primary"
-          hint={newStudents > 0 ? `+${newStudents} ce mois` : "Aucune inscription ce mois"}
+          hint={
+            newStudents > 0
+              ? `+${newStudents} ${t("dashboard.thisMonthShort")}`
+              : t("dashboard.noEnrollmentThisMonth")
+          }
           hintPositive={newStudents > 0}
           href="/directeur/eleves"
         />
         <StatTile
-          label="Enseignants"
+          label={t("nav.teachers")}
           value={String(teacherCount)}
           icon={Contact}
           tone="accent"
-          hint={newTeachers > 0 ? `+${newTeachers} ce mois` : "Équipe stable"}
+          hint={
+            newTeachers > 0
+              ? `+${newTeachers} ${t("dashboard.thisMonthShort")}`
+              : t("dashboard.stableTeam")
+          }
           hintPositive={newTeachers > 0}
           href="/directeur/enseignants"
         />
         <StatTile
-          label="Présence du jour"
+          label={t("dashboard.attendanceOfDay")}
           value={`${attendanceRate}%`}
           icon={CircleCheck}
           tone="primary"
@@ -327,46 +341,46 @@ export default async function DashboardPage() {
           href="/directeur/presences"
         />
         <StatTile
-          label="Argent perçu"
+          label={t("dashboard.moneyCollected")}
           value={formatMRU(monthPayments._sum.amount ?? 0)}
           icon={Wallet}
           tone="primary"
-          hint="Ce mois"
+          hint={t("dashboard.thisMonth")}
           href="/directeur/finance"
         />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatTile
-          label="Impayés"
+          label={t("dashboard.unpaid")}
           value={formatMRU(unpaidFees._sum.amount ?? 0)}
           icon={Hourglass}
           tone="warning"
-          hint="Frais non réglés"
+          hint={t("dashboard.unpaidHint")}
           href="/directeur/finance"
         />
         <StatTile
-          label="Examens à venir"
+          label={t("dashboard.upcomingExams")}
           value={String(upcomingExams)}
           icon={CalendarCheck}
           tone="info"
-          hint="Cette semaine"
+          hint={t("dashboard.thisWeek")}
           href="/directeur/examens"
         />
         <StatTile
-          label="Classes actives"
+          label={t("dashboard.activeClasses")}
           value={String(activeClasses)}
           icon={BookOpen}
           tone="violet"
-          hint={`Sur ${classes.length}`}
+          hint={`${t("dashboard.outOf")} ${classes.length}`}
           href="/directeur/classes"
         />
         <StatTile
-          label="Parents"
+          label={t("nav.parents")}
           value={String(parentCount)}
           icon={Users}
           tone="primary"
-          hint="Contacts"
+          hint={t("dashboard.contacts")}
           href="/directeur/parents"
         />
       </div>
@@ -374,12 +388,12 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <Card className="xl:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Évolution de la présence (%)</CardTitle>
+            <CardTitle>{t("dashboard.attendanceTrend")}</CardTitle>
             <Link
               href="/directeur/statistiques"
               className="text-xs font-medium text-primary-600 hover:underline"
             >
-              Voir les statistiques
+              {t("dashboard.viewStatistics")}
             </Link>
           </CardHeader>
           <CardContent>
@@ -389,12 +403,12 @@ export default async function DashboardPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Activité récente</CardTitle>
+            <CardTitle>{t("dashboard.recentActivity")}</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             {activity.length === 0 ? (
               <p className="px-5 py-10 text-center text-sm text-foreground/50">
-                Rien à signaler pour l&apos;instant.
+                {t("dashboard.nothingToReport")}
               </p>
             ) : (
               <ul className="divide-y divide-border">
@@ -430,7 +444,7 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Répartition des élèves par classe</CardTitle>
+            <CardTitle>{t("dashboard.distributionByClass")}</CardTitle>
           </CardHeader>
           <CardContent>
             <DonutChart data={levelDistribution} />
@@ -439,27 +453,33 @@ export default async function DashboardPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Top des meilleures moyennes</CardTitle>
+            <CardTitle>{t("dashboard.topAverages")}</CardTitle>
             <Link
               href="/directeur/bulletins"
               className="text-xs font-medium text-primary-600 hover:underline"
             >
-              Voir les bulletins
+              {t("dashboard.viewReportCards")}
             </Link>
           </CardHeader>
           <CardContent className="p-0">
             {topStudents.length === 0 ? (
               <p className="px-5 py-10 text-center text-sm text-foreground/50">
-                Aucune note saisie pour l&apos;instant.
+                {t("dashboard.noGradesYet")}
               </p>
             ) : (
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border text-xs text-foreground/50">
                     <th className="px-5 py-2.5 text-left font-medium">#</th>
-                    <th className="px-2 py-2.5 text-left font-medium">Élève</th>
-                    <th className="px-2 py-2.5 text-left font-medium">Classe</th>
-                    <th className="px-5 py-2.5 text-right font-medium">Moyenne</th>
+                    <th className="px-2 py-2.5 text-left font-medium">
+                      {t("finance.student")}
+                    </th>
+                    <th className="px-2 py-2.5 text-left font-medium">
+                      {t("students.class")}
+                    </th>
+                    <th className="px-5 py-2.5 text-right font-medium">
+                      {t("dashboard.average")}
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
