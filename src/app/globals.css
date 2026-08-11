@@ -95,6 +95,20 @@ body {
   }
 }
 
+/* Version courte : changement de page à l'intérieur de l'application. Doit
+   rester rapide pour un usage quotidien — pas la même cadence qu'une page de
+   présentation qu'on lit une fois. */
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 @keyframes float-y {
   0%,
   100% {
@@ -111,6 +125,28 @@ body {
   }
   to {
     transform: none;
+  }
+}
+
+@keyframes wave {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  15% {
+    transform: rotate(14deg);
+  }
+  30% {
+    transform: rotate(-8deg);
+  }
+  45% {
+    transform: rotate(14deg);
+  }
+  60% {
+    transform: rotate(-4deg);
+  }
+  75% {
+    transform: rotate(10deg);
   }
 }
 
@@ -139,8 +175,20 @@ body {
   animation: fade-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+.animate-page-in {
+  opacity: 0;
+  animation: page-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 .animate-float {
   animation: float-y 6s ease-in-out infinite;
+}
+
+.animate-wave {
+  transform-origin: 70% 70%;
+  animation: wave 1.6s ease-in-out 1;
+  animation-delay: 500ms;
+  animation-fill-mode: backwards;
 }
 
 .animate-word {
@@ -175,11 +223,22 @@ body {
   cursor: pointer;
 }
 
+/* Variante pour un curseur posé sur fond vert foncé (estimation d'inscription) :
+   l'anneau devient or, seule couleur qui reste lisible sur ce fond. */
+.range-brand-dark::-webkit-slider-thumb {
+  border-color: var(--accent-400);
+}
+.range-brand-dark::-moz-range-thumb {
+  border-color: var(--accent-400);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .reveal,
   .reveal.is-visible,
   .animate-fade-up,
+  .animate-page-in,
   .animate-float,
+  .animate-wave,
   .animate-word,
   .animate-bar {
     animation: none !important;

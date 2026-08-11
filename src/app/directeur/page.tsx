@@ -292,10 +292,10 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="animate-page-in flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            {t("dashboard.hello")}, {firstName} <span aria-hidden>👋</span>
+            {t("dashboard.hello")}, {firstName} <span className="inline-block animate-wave" aria-hidden>👋</span>
           </h1>
           <p className="mt-1 text-sm text-foreground/55">{t("dashboard.title")}</p>
         </div>
@@ -318,12 +318,13 @@ export default async function DashboardPage() {
           }
           hintPositive={newStudents > 0}
           href="/directeur/eleves"
+          delay={0}
         />
         <StatTile
           label={t("nav.teachers")}
           value={String(teacherCount)}
           icon={Contact}
-          tone="accent"
+          tone="primary"
           hint={
             newTeachers > 0
               ? `+${newTeachers} ${t("dashboard.thisMonthShort")}`
@@ -331,6 +332,7 @@ export default async function DashboardPage() {
           }
           hintPositive={newTeachers > 0}
           href="/directeur/enseignants"
+          delay={40}
         />
         <StatTile
           label={t("dashboard.attendanceOfDay")}
@@ -339,14 +341,16 @@ export default async function DashboardPage() {
           tone="primary"
           hint={attendanceQuality(attendanceRate, todayAttendance.length > 0)}
           href="/directeur/presences"
+          delay={80}
         />
         <StatTile
           label={t("dashboard.moneyCollected")}
           value={formatMRU(monthPayments._sum.amount ?? 0)}
           icon={Wallet}
-          tone="primary"
+          tone="accent"
           hint={t("dashboard.thisMonth")}
           href="/directeur/finance"
+          delay={120}
         />
       </div>
 
@@ -358,22 +362,25 @@ export default async function DashboardPage() {
           tone="warning"
           hint={t("dashboard.unpaidHint")}
           href="/directeur/finance"
+          delay={160}
         />
         <StatTile
           label={t("dashboard.upcomingExams")}
           value={String(upcomingExams)}
           icon={CalendarCheck}
-          tone="info"
+          tone="neutral"
           hint={t("dashboard.thisWeek")}
           href="/directeur/examens"
+          delay={200}
         />
         <StatTile
           label={t("dashboard.activeClasses")}
           value={String(activeClasses)}
           icon={BookOpen}
-          tone="violet"
+          tone="neutral"
           hint={`${t("dashboard.outOf")} ${classes.length}`}
           href="/directeur/classes"
+          delay={240}
         />
         <StatTile
           label={t("nav.parents")}
@@ -382,10 +389,11 @@ export default async function DashboardPage() {
           tone="primary"
           hint={t("dashboard.contacts")}
           href="/directeur/parents"
+          delay={280}
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+      <div className="animate-page-in grid grid-cols-1 gap-4 xl:grid-cols-3" style={{ animationDelay: "260ms" }}>
         <Card className="xl:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>{t("dashboard.attendanceTrend")}</CardTitle>
@@ -441,7 +449,7 @@ export default async function DashboardPage() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <div className="animate-page-in grid grid-cols-1 gap-4 xl:grid-cols-2" style={{ animationDelay: "320ms" }}>
         <Card>
           <CardHeader>
             <CardTitle>{t("dashboard.distributionByClass")}</CardTitle>

@@ -2,7 +2,11 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import type { LucideIcon } from "lucide-react";
 
-type Tone = "primary" | "accent" | "warning" | "info" | "violet" | "neutral";
+// Trois couleurs seulement, chacune avec un sens fixe dans toute
+// l'application : primary pour les effectifs et l'activité, accent (or)
+// réservé à l'argent, warning aux alertes. neutral pour le reste — pas de
+// couleur ajoutée « pour varier ».
+type Tone = "primary" | "accent" | "warning" | "neutral";
 
 interface StatTileProps {
   label: string;
@@ -14,14 +18,14 @@ interface StatTileProps {
   /** Colore la ligne d'appoint en vert (progression) plutôt qu'en gris. */
   hintPositive?: boolean;
   href?: string;
+  /** Décalage d'apparition en ms, pour faire entrer une grille en cascade. */
+  delay?: number;
 }
 
 const toneStyles: Record<Tone, string> = {
   primary: "bg-primary-50 text-primary-600",
   accent: "bg-accent-50 text-accent-600",
   warning: "bg-amber-50 text-amber-600",
-  info: "bg-sky-50 text-sky-600",
-  violet: "bg-violet-50 text-violet-600",
   neutral: "bg-surface-muted text-foreground/60",
 };
 
@@ -33,6 +37,7 @@ export function StatTile({
   hint,
   hintPositive = false,
   href,
+  delay = 0,
 }: StatTileProps) {
   const content = (
     <>
@@ -64,16 +69,21 @@ export function StatTile({
   );
 
   const className = cn(
-    "flex items-center gap-3.5 rounded-xl border border-border bg-surface p-4 shadow-sm",
-    href && "transition-colors hover:border-primary-200 hover:bg-primary-50/40",
+    "animate-page-in flex items-center gap-3.5 rounded-xl border border-border bg-surface p-4 shadow-sm transition-all duration-200",
+    href && "hover:-translate-y-0.5 hover:border-primary-200 hover:bg-primary-50/40 hover:shadow-md",
   );
+  const style = { animationDelay: `${delay}ms` };
 
   if (href) {
     return (
-      <Link href={href} className={className}>
+      <Link href={href} className={className} style={style}>
         {content}
       </Link>
     );
   }
-  return <div className={className}>{content}</div>;
+  return (
+    <div className={className} style={style}>
+      {content}
+    </div>
+  );
 }

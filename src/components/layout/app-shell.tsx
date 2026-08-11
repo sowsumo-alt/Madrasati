@@ -198,7 +198,12 @@ export function AppShell({
       )}
 
       <div className="pt-16 lg:pl-64 print:pt-0 print:pl-0">
-        <main className="px-4 py-6 sm:px-6 lg:px-8">{children}</main>
+        {/* La clé force le remontage à chaque navigation : l'animation
+            d'entrée rejoue sur chaque nouvelle page, pas seulement au
+            premier chargement. */}
+        <main key={pathname} className="animate-page-in px-4 py-6 sm:px-6 lg:px-8">
+          {children}
+        </main>
       </div>
     </div>
   );
