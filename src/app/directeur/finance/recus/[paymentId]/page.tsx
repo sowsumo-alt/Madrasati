@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
@@ -41,8 +42,19 @@ export default async function ReceiptPage({
 
       <div className="rounded-xl border border-border bg-surface p-8 shadow-sm print:border-0 print:shadow-none">
         <div className="flex items-start justify-between border-b border-border pb-6">
-          <div className="flex items-center gap-2 text-primary-800">
-            <GraduationCap className="h-7 w-7" strokeWidth={2} />
+          <div className="flex items-center gap-3 text-primary-800">
+            {payment.school.logoUrl ? (
+              <Image
+                src={payment.school.logoUrl}
+                alt=""
+                width={320}
+                height={320}
+                unoptimized
+                className="h-12 w-12 rounded object-contain"
+              />
+            ) : (
+              <GraduationCap className="h-7 w-7" strokeWidth={2} />
+            )}
             <div>
               <p className="text-base font-semibold leading-tight">
                 {payment.school.name}

@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ImagePicker } from "@/components/ui/image-picker";
 import { studentSchema, type StudentFormValues } from "./schema";
 import { createStudent, updateStudent } from "./actions";
 
@@ -39,6 +40,7 @@ export interface StudentEditTarget {
   gender: string | null;
   classId: string | null;
   status: string;
+  photoUrl?: string | null;
   parentFirstName?: string;
   parentLastName?: string;
   parentPhone?: string;
@@ -58,6 +60,7 @@ const emptyValues: StudentFormValues = {
   gender: "",
   classId: "",
   status: "ACTIVE",
+  photoUrl: null,
   parentFirstName: "",
   parentLastName: "",
   parentPhone: "",
@@ -94,6 +97,7 @@ export function StudentFormDialog({
               gender: (editTarget.gender as "M" | "F" | "") ?? "",
               classId: editTarget.classId ?? "",
               status: editTarget.status as StudentFormValues["status"],
+              photoUrl: editTarget.photoUrl ?? null,
               parentFirstName: editTarget.parentFirstName ?? "",
               parentLastName: editTarget.parentLastName ?? "",
               parentPhone: editTarget.parentPhone ?? "",
@@ -122,6 +126,7 @@ export function StudentFormDialog({
   const classId = watch("classId");
   const gender = watch("gender");
   const status = watch("status");
+  const photoUrl = watch("photoUrl") ?? null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -131,6 +136,19 @@ export function StudentFormDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+          <div className="space-y-1.5">
+            <Label>
+              Photo <span className="font-normal text-foreground/40">(optionnel)</span>
+            </Label>
+            <ImagePicker
+              value={photoUrl}
+              onChange={(v) => setValue("photoUrl", v, { shouldDirty: true })}
+              maxSize={240}
+              shape="circle"
+              label="Choisir une photo"
+            />
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="firstName">Prénom</Label>

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
@@ -55,8 +56,19 @@ export default async function ReportCardPage({
 
       <div className="rounded-xl border border-border bg-surface p-8 shadow-sm print:border-0 print:p-0 print:shadow-none">
         <div className="flex items-start justify-between border-b border-border pb-6">
-          <div className="flex items-center gap-2 text-primary-800">
-            <GraduationCap className="h-8 w-8" strokeWidth={2} />
+          <div className="flex items-center gap-3 text-primary-800">
+            {school?.logoUrl ? (
+              <Image
+                src={school.logoUrl}
+                alt=""
+                width={320}
+                height={320}
+                unoptimized
+                className="h-14 w-14 rounded object-contain"
+              />
+            ) : (
+              <GraduationCap className="h-8 w-8" strokeWidth={2} />
+            )}
             <div>
               <p className="text-base font-semibold leading-tight">{school?.name}</p>
               {school?.address && (
@@ -85,7 +97,17 @@ export default async function ReportCardPage({
             <p className="text-xs font-medium uppercase tracking-wide text-foreground/40">
               Élève
             </p>
-            <p className="mt-1 text-sm font-medium text-foreground">
+            <p className="mt-1 flex items-center gap-2 text-sm font-medium text-foreground">
+              {student.photoUrl && (
+                <Image
+                  src={student.photoUrl}
+                  alt=""
+                  width={240}
+                  height={240}
+                  unoptimized
+                  className="h-10 w-10 rounded-full object-cover"
+                />
+              )}
               {card.student.firstName} {card.student.lastName}
             </p>
           </div>

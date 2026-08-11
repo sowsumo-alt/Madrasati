@@ -44,6 +44,7 @@ export default async function StudentsPage({
     status: s.status,
     classId: s.classId,
     className: s.classRoom?.name ?? null,
+    photoUrl: s.photoUrl,
     parent: s.parentLinks[0]
       ? {
           firstName: s.parentLinks[0].parent.firstName,

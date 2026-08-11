@@ -35,6 +35,7 @@ export default async function SettingsPage() {
         address: school.address ?? "",
         phone: school.phone ?? "",
         email: school.email ?? "",
+        logoUrl: school.logoUrl,
       }}
       years={yearRows}
       counts={{ students, teachers, classes }}

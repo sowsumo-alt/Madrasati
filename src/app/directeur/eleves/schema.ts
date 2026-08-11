@@ -7,6 +7,8 @@ export const studentSchema = z.object({
   gender: z.enum(["M", "F", ""]).optional(),
   classId: z.string().optional().or(z.literal("")),
   status: z.enum(["ACTIVE", "INACTIVE", "TRANSFERRED", "GRADUATED"]),
+  /** Photo stockée en data URI, réduite côté navigateur. */
+  photoUrl: z.string().max(400_000, "Image trop lourde").nullable().optional(),
   parentFirstName: z.string().trim().optional().or(z.literal("")),
   parentLastName: z.string().trim().optional().or(z.literal("")),
   parentPhone: z.string().trim().optional().or(z.literal("")),

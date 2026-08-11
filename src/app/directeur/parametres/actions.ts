@@ -6,11 +6,19 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 
+/** Data URI d'image, plafonné pour éviter de gonfler la base. */
+const LOGO_MAX_CHARS = 400_000; // ~300 Ko une fois décodé
+
 const schoolSchema = z.object({
   name: z.string().trim().min(1, "Le nom de l'école est requis"),
   address: z.string().trim().optional().or(z.literal("")),
   phone: z.string().trim().optional().or(z.literal("")),
   email: z.string().trim().optional().or(z.literal("")),
+  logoUrl: z
+    .string()
+    .max(LOGO_MAX_CHARS, "Image trop lourde")
+    .nullable()
+    .optional(),
 });
 export type SchoolFormValues = z.infer<typeof schoolSchema>;
 
@@ -25,6 +33,7 @@ export async function updateSchool(values: SchoolFormValues) {
       address: data.address || null,
       phone: data.phone || null,
       email: data.email || null,
+      logoUrl: data.logoUrl || null,
     },
   });
 

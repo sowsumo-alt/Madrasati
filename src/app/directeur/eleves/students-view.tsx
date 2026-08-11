@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Image from "next/image";
 import { toast } from "sonner";
 import {
   Search,
@@ -42,6 +43,7 @@ export interface StudentRow {
   status: string;
   classId: string | null;
   className: string | null;
+  photoUrl: string | null;
   parent: { firstName: string; lastName: string; phone: string } | null;
 }
 
@@ -109,6 +111,7 @@ export function StudentsView({
       gender: s.gender,
       classId: s.classId,
       status: s.status,
+      photoUrl: s.photoUrl,
       parentFirstName: s.parent?.firstName ?? "",
       parentLastName: s.parent?.lastName ?? "",
       parentPhone: s.parent?.phone ?? "",
@@ -209,7 +212,23 @@ export function StudentsView({
                   return (
                     <tr key={s.id} className="hover:bg-surface-muted/40">
                       <td className="px-5 py-3 font-medium text-foreground">
-                        {s.firstName} {s.lastName}
+                        <span className="flex items-center gap-2.5">
+                          {s.photoUrl ? (
+                            <Image
+                              src={s.photoUrl}
+                              alt=""
+                              width={240}
+                              height={240}
+                              unoptimized
+                              className="h-8 w-8 shrink-0 rounded-full object-cover"
+                            />
+                          ) : (
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-50 text-xs font-semibold text-primary-700">
+                              {s.firstName.charAt(0).toUpperCase()}
+                            </span>
+                          )}
+                          {s.firstName} {s.lastName}
+                        </span>
                       </td>
                       <td className="px-5 py-3 text-foreground/70">
                         {s.className ?? (

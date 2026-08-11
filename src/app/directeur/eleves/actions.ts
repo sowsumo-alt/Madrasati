@@ -19,6 +19,7 @@ export async function createStudent(values: StudentFormValues) {
       gender: data.gender || null,
       classId: data.classId || null,
       status: data.status,
+      photoUrl: data.photoUrl || null,
     },
   });
 
@@ -61,6 +62,7 @@ export async function updateStudent(studentId: string, values: StudentFormValues
       gender: data.gender || null,
       classId: data.classId || null,
       status: data.status,
+      photoUrl: data.photoUrl || null,
     },
   });
 

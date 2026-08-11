@@ -19,6 +19,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { ImagePicker } from "@/components/ui/image-picker";
 import { formatDate } from "@/lib/format";
 import {
   updateSchool,
@@ -32,6 +33,7 @@ const schoolSchema = z.object({
   address: z.string().trim().optional().or(z.literal("")),
   phone: z.string().trim().optional().or(z.literal("")),
   email: z.string().trim().optional().or(z.literal("")),
+  logoUrl: z.string().nullable().optional(),
 });
 
 const yearSchema = z.object({
@@ -66,6 +68,7 @@ export function SettingsView({
     resolver: zodResolver(schoolSchema),
     defaultValues: school,
   });
+  const logoUrl = schoolForm.watch("logoUrl") ?? null;
 
   const yearForm = useForm<YearValues>({
     resolver: zodResolver(yearSchema),
@@ -126,6 +129,21 @@ export function SettingsView({
             className="space-y-4"
             noValidate
           >
+            <div className="space-y-1.5">
+              <Label>Logo de l&apos;école</Label>
+              <ImagePicker
+                value={logoUrl}
+                onChange={(v) =>
+                  schoolForm.setValue("logoUrl", v, { shouldDirty: true })
+                }
+                maxSize={320}
+                label="Choisir un logo"
+              />
+              <p className="text-xs text-foreground/40">
+                Il apparaîtra en haut des bulletins et des reçus.
+              </p>
+            </div>
+
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="name">Nom de l&apos;école</Label>
