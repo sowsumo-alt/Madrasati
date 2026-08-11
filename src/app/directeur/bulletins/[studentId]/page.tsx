@@ -9,6 +9,8 @@ import { PrintButton } from "@/components/ui/print-button";
 import { GraduationCap } from "lucide-react";
 import { isAiEnabled } from "@/lib/ai";
 import { CommentEditor } from "./comment-editor";
+import { getTranslations } from "@/lib/i18n/server";
+import type { TranslationKey } from "@/lib/i18n/dictionaries";
 
 export default async function ReportCardPage({
   params,
@@ -48,10 +50,12 @@ export default async function ReportCardPage({
   const card = cards.find((c) => c.student.id === studentId);
   if (!card) notFound();
 
+  const { t } = await getTranslations();
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <div className="no-print mb-6 flex justify-end">
-        <PrintButton label="Imprimer le bulletin" />
+        <PrintButton label={t("bulletin.print")} />
       </div>
 
       <div className="rounded-xl border border-border bg-surface p-8 shadow-sm print:border-0 print:p-0 print:shadow-none">
@@ -81,12 +85,12 @@ export default async function ReportCardPage({
           </div>
           <div className="text-right">
             <p className="text-xs font-medium uppercase tracking-wide text-foreground/40">
-              Bulletin scolaire
+              {t("bulletin.reportCardTitle")}
             </p>
             <p className="text-sm font-semibold text-foreground">{card.term}</p>
             {academicYear && (
               <p className="text-xs text-foreground/50">
-                Année {academicYear.label}
+                {t("bulletin.year")} {academicYear.label}
               </p>
             )}
           </div>
@@ -95,7 +99,7 @@ export default async function ReportCardPage({
         <div className="grid grid-cols-3 gap-6 py-6">
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-foreground/40">
-              Élève
+              {t("finance.student")}
             </p>
             <p className="mt-1 flex items-center gap-2 text-sm font-medium text-foreground">
               {student.photoUrl && (
@@ -113,7 +117,7 @@ export default async function ReportCardPage({
           </div>
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-foreground/40">
-              Classe
+              {t("students.class")}
             </p>
             <p className="mt-1 text-sm font-medium text-foreground">
               {card.className}
@@ -121,10 +125,11 @@ export default async function ReportCardPage({
           </div>
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-foreground/40">
-              Assiduité
+              {t("bulletin.attendance")}
             </p>
             <p className="mt-1 text-sm text-foreground">
-              {card.attendance.absent} absence(s), {card.attendance.late} retard(s)
+              {card.attendance.absent} {t("bulletin.absences")}, {card.attendance.late}{" "}
+              {t("bulletin.lates")}
             </p>
           </div>
         </div>
@@ -132,10 +137,10 @@ export default async function ReportCardPage({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-y border-border bg-surface-muted/60 text-left text-xs font-medium uppercase tracking-wide text-foreground/50">
-              <th className="px-3 py-2.5">Matière</th>
-              <th className="px-3 py-2.5 text-center">Coef.</th>
-              <th className="px-3 py-2.5 text-center">Moyenne</th>
-              <th className="px-3 py-2.5 text-center">Moy. classe</th>
+              <th className="px-3 py-2.5">{t("bulletin.subject")}</th>
+              <th className="px-3 py-2.5 text-center">{t("bulletin.coefficient")}</th>
+              <th className="px-3 py-2.5 text-center">{t("bulletin.average")}</th>
+              <th className="px-3 py-2.5 text-center">{t("bulletin.classAverage")}</th>
               <th className="px-3 py-2.5 text-right" dir="rtl" lang="ar">
                 المادة
               </th>
@@ -169,7 +174,7 @@ export default async function ReportCardPage({
         <div className="mt-6 grid grid-cols-3 gap-4 rounded-lg bg-surface-muted px-4 py-4">
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-foreground/40">
-              Moyenne générale
+              {t("bulletin.overallAverage")}
             </p>
             <p className="mt-1 text-xl font-semibold text-primary-800">
               {card.average != null ? `${card.average.toFixed(2)} / 20` : "—"}
@@ -177,15 +182,15 @@ export default async function ReportCardPage({
           </div>
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-foreground/40">
-              Mention
+              {t("bulletin.mentionLabel")}
             </p>
             <p className="mt-1 text-xl font-semibold text-foreground">
-              {card.mention}
+              {t(`bulletin.mention.${card.mention}` as TranslationKey)}
             </p>
           </div>
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-foreground/40">
-              Rang
+              {t("bulletin.rank")}
             </p>
             <p className="mt-1 text-xl font-semibold text-foreground">
               {card.rank != null ? `${card.rank} / ${card.classSize}` : "—"}
@@ -204,17 +209,17 @@ export default async function ReportCardPage({
 
         <div className="mt-8 flex justify-between text-xs text-foreground/50">
           <div>
-            <p className="mb-8">Signature du directeur</p>
+            <p className="mb-8">{t("bulletin.directorSignature")}</p>
             <div className="w-40 border-t border-border" />
           </div>
           <div className="text-right">
-            <p className="mb-8">Signature du parent</p>
+            <p className="mb-8">{t("bulletin.parentSignature")}</p>
             <div className="ml-auto w-40 border-t border-border" />
           </div>
         </div>
 
         <p className="mt-8 text-center text-xs text-foreground/40">
-          Bulletin généré par Madrasati
+          {t("bulletin.footer")}
         </p>
       </div>
     </div>

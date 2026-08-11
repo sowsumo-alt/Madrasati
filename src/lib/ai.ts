@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import type { ReportCard } from "@/lib/report-card-data";
+import { MENTION_LABELS_FR } from "@/lib/report-card";
 
 /** Modèle par défaut : rapide, largement suffisant pour un paragraphe, et couvert
  *  par l'offre gratuite de Google AI Studio. Surchargeable via GEMINI_MODEL. */
@@ -39,7 +40,7 @@ function formatCard(card: ReportCard) {
     `Classe : ${card.className}`,
     `Période : ${card.term}`,
     `Moyenne générale pondérée : ${card.average != null ? `${card.average.toFixed(2)}/20` : "non calculable"}`,
-    `Mention : ${card.mention}`,
+    `Mention : ${MENTION_LABELS_FR[card.mention]}`,
     card.rank != null ? `Rang : ${card.rank} sur ${card.classSize}` : "Rang : non calculable",
     `Assiduité : ${card.attendance.absent} absence(s), ${card.attendance.late} retard(s)`,
     "",

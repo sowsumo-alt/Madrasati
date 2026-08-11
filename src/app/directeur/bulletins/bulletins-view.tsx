@@ -13,27 +13,45 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { buildWhatsAppUrl, fillTemplate } from "@/lib/whatsapp";
+import { useLanguage } from "@/lib/i18n/language-provider";
+import type { TranslationKey } from "@/lib/i18n/dictionaries";
+import type { MentionKey } from "@/lib/report-card";
 
 export interface BulletinRow {
   studentId: string;
   studentName: string;
   average: number | null;
-  mention: string;
+  mention: MentionKey;
   rank: number | null;
   classSize: number;
   subjectsScored: number;
   parent: { firstName: string; lastName: string; phone: string } | null;
 }
 
-const MENTION_VARIANT: Record<string, BadgeProps["variant"]> = {
-  Excellent: "success",
-  "Très bien": "success",
-  Bien: "success",
-  "Assez bien": "warning",
-  Passable: "warning",
-  Insuffisant: "danger",
-  "—": "neutral",
+const MENTION_VARIANT: Record<MentionKey, BadgeProps["variant"]> = {
+  EXCELLENT: "success",
+  VERY_GOOD: "success",
+  GOOD: "success",
+  FAIRLY_GOOD: "warning",
+  PASSABLE: "warning",
+  INSUFFICIENT: "danger",
+  NONE: "neutral",
 };
+
+/** « 3ème / 25 » en français, « 3rd / 25 » en anglais, « 3 / 25 » en arabe :
+ *  les suffixes ordinaux ne se forment pas de la même façon dans les trois
+ *  langues, donc l'arabe affiche simplement le nombre. */
+function formatRank(
+  rank: number,
+  classSize: number,
+  locale: string,
+  t: (key: TranslationKey) => string,
+) {
+  if (locale === "ar") return `${rank} / ${classSize}`;
+  const suffix =
+    rank === 1 ? t("bulletin.rankOrdinalFirst") : t("bulletin.rankOrdinalOther");
+  return `${rank}${suffix} / ${classSize}`;
+}
 
 export function BulletinsView({
   rows,
@@ -53,6 +71,7 @@ export function BulletinsView({
   gradesTemplate: string;
 }) {
   const router = useRouter();
+  const { t, locale } = useLanguage();
 
   function updateFilters(classId: string, term: string) {
     router.push(
@@ -63,22 +82,19 @@ export function BulletinsView({
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-semibold text-foreground">Bulletins</h1>
-        <p className="mt-1 text-sm text-foreground/60">
-          Moyennes pondérées par coefficient, mention et classement, générés
-          automatiquement à partir des notes saisies.
-        </p>
+        <h1 className="text-xl font-semibold text-foreground">{t("bulletin.title")}</h1>
+        <p className="mt-1 text-sm text-foreground/60">{t("bulletin.subtitle")}</p>
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="space-y-1.5 sm:w-56">
-          <Label>Classe</Label>
+          <Label>{t("bulletin.class")}</Label>
           <Select
             value={selectedClassId}
             onValueChange={(v) => updateFilters(v, selectedTerm)}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Choisir une classe" />
+              <SelectValue placeholder={t("bulletin.chooseClass")} />
             </SelectTrigger>
             <SelectContent>
               {classes.map((c) => (
@@ -90,7 +106,7 @@ export function BulletinsView({
           </Select>
         </div>
         <div className="space-y-1.5 sm:w-56">
-          <Label>Trimestre</Label>
+          <Label>{t("bulletin.term")}</Label>
           <Select
             value={selectedTerm}
             onValueChange={(v) => updateFilters(selectedClassId, v)}
@@ -113,19 +129,19 @@ export function BulletinsView({
         {rows.length === 0 ? (
           <div className="px-5 py-16 text-center text-sm text-foreground/50">
             {classes.length === 0
-              ? "Créez d'abord une classe."
-              : "Aucun élève actif dans cette classe."}
+              ? t("bulletin.createClassFirst")
+              : t("bulletin.noActiveStudent")}
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-surface-muted/60 text-left text-xs font-medium uppercase tracking-wide text-foreground/50">
-                  <th className="px-5 py-3">Élève</th>
-                  <th className="px-5 py-3">Moyenne générale</th>
-                  <th className="px-5 py-3">Mention</th>
-                  <th className="px-5 py-3">Rang</th>
-                  <th className="px-5 py-3 text-right">Actions</th>
+                  <th className="px-5 py-3">{t("finance.student")}</th>
+                  <th className="px-5 py-3">{t("bulletin.overallAverage")}</th>
+                  <th className="px-5 py-3">{t("bulletin.mentionLabel")}</th>
+                  <th className="px-5 py-3">{t("bulletin.rank")}</th>
+                  <th className="px-5 py-3 text-right">{t("common.actions")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -143,7 +159,7 @@ export function BulletinsView({
                         {r.studentName}
                         {r.subjectsScored === 0 && (
                           <span className="ml-1.5 text-xs font-normal text-foreground/40">
-                            aucune note
+                            {t("bulletin.noGrade")}
                           </span>
                         )}
                       </td>
@@ -158,12 +174,12 @@ export function BulletinsView({
                       </td>
                       <td className="px-5 py-3">
                         <Badge variant={MENTION_VARIANT[r.mention] ?? "neutral"}>
-                          {r.mention}
+                          {t(`bulletin.mention.${r.mention}` as TranslationKey)}
                         </Badge>
                       </td>
                       <td className="px-5 py-3 text-foreground/70">
                         {r.rank != null ? (
-                          `${r.rank}${r.rank === 1 ? "er" : "ème"} / ${r.classSize}`
+                          formatRank(r.rank, r.classSize, locale, t)
                         ) : (
                           <span className="text-foreground/30">—</span>
                         )}
@@ -173,7 +189,7 @@ export function BulletinsView({
                           <Link
                             href={`/directeur/bulletins/${r.studentId}?term=${encodeURIComponent(selectedTerm)}`}
                             target="_blank"
-                            title="Voir le bulletin"
+                            title={t("bulletin.viewReportCard")}
                             className="flex h-8 w-8 items-center justify-center rounded-lg text-primary-700 transition-colors hover:bg-primary-50"
                           >
                             <FileText className="h-4 w-4" />
@@ -183,7 +199,7 @@ export function BulletinsView({
                               href={buildWhatsAppUrl(r.parent.phone, message)}
                               target="_blank"
                               rel="noopener noreferrer"
-                              title="Prévenir le parent sur WhatsApp"
+                              title={t("bulletin.notifyParent")}
                               className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground/60 transition-colors hover:bg-surface-muted"
                             >
                               <MessageCircle className="h-4 w-4" />

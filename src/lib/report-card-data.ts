@@ -4,6 +4,7 @@ import {
   mentionFor,
   rankOf,
   type SubjectResult,
+  type MentionKey,
 } from "@/lib/report-card";
 
 export interface ReportCard {
@@ -12,7 +13,7 @@ export interface ReportCard {
   term: string;
   results: SubjectResult[];
   average: number | null;
-  mention: string;
+  mention: MentionKey;
   rank: number | null;
   classSize: number;
   attendance: { present: number; absent: number; late: number };

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Loader2, Sparkles, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { generateComment, saveComment } from "../actions";
+import { useLanguage } from "@/lib/i18n/language-provider";
 
 export function CommentEditor({
   studentId,
@@ -23,6 +24,7 @@ export function CommentEditor({
   aiEnabled: boolean;
 }) {
   const router = useRouter();
+  const { t } = useLanguage();
   const [body, setBody] = useState(initialBody);
   const [bodyAr, setBodyAr] = useState(initialBodyAr);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -36,10 +38,10 @@ export function CommentEditor({
       const result = await generateComment(studentId, term);
       setBody(result.body);
       setBodyAr(result.bodyAr);
-      toast.success("Appréciation générée. Relisez-la avant d'imprimer.");
+      toast.success(t("bulletin.appreciationGenerated"));
       router.refresh();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "La génération a échoué.");
+      toast.error(e instanceof Error ? e.message : t("bulletin.generationFailed"));
     } finally {
       setIsGenerating(false);
     }
@@ -49,10 +51,10 @@ export function CommentEditor({
     setIsSaving(true);
     try {
       await saveComment(studentId, term, body, bodyAr);
-      toast.success("Appréciation enregistrée.");
+      toast.success(t("bulletin.appreciationSaved"));
       router.refresh();
     } catch {
-      toast.error("Une erreur est survenue.");
+      toast.error(t("common.error"));
     } finally {
       setIsSaving(false);
     }
@@ -62,10 +64,10 @@ export function CommentEditor({
     <div className="mt-6 border-t border-border pt-6">
       <div className="no-print mb-2 flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs font-medium uppercase tracking-wide text-foreground/40">
-          Appréciation
+          {t("bulletin.appreciation")}
           {isAiGenerated && untouched && body && (
             <span className="ml-2 font-normal normal-case text-accent-700">
-              proposée par l&apos;IA — à relire
+              {t("bulletin.aiSuggested")}
             </span>
           )}
         </p>
@@ -82,7 +84,7 @@ export function CommentEditor({
               ) : (
                 <Sparkles className="h-4 w-4" />
               )}
-              {body ? "Regénérer" : "Générer"}
+              {body ? t("bulletin.regenerate") : t("bulletin.generate")}
             </Button>
           )}
           <Button size="sm" onClick={handleSave} disabled={isSaving || isGenerating}>
@@ -91,7 +93,7 @@ export function CommentEditor({
             ) : (
               <Save className="h-4 w-4" />
             )}
-            Enregistrer
+            {t("common.save")}
           </Button>
         </div>
       </div>

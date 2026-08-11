@@ -14,6 +14,9 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatTile } from "@/components/ui/stat-tile";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
+import { useLanguage } from "@/lib/i18n/language-provider";
+import type { TranslationKey } from "@/lib/i18n/dictionaries";
+import type { MentionKey } from "@/lib/report-card";
 import {
   Select,
   SelectContent,
@@ -48,7 +51,7 @@ export interface ChildData {
       classAverage: number | null;
     }[];
     overallAverage: number | null;
-    mention: string;
+    mention: MentionKey;
     rank: number | null;
     classSize: number;
     comment: string | null;
@@ -113,6 +116,7 @@ export function ParentView({
   schoolPhone: string | null;
 }) {
   const router = useRouter();
+  const { t } = useLanguage();
 
   function navigate(childId: string, term: string) {
     router.push(`/parent?childId=${childId}&term=${encodeURIComponent(term)}`);
@@ -228,11 +232,10 @@ export function ParentView({
       <Card>
         <CardHeader>
           <CardTitle className="text-sm">
-            Bulletin — {selectedTerm}
+            {t("bulletin.reportCardTitle")} — {selectedTerm}
             {data.reportCard?.rank && (
               <span className="ml-2 font-normal text-foreground/50">
-                {data.reportCard.rank}
-                <sup>e</sup> sur {data.reportCard.classSize}
+                {data.reportCard.rank} / {data.reportCard.classSize}
               </span>
             )}
           </CardTitle>
@@ -240,7 +243,7 @@ export function ParentView({
         <CardContent className="p-0">
           {!data.reportCard || data.reportCard.lines.length === 0 ? (
             <p className="px-5 py-10 text-center text-xs text-foreground/40">
-              Aucune note pour ce trimestre.
+              {t("bulletin.noGradesTerm")}
             </p>
           ) : (
             <>
@@ -248,10 +251,10 @@ export function ParentView({
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border bg-surface-muted/60 text-left text-xs font-medium uppercase tracking-wide text-foreground/50">
-                      <th className="px-5 py-3">Matière</th>
-                      <th className="px-5 py-3">Coef.</th>
-                      <th className="px-5 py-3">Moyenne</th>
-                      <th className="px-5 py-3">Moy. classe</th>
+                      <th className="px-5 py-3">{t("bulletin.subject")}</th>
+                      <th className="px-5 py-3">{t("bulletin.coefficient")}</th>
+                      <th className="px-5 py-3">{t("bulletin.average")}</th>
+                      <th className="px-5 py-3">{t("bulletin.classAverage")}</th>
                       <th className="px-5 py-3 text-right" dir="rtl" lang="ar">
                         المادة
                       </th>
@@ -296,10 +299,12 @@ export function ParentView({
 
               <div className="flex items-center justify-between border-t border-border px-5 py-4">
                 <span className="text-sm font-semibold text-foreground">
-                  Moyenne générale
+                  {t("bulletin.overallAverage")}
                 </span>
                 <span className="flex items-center gap-3">
-                  <Badge variant="success">{data.reportCard.mention}</Badge>
+                  <Badge variant="success">
+                    {t(`bulletin.mention.${data.reportCard.mention}` as TranslationKey)}
+                  </Badge>
                   <span className="text-lg font-semibold text-primary-800">
                     {data.reportCard.overallAverage != null
                       ? `${data.reportCard.overallAverage.toFixed(2)} / 20`
