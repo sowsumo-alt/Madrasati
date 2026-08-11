@@ -2,18 +2,19 @@
 // Multi-écoles (multi-tenant) : chaque table métier porte un schoolId
 // et toutes les requêtes de l'application doivent filtrer dessus.
 //
-// Dev local : SQLite (fichier prisma/dev.db, zéro configuration).
-// Production : changer le provider pour "postgresql" et l'url dans .env
-// (le schéma évite volontairement les types spécifiques à un moteur
-// pour que cette bascule ne casse rien).
+// Postgres (Supabase). DATABASE_URL passe par le pooler en mode transaction
+// (port 6543, ?pgbouncer=true) pour les requêtes de l'application ; DIRECT_URL
+// passe par le pooler en mode session (port 5432) car les migrations ont
+// besoin d'une vraie connexion directe, incompatible avec le mode transaction.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ---------------------------------------------------------------------------
