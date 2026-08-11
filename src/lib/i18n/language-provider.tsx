@@ -7,27 +7,47 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { dictionaries, type Locale, type TranslationKey } from "./dictionaries";
+import {
+  dictionaries,
+  RTL_LOCALES,
+  type Locale,
+  type TranslationKey,
+} from "./dictionaries";
 
 interface LanguageContextValue {
   locale: Locale;
   setLocale: (locale: Locale) => void;
   t: (key: TranslationKey) => string;
+  isRtl: boolean;
 }
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 
 const STORAGE_KEY = "madrasati-locale";
 
+function isLocale(value: string | null): value is Locale {
+  return value !== null && value in dictionaries;
+}
+
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>("fr");
+  const isRtl = RTL_LOCALES.includes(locale);
 
   useEffect(() => {
     const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored === "fr" || stored === "en") {
-      setLocaleState(stored);
-    }
+    if (isLocale(stored)) setLocaleState(stored);
   }, []);
+
+  /**
+   * L'arabe s'écrit de droite à gauche. On pose `dir` et `lang` sur la balise
+   * <html> plutôt que sur un conteneur : le navigateur inverse alors seul
+   * l'ordre des éléments flex et grid, la direction du texte et les barres de
+   * défilement, et les correctifs CSS de globals.css s'accrochent à [dir="rtl"].
+   */
+  useEffect(() => {
+    document.documentElement.lang = locale;
+    document.documentElement.dir = RTL_LOCALES.includes(locale) ? "rtl" : "ltr";
+  }, [locale]);
 
   function setLocale(next: Locale) {
     setLocaleState(next);
@@ -39,7 +59,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <LanguageContext.Provider value={{ locale, setLocale, t }}>
+    <LanguageContext.Provider value={{ locale, setLocale, t, isRtl }}>
       {children}
     </LanguageContext.Provider>
   );

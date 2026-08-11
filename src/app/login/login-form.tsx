@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { useForm } from "react-hook-form";
@@ -32,11 +33,31 @@ const REMEMBER_KEY = "madrasati:email";
 
 // Comptes créés par `npm run db:seed` — ils permettent de visiter chaque
 // espace sans avoir à saisir d'identifiants.
+// Une couleur par rôle : le directeur en vert (la marque), l'enseignant en or,
+// le parent en bleu — la même distinction que dans le reste de l'application.
 const DEMO_PASSWORD = "Madrasati2026!";
 const DEMO_ACCOUNTS = [
-  { label: "Directeur", email: "directeur@ecole-demo.mr", icon: UserRound },
-  { label: "Enseignant", email: "enseignant@ecole-demo.mr", icon: GraduationCap },
-  { label: "Parent", email: "parent@ecole-demo.mr", icon: Users },
+  {
+    label: "Directeur",
+    email: "directeur@ecole-demo.mr",
+    icon: UserRound,
+    badge: "bg-primary-100 text-primary-700",
+    hover: "hover:border-primary-300 hover:bg-primary-50 hover:text-primary-800",
+  },
+  {
+    label: "Enseignant",
+    email: "enseignant@ecole-demo.mr",
+    icon: GraduationCap,
+    badge: "bg-accent-100 text-accent-700",
+    hover: "hover:border-accent-300 hover:bg-accent-50 hover:text-accent-700",
+  },
+  {
+    label: "Parent",
+    email: "parent@ecole-demo.mr",
+    icon: Users,
+    badge: "bg-sky-100 text-sky-700",
+    hover: "hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700",
+  },
 ];
 
 export function LoginForm() {
@@ -195,6 +216,16 @@ export function LoginForm() {
           )}
           Se connecter
         </Button>
+
+        <p className="text-center text-sm text-foreground/55">
+          Pas encore de compte ?{" "}
+          <Link
+            href="/inscription"
+            className="font-semibold text-primary-600 hover:underline"
+          >
+            Créer mon école
+          </Link>
+        </p>
       </form>
 
       <div className="flex items-center gap-3">
@@ -208,7 +239,7 @@ export function LoginForm() {
           Se connecter en mode démonstration
         </p>
         <div className="grid grid-cols-3 gap-3">
-          {DEMO_ACCOUNTS.map(({ label, email, icon: Icon }) => (
+          {DEMO_ACCOUNTS.map(({ label, email, icon: Icon, badge, hover }) => (
             <button
               key={email}
               type="button"
@@ -216,11 +247,16 @@ export function LoginForm() {
               disabled={busy}
               className={cn(
                 "flex flex-col items-center gap-2 rounded-xl border border-border px-2 py-4 text-xs font-medium text-foreground/70 transition-colors",
-                "hover:border-primary-300 hover:bg-primary-50 hover:text-primary-800",
+                hover,
                 "disabled:pointer-events-none disabled:opacity-50",
               )}
             >
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-50 text-primary-700">
+              <span
+                className={cn(
+                  "flex h-10 w-10 items-center justify-center rounded-full",
+                  badge,
+                )}
+              >
                 {demoPending === email ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (

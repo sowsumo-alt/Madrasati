@@ -445,6 +445,18 @@ export function LandingPage() {
           <div className="mt-10">
             <PricingCalculator phone={CONTACT_PHONE} />
           </div>
+
+          <Reveal>
+            <p className="mt-8 text-center text-sm text-foreground/60">
+              Vous préférez démarrer seul ?{" "}
+              <Link
+                href="/inscription"
+                className="font-semibold text-primary-600 hover:underline"
+              >
+                Créez votre école en deux minutes
+              </Link>
+            </p>
+          </Reveal>
         </div>
       </section>
 
