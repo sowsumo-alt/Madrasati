@@ -77,6 +77,168 @@ body {
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
 
+/* ---------------------------------------------------------------------------
+   Animations de la page de présentation.
+   Tout est en CSS : aucune librairie d'animation à télécharger sur une
+   connexion lente. Les mouvements sont désactivés si le visiteur a demandé
+   à son système de réduire les animations.
+   --------------------------------------------------------------------------- */
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(1.25rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes float-y {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-0.75rem);
+  }
+}
+
+@keyframes grow-bar {
+  from {
+    transform: scaleY(0.05);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes word-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.6rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Apparition au défilement : l'élément reste invisible jusqu'à ce que le
+   composant Reveal ajoute .is-visible. */
+.reveal {
+  opacity: 0;
+}
+.reveal.is-visible {
+  animation: fade-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fade-up {
+  opacity: 0;
+  animation: fade-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-float {
+  animation: float-y 6s ease-in-out infinite;
+}
+
+.animate-word {
+  animation: word-in 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.animate-bar {
+  transform-origin: bottom;
+  animation: grow-bar 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Curseur du calculateur de tarif : pastille large, confortable au pouce. */
+.range-brand::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 1.5rem;
+  width: 1.5rem;
+  border-radius: 9999px;
+  background: var(--surface);
+  border: 3px solid var(--primary-600);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.25);
+  cursor: pointer;
+}
+
+.range-brand::-moz-range-thumb {
+  height: 1.5rem;
+  width: 1.5rem;
+  border-radius: 9999px;
+  background: var(--surface);
+  border: 3px solid var(--primary-600);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.25);
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal,
+  .reveal.is-visible,
+  .animate-fade-up,
+  .animate-float,
+  .animate-word,
+  .animate-bar {
+    animation: none !important;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Arabe : lecture de droite à gauche.
+
+   Le navigateur inverse seul l'ordre des éléments flex/grid et la direction du
+   texte dès que <html dir="rtl"> est posé. Restent les classes Tailwind
+   « physiques » (ml-, pl-, left-…) qui, elles, désignent un côté fixe. On les
+   retourne ici, une seule fois, plutôt que de modifier vingt-six fichiers.
+
+   Exception volontaire : .left-1/2 sert à centrer les fenêtres modales
+   (avec -translate-x-1/2) et ne doit surtout pas être inversée.
+--------------------------------------------------------------------------- */
+[dir="rtl"] {
+  .ml-1 { margin-left: 0; margin-right: 0.25rem; }
+  .ml-1\.5 { margin-left: 0; margin-right: 0.375rem; }
+  .ml-2 { margin-left: 0; margin-right: 0.5rem; }
+  .ml-auto { margin-left: 0; margin-right: auto; }
+  .mr-1 { margin-right: 0; margin-left: 0.25rem; }
+
+  .pl-8 { padding-left: 0; padding-right: 2rem; }
+  .pl-9 { padding-left: 0; padding-right: 2.25rem; }
+  .pl-10 { padding-left: 0; padding-right: 2.5rem; }
+  .pl-11 { padding-left: 0; padding-right: 2.75rem; }
+  .print\:pl-0 { padding-left: 0; padding-right: 0; }
+  .pr-2 { padding-right: 0; padding-left: 0.5rem; }
+  .pr-3 { padding-right: 0; padding-left: 0.75rem; }
+  .pr-11 { padding-right: 0; padding-left: 2.75rem; }
+
+  .left-0 { left: auto; right: 0; }
+  .left-2 { left: auto; right: 0.5rem; }
+  .left-3 { left: auto; right: 0.75rem; }
+  .left-4 { left: auto; right: 1rem; }
+  .left-6 { left: auto; right: 1.5rem; }
+  .left-10 { left: auto; right: 2.5rem; }
+  .right-0\.5 { right: auto; left: 0.125rem; }
+  .right-1 { right: auto; left: 0.25rem; }
+  .right-3 { right: auto; left: 0.75rem; }
+  .right-4 { right: auto; left: 1rem; }
+
+  .text-left { text-align: right; }
+  .text-right { text-align: left; }
+}
+
+/* Le décalage du contenu sous la barre latérale est une classe responsive
+   (lg:pl-64) : elle doit être inversée dans sa propre requête média. */
+@media (min-width: 64rem) {
+  [dir="rtl"] .lg\:pl-64 {
+    padding-left: 0;
+    padding-right: 16rem;
+  }
+}
+
 @media print {
   body {
     background: white;
