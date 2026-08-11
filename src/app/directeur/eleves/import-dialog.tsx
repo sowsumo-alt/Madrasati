@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { importStudents } from "./actions";
+import { useLanguage } from "@/lib/i18n/language-provider";
 
 interface ImportDialogProps {
   open: boolean;
@@ -53,6 +54,7 @@ function mapRow(row: Record<string, unknown>) {
 
 export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
   const router = useRouter();
+  const { t } = useLanguage();
   const inputRef = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [isImporting, setIsImporting] = useState(false);
@@ -76,21 +78,19 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
       const result = await importStudents(mapped);
 
       if (result.created > 0) {
-        toast.success(`${result.created} élève(s) importé(s) avec succès.`);
+        toast.success(`${result.created} ${t("students.createdCount")}`);
       }
       if (result.skipped.length > 0) {
-        toast.warning(
-          `${result.skipped.length} ligne(s) ignorée(s) (prénom ou nom manquant).`,
-        );
+        toast.warning(`${result.skipped.length} ${t("students.importSkipped")}`);
       }
       if (result.created === 0 && result.skipped.length === 0) {
-        toast.error("Aucune ligne trouvée dans le fichier.");
+        toast.error(t("students.importNoRows"));
       }
 
       onOpenChange(false);
       router.refresh();
     } catch {
-      toast.error("Impossible de lire ce fichier. Vérifiez le format .xlsx.");
+      toast.error(t("students.importReadError"));
     } finally {
       setIsImporting(false);
       setFileName(null);
@@ -102,11 +102,8 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Importer des élèves depuis Excel</DialogTitle>
-          <DialogDescription>
-            Fichier .xlsx avec les colonnes : Prénom, Nom, Date de naissance,
-            Genre, Classe. Seuls Prénom et Nom sont obligatoires.
-          </DialogDescription>
+          <DialogTitle>{t("students.importDialogTitle")}</DialogTitle>
+          <DialogDescription>{t("students.importDescription")}</DialogDescription>
         </DialogHeader>
 
         <button
@@ -124,10 +121,10 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
           )}
           <span className="text-sm font-medium text-foreground">
             {isImporting
-              ? "Import en cours…"
+              ? t("students.importInProgress")
               : fileName
                 ? fileName
-                : "Cliquez pour choisir un fichier .xlsx"}
+                : t("students.importChooseFile")}
           </span>
         </button>
         <input
@@ -147,7 +144,7 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
             variant="secondary"
             onClick={() => onOpenChange(false)}
           >
-            Fermer
+            {t("common.close")}
           </Button>
         </DialogFooter>
       </DialogContent>

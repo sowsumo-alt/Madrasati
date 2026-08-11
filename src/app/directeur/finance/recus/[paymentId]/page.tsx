@@ -4,9 +4,10 @@ import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { formatMRU, formatDate } from "@/lib/format";
-import { PAYMENT_METHOD_LABELS } from "@/lib/roles";
 import { PrintButton } from "@/components/ui/print-button";
 import { GraduationCap } from "lucide-react";
+import { getTranslations } from "@/lib/i18n/server";
+import type { TranslationKey } from "@/lib/i18n/dictionaries";
 
 export default async function ReceiptPage({
   params,
@@ -33,11 +34,13 @@ export default async function ReceiptPage({
   if (!payment) notFound();
 
   const parent = payment.student.parentLinks[0]?.parent ?? null;
+  const { t } = await getTranslations();
+  const methodLabel = t(`finance.method.${payment.method}` as TranslationKey);
 
   return (
     <div className="mx-auto max-w-xl px-4 py-10">
       <div className="no-print mb-6 flex justify-end">
-        <PrintButton label="Imprimer le reçu" />
+        <PrintButton label={t("finance.printReceipt")} />
       </div>
 
       <div className="rounded-xl border border-border bg-surface p-8 shadow-sm print:border-0 print:shadow-none">
@@ -73,7 +76,7 @@ export default async function ReceiptPage({
           </div>
           <div className="text-right">
             <p className="text-xs font-medium uppercase tracking-wide text-foreground/40">
-              Reçu de paiement
+              {t("finance.receiptTitle")}
             </p>
             <p className="text-sm font-semibold text-foreground">
               {payment.receiptNumber}
@@ -87,18 +90,18 @@ export default async function ReceiptPage({
         <div className="grid grid-cols-2 gap-6 py-6">
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-foreground/40">
-              Élève
+              {t("finance.student")}
             </p>
             <p className="mt-1 text-sm font-medium text-foreground">
               {payment.student.firstName} {payment.student.lastName}
             </p>
             <p className="text-xs text-foreground/50">
-              {payment.student.classRoom?.name ?? "Sans classe"}
+              {payment.student.classRoom?.name ?? t("students.noClass")}
             </p>
           </div>
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-foreground/40">
-              Parent / tuteur
+              {t("students.parentSection")}
             </p>
             <p className="mt-1 text-sm font-medium text-foreground">
               {parent ? `${parent.firstName} ${parent.lastName}` : "—"}
@@ -117,14 +120,14 @@ export default async function ReceiptPage({
             </span>
           </div>
           <div className="mt-2 flex items-center justify-between text-xs text-foreground/50">
-            <span>Mode de paiement</span>
-            <span>{PAYMENT_METHOD_LABELS[payment.method] ?? payment.method}</span>
+            <span>{t("finance.method")}</span>
+            <span>{methodLabel}</span>
           </div>
         </div>
 
         <div className="mt-6 flex items-center justify-between border-t border-border pt-6">
           <span className="text-sm font-semibold text-foreground">
-            Montant payé
+            {t("finance.paidAmount")}
           </span>
           <span className="text-xl font-semibold text-primary-800">
             {formatMRU(payment.amount)}
@@ -132,7 +135,7 @@ export default async function ReceiptPage({
         </div>
 
         <p className="mt-8 text-center text-xs text-foreground/40">
-          Reçu généré par Madrasati — merci de votre confiance.
+          {t("finance.receiptFooter")}
         </p>
       </div>
     </div>

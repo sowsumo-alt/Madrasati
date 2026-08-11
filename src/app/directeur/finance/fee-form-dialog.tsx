@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/select";
 import { feeSchema, type FeeFormValues } from "./schema";
 import { createFee } from "./actions";
+import { useLanguage } from "@/lib/i18n/language-provider";
 
 export interface FeeStudentOption {
   id: string;
@@ -41,6 +42,7 @@ interface FeeFormDialogProps {
 
 export function FeeFormDialog({ open, onOpenChange, students }: FeeFormDialogProps) {
   const router = useRouter();
+  const { t } = useLanguage();
   const {
     register,
     handleSubmit,
@@ -60,11 +62,11 @@ export function FeeFormDialog({ open, onOpenChange, students }: FeeFormDialogPro
   async function onSubmit(values: FeeFormValues) {
     try {
       await createFee(values);
-      toast.success("Frais ajouté avec succès.");
+      toast.success(t("finance.feeAdded"));
       onOpenChange(false);
       router.refresh();
     } catch {
-      toast.error("Une erreur est survenue. Réessayez.");
+      toast.error(t("common.error"));
     }
   }
 
@@ -74,18 +76,18 @@ export function FeeFormDialog({ open, onOpenChange, students }: FeeFormDialogPro
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Nouveau frais</DialogTitle>
+          <DialogTitle>{t("finance.newFee")}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
           <div className="space-y-1.5">
-            <Label>Élève</Label>
+            <Label>{t("finance.student")}</Label>
             <Select
               value={studentId || undefined}
               onValueChange={(v) => setValue("studentId", v)}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Sélectionner un élève" />
+                <SelectValue placeholder={t("finance.selectStudent")} />
               </SelectTrigger>
               <SelectContent>
                 {students.map((s) => (
@@ -102,10 +104,10 @@ export function FeeFormDialog({ open, onOpenChange, students }: FeeFormDialogPro
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="label">Libellé</Label>
+            <Label htmlFor="label">{t("finance.label")}</Label>
             <Input
               id="label"
-              placeholder="Frais de scolarité — Trimestre 1"
+              placeholder={t("finance.labelPlaceholder")}
               {...register("label")}
             />
             {errors.label && (
@@ -115,14 +117,14 @@ export function FeeFormDialog({ open, onOpenChange, students }: FeeFormDialogPro
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="amount">Montant (MRU)</Label>
+              <Label htmlFor="amount">{t("finance.amountMru")}</Label>
               <Input id="amount" type="number" min={0} {...register("amount")} />
               {errors.amount && (
                 <p className="text-xs text-danger">{errors.amount.message}</p>
               )}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="dueDate">Échéance</Label>
+              <Label htmlFor="dueDate">{t("finance.dueDate")}</Label>
               <Input id="dueDate" type="date" {...register("dueDate")} />
               {errors.dueDate && (
                 <p className="text-xs text-danger">{errors.dueDate.message}</p>
@@ -136,11 +138,11 @@ export function FeeFormDialog({ open, onOpenChange, students }: FeeFormDialogPro
               variant="secondary"
               onClick={() => onOpenChange(false)}
             >
-              Annuler
+              {t("common.cancel")}
             </Button>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              Enregistrer
+              {t("common.save")}
             </Button>
           </DialogFooter>
         </form>

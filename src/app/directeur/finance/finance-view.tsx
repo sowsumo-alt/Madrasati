@@ -19,6 +19,8 @@ import { formatMRU, formatDate } from "@/lib/format";
 import { buildWhatsAppUrl, fillTemplate } from "@/lib/whatsapp";
 import { FeeFormDialog, type FeeStudentOption } from "./fee-form-dialog";
 import { PaymentDialog } from "./payment-dialog";
+import { useLanguage } from "@/lib/i18n/language-provider";
+import type { TranslationKey } from "@/lib/i18n/dictionaries";
 
 export interface FeeRow {
   id: string;
@@ -32,11 +34,11 @@ export interface FeeRow {
   payments: { id: string; receiptNumber: string }[];
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  PENDING: "En attente",
-  PARTIAL: "Partiel",
-  PAID: "Payé",
-  OVERDUE: "Impayé",
+const STATUS_KEYS: Record<string, TranslationKey> = {
+  PENDING: "finance.status.PENDING",
+  PARTIAL: "finance.status.PARTIAL",
+  PAID: "finance.status.PAID",
+  OVERDUE: "finance.status.OVERDUE",
 };
 
 const STATUS_VARIANT: Record<string, BadgeProps["variant"]> = {
@@ -66,6 +68,7 @@ export function FinanceView({
   schoolName: string;
   reminderTemplate: string;
 }) {
+  const { t } = useLanguage();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>("ALL");
   const [feeFormOpen, setFeeFormOpen] = useState(false);
@@ -100,26 +103,24 @@ export function FinanceView({
     <div className="space-y-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-foreground">Finance</h1>
-          <p className="mt-1 text-sm text-foreground/60">
-            Suivez les frais de scolarité et les paiements.
-          </p>
+          <h1 className="text-xl font-semibold text-foreground">{t("finance.title")}</h1>
+          <p className="mt-1 text-sm text-foreground/60">{t("finance.subtitle")}</p>
         </div>
         <Button onClick={() => setFeeFormOpen(true)}>
           <Plus className="h-4 w-4" />
-          Nouveau frais
+          {t("finance.newFee")}
         </Button>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <StatTile
-          label="Total encaissé"
+          label={t("finance.totalCollected")}
           value={formatMRU(totalCollected)}
           icon={Wallet}
           tone="primary"
         />
         <StatTile
-          label="Total impayé"
+          label={t("finance.totalOutstanding")}
           value={formatMRU(totalOutstanding)}
           icon={AlertCircle}
           tone="warning"
@@ -132,7 +133,7 @@ export function FinanceView({
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Rechercher un élève ou un frais…"
+            placeholder={t("finance.searchPlaceholder")}
             className="pl-9"
           />
         </div>
@@ -147,7 +148,7 @@ export function FinanceView({
                   : "bg-surface-muted text-foreground/60 hover:text-foreground"
               }`}
             >
-              {s === "ALL" ? "Tous" : STATUS_LABELS[s]}
+              {s === "ALL" ? t("common.all") : t(STATUS_KEYS[s])}
             </button>
           ))}
         </div>
@@ -156,21 +157,19 @@ export function FinanceView({
       <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
         {filtered.length === 0 ? (
           <div className="px-5 py-16 text-center text-sm text-foreground/50">
-            {fees.length === 0
-              ? "Aucun frais pour l'instant. Ajoutez le premier frais de scolarité."
-              : "Aucun frais ne correspond à votre recherche."}
+            {fees.length === 0 ? t("finance.emptyList") : t("finance.noMatch")}
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-surface-muted/60 text-left text-xs font-medium uppercase tracking-wide text-foreground/50">
-                  <th className="px-5 py-3">Élève</th>
-                  <th className="px-5 py-3">Libellé</th>
-                  <th className="px-5 py-3">Montant</th>
-                  <th className="px-5 py-3">Échéance</th>
-                  <th className="px-5 py-3">Statut</th>
-                  <th className="px-5 py-3 text-right">Actions</th>
+                  <th className="px-5 py-3">{t("finance.student")}</th>
+                  <th className="px-5 py-3">{t("finance.label")}</th>
+                  <th className="px-5 py-3">{t("finance.amount")}</th>
+                  <th className="px-5 py-3">{t("finance.dueDate")}</th>
+                  <th className="px-5 py-3">{t("finance.status")}</th>
+                  <th className="px-5 py-3 text-right">{t("common.actions")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -206,7 +205,7 @@ export function FinanceView({
                       </td>
                       <td className="px-5 py-3">
                         <Badge variant={STATUS_VARIANT[status]}>
-                          {STATUS_LABELS[status]}
+                          {t(STATUS_KEYS[status])}
                         </Badge>
                       </td>
                       <td className="px-5 py-3">
@@ -216,7 +215,7 @@ export function FinanceView({
                               href={buildWhatsAppUrl(f.parent.phone, reminderMessage)}
                               target="_blank"
                               rel="noopener noreferrer"
-                              title="Envoyer un rappel WhatsApp"
+                              title={t("finance.sendReminder")}
                               className="flex h-8 w-8 items-center justify-center rounded-lg text-primary-700 transition-colors hover:bg-primary-50"
                             >
                               <MessageCircle className="h-4 w-4" />
@@ -224,7 +223,7 @@ export function FinanceView({
                           )}
                           {status !== "PAID" && (
                             <button
-                              title="Enregistrer un paiement"
+                              title={t("finance.recordPayment")}
                               onClick={() =>
                                 setPaymentTarget({
                                   feeId: f.id,
@@ -242,7 +241,7 @@ export function FinanceView({
                             <Link
                               href={`/directeur/finance/recus/${lastReceipt.id}`}
                               target="_blank"
-                              title="Voir le reçu"
+                              title={t("finance.viewReceipt")}
                               className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground/60 transition-colors hover:bg-surface-muted"
                             >
                               <Receipt className="h-4 w-4" />

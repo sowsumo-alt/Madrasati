@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -26,6 +27,7 @@ import {
 import { ImagePicker } from "@/components/ui/image-picker";
 import { studentSchema, type StudentFormValues } from "./schema";
 import { createStudent, updateStudent } from "./actions";
+import { useLanguage } from "@/lib/i18n/language-provider";
 
 export interface StudentClassOption {
   id: string;
@@ -73,6 +75,7 @@ export function StudentFormDialog({
   editTarget,
 }: StudentFormDialogProps) {
   const router = useRouter();
+  const { t } = useLanguage();
   const isEdit = Boolean(editTarget);
   const {
     register,
@@ -111,15 +114,15 @@ export function StudentFormDialog({
     try {
       if (isEdit && editTarget) {
         await updateStudent(editTarget.id, values);
-        toast.success("Élève modifié avec succès.");
+        toast.success(t("students.updatedSuccess"));
       } else {
         await createStudent(values);
-        toast.success("Élève ajouté avec succès.");
+        toast.success(t("students.createdSuccess"));
       }
       onOpenChange(false);
       router.refresh();
     } catch {
-      toast.error("Une erreur est survenue. Réessayez.");
+      toast.error(t("common.error"));
     }
   }
 
@@ -132,33 +135,36 @@ export function StudentFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Modifier l'élève" : "Nouvel élève"}</DialogTitle>
+          <DialogTitle>{isEdit ? t("students.edit") : t("students.new")}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
           <div className="space-y-1.5">
             <Label>
-              Photo <span className="font-normal text-foreground/40">(optionnel)</span>
+              {t("students.photo")}{" "}
+              <span className="font-normal text-foreground/40">
+                ({t("common.optional")})
+              </span>
             </Label>
             <ImagePicker
               value={photoUrl}
               onChange={(v) => setValue("photoUrl", v, { shouldDirty: true })}
               maxSize={240}
               shape="circle"
-              label="Choisir une photo"
+              label={t("students.choosePhoto")}
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="firstName">Prénom</Label>
+              <Label htmlFor="firstName">{t("students.firstName")}</Label>
               <Input id="firstName" {...register("firstName")} />
               {errors.firstName && (
                 <p className="text-xs text-danger">{errors.firstName.message}</p>
               )}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="lastName">Nom de famille</Label>
+              <Label htmlFor="lastName">{t("students.lastName")}</Label>
               <Input id="lastName" {...register("lastName")} />
               {errors.lastName && (
                 <p className="text-xs text-danger">{errors.lastName.message}</p>
@@ -168,21 +174,21 @@ export function StudentFormDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="dateOfBirth">Date de naissance</Label>
-              <Input id="dateOfBirth" type="date" {...register("dateOfBirth")} />
+              <Label htmlFor="dateOfBirth">{t("students.dateOfBirth")}</Label>
+              <DateInput id="dateOfBirth" {...register("dateOfBirth")} />
             </div>
             <div className="space-y-1.5">
-              <Label>Genre</Label>
+              <Label>{t("students.gender")}</Label>
               <Select
                 value={gender || undefined}
                 onValueChange={(v) => setValue("gender", v as "M" | "F")}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner" />
+                  <SelectValue placeholder={t("students.selectPlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="M">Masculin</SelectItem>
-                  <SelectItem value="F">Féminin</SelectItem>
+                  <SelectItem value="M">{t("students.gender.M")}</SelectItem>
+                  <SelectItem value="F">{t("students.gender.F")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -190,16 +196,16 @@ export function StudentFormDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Classe</Label>
+              <Label>{t("students.class")}</Label>
               <Select
                 value={classId || "none"}
                 onValueChange={(v) => setValue("classId", v === "none" ? "" : v)}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Sans classe" />
+                  <SelectValue placeholder={t("students.noClass")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Sans classe</SelectItem>
+                  <SelectItem value="none">{t("students.noClass")}</SelectItem>
                   {classes.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.name}
@@ -209,7 +215,7 @@ export function StudentFormDialog({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Statut</Label>
+              <Label>{t("students.status")}</Label>
               <Select
                 value={status}
                 onValueChange={(v) =>
@@ -220,10 +226,12 @@ export function StudentFormDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ACTIVE">Actif</SelectItem>
-                  <SelectItem value="INACTIVE">Inactif</SelectItem>
-                  <SelectItem value="TRANSFERRED">Transféré</SelectItem>
-                  <SelectItem value="GRADUATED">Diplômé</SelectItem>
+                  <SelectItem value="ACTIVE">{t("students.status.ACTIVE")}</SelectItem>
+                  <SelectItem value="INACTIVE">{t("students.status.INACTIVE")}</SelectItem>
+                  <SelectItem value="TRANSFERRED">
+                    {t("students.status.TRANSFERRED")}
+                  </SelectItem>
+                  <SelectItem value="GRADUATED">{t("students.status.GRADUATED")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -231,20 +239,23 @@ export function StudentFormDialog({
 
           <div className="border-t border-border pt-4">
             <p className="mb-3 text-sm font-medium text-foreground/80">
-              Parent / tuteur <span className="font-normal text-foreground/40">(optionnel)</span>
+              {t("students.parentSection")}{" "}
+              <span className="font-normal text-foreground/40">
+                ({t("common.optional")})
+              </span>
             </p>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="parentFirstName">Prénom</Label>
+                <Label htmlFor="parentFirstName">{t("students.firstName")}</Label>
                 <Input id="parentFirstName" {...register("parentFirstName")} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="parentLastName">Nom</Label>
+                <Label htmlFor="parentLastName">{t("students.lastName")}</Label>
                 <Input id="parentLastName" {...register("parentLastName")} />
               </div>
             </div>
             <div className="mt-3 space-y-1.5">
-              <Label htmlFor="parentPhone">Téléphone (WhatsApp)</Label>
+              <Label htmlFor="parentPhone">{t("students.parentPhone")}</Label>
               <Input
                 id="parentPhone"
                 placeholder="+222 XX XX XX XX"
@@ -259,11 +270,11 @@ export function StudentFormDialog({
               variant="secondary"
               onClick={() => onOpenChange(false)}
             >
-              Annuler
+              {t("common.cancel")}
             </Button>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              Enregistrer
+              {t("common.save")}
             </Button>
           </DialogFooter>
         </form>

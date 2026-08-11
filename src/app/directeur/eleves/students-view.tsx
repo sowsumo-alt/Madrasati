@@ -33,6 +33,8 @@ import { ImportDialog } from "./import-dialog";
 import { setStudentStatus } from "./actions";
 import { buildWhatsAppUrl, buildTelUrl } from "@/lib/whatsapp";
 import { useRouter } from "next/navigation";
+import { useLanguage } from "@/lib/i18n/language-provider";
+import type { TranslationKey } from "@/lib/i18n/dictionaries";
 
 export interface StudentRow {
   id: string;
@@ -47,11 +49,11 @@ export interface StudentRow {
   parent: { firstName: string; lastName: string; phone: string } | null;
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  ACTIVE: "Actif",
-  INACTIVE: "Inactif",
-  TRANSFERRED: "Transféré",
-  GRADUATED: "Diplômé",
+const STATUS_KEYS: Record<string, TranslationKey> = {
+  ACTIVE: "students.status.ACTIVE",
+  INACTIVE: "students.status.INACTIVE",
+  TRANSFERRED: "students.status.TRANSFERRED",
+  GRADUATED: "students.status.GRADUATED",
 };
 
 const STATUS_VARIANT: Record<string, BadgeProps["variant"]> = {
@@ -76,6 +78,7 @@ export function StudentsView({
   initialQuery?: string;
 }) {
   const router = useRouter();
+  const { t } = useLanguage();
   const [query, setQuery] = useState(initialQuery);
   const [statusFilter, setStatusFilter] =
     useState<(typeof STATUS_FILTERS)[number]>("ALL");
@@ -126,14 +129,12 @@ export function StudentsView({
       const nextStatus = confirmTarget.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
       await setStudentStatus(confirmTarget.id, nextStatus);
       toast.success(
-        nextStatus === "INACTIVE"
-          ? "Élève retiré de l'école."
-          : "Élève réactivé.",
+        nextStatus === "INACTIVE" ? t("students.removed") : t("students.reactivated"),
       );
       setConfirmTarget(null);
       router.refresh();
     } catch {
-      toast.error("Une erreur est survenue.");
+      toast.error(t("common.error"));
     } finally {
       setConfirmLoading(false);
     }
@@ -143,19 +144,17 @@ export function StudentsView({
     <div className="space-y-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-foreground">Élèves</h1>
-          <p className="mt-1 text-sm text-foreground/60">
-            Gérez le dossier de chaque élève de l&apos;école.
-          </p>
+          <h1 className="text-xl font-semibold text-foreground">{t("students.title")}</h1>
+          <p className="mt-1 text-sm text-foreground/60">{t("students.subtitle")}</p>
         </div>
         <div className="flex gap-2">
           <Button variant="secondary" onClick={() => setImportOpen(true)}>
             <Upload className="h-4 w-4" />
-            Importer Excel
+            {t("students.importExcel")}
           </Button>
           <Button onClick={openCreate}>
             <Plus className="h-4 w-4" />
-            Nouvel élève
+            {t("students.new")}
           </Button>
         </div>
       </div>
@@ -166,7 +165,7 @@ export function StudentsView({
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Rechercher un élève ou une classe…"
+            placeholder={t("students.searchPlaceholder")}
             className="pl-9"
           />
         </div>
@@ -181,7 +180,7 @@ export function StudentsView({
                   : "bg-surface-muted text-foreground/60 hover:text-foreground"
               }`}
             >
-              {s === "ALL" ? "Tous" : STATUS_LABELS[s]}
+              {s === "ALL" ? t("common.all") : t(STATUS_KEYS[s])}
             </button>
           ))}
         </div>
@@ -190,20 +189,18 @@ export function StudentsView({
       <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
         {filtered.length === 0 ? (
           <div className="px-5 py-16 text-center text-sm text-foreground/50">
-            {students.length === 0
-              ? "Aucun élève pour l'instant. Ajoutez votre premier élève."
-              : "Aucun élève ne correspond à votre recherche."}
+            {students.length === 0 ? t("students.emptyList") : t("students.noMatch")}
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-surface-muted/60 text-left text-xs font-medium uppercase tracking-wide text-foreground/50">
-                  <th className="px-5 py-3">Nom</th>
-                  <th className="px-5 py-3">Classe</th>
-                  <th className="px-5 py-3">Parent</th>
-                  <th className="px-5 py-3">Statut</th>
-                  <th className="px-5 py-3 text-right">Actions</th>
+                  <th className="px-5 py-3">{t("students.name")}</th>
+                  <th className="px-5 py-3">{t("students.class")}</th>
+                  <th className="px-5 py-3">{t("students.parent")}</th>
+                  <th className="px-5 py-3">{t("students.status")}</th>
+                  <th className="px-5 py-3 text-right">{t("common.actions")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -232,19 +229,23 @@ export function StudentsView({
                       </td>
                       <td className="px-5 py-3 text-foreground/70">
                         {s.className ?? (
-                          <span className="text-foreground/40">Sans classe</span>
+                          <span className="text-foreground/40">
+                            {t("students.noClass")}
+                          </span>
                         )}
                       </td>
                       <td className="px-5 py-3 text-foreground/70">
                         {s.parent ? (
                           `${s.parent.firstName} ${s.parent.lastName}`
                         ) : (
-                          <span className="text-foreground/40">Aucun parent lié</span>
+                          <span className="text-foreground/40">
+                            {t("students.noParent")}
+                          </span>
                         )}
                       </td>
                       <td className="px-5 py-3">
                         <Badge variant={STATUS_VARIANT[s.status]}>
-                          {STATUS_LABELS[s.status] ?? s.status}
+                          {STATUS_KEYS[s.status] ? t(STATUS_KEYS[s.status]) : s.status}
                         </Badge>
                       </td>
                       <td className="px-5 py-3">
@@ -255,14 +256,14 @@ export function StudentsView({
                                 href={buildWhatsAppUrl(s.parent.phone, waMessage)}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                title="Contacter sur WhatsApp"
+                                title={t("students.contactWhatsapp")}
                                 className="flex h-8 w-8 items-center justify-center rounded-lg text-primary-700 transition-colors hover:bg-primary-50"
                               >
                                 <MessageCircle className="h-4 w-4" />
                               </a>
                               <a
                                 href={buildTelUrl(s.parent.phone)}
-                                title="Appeler le parent"
+                                title={t("students.callParent")}
                                 className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground/60 transition-colors hover:bg-surface-muted"
                               >
                                 <Phone className="h-4 w-4" />
@@ -278,7 +279,7 @@ export function StudentsView({
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem onClick={() => openEdit(s)}>
                                 <Pencil className="h-4 w-4" />
-                                Modifier
+                                {t("common.edit")}
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 onClick={() => setConfirmTarget(s)}
@@ -289,12 +290,12 @@ export function StudentsView({
                                 {s.status === "ACTIVE" ? (
                                   <>
                                     <UserX className="h-4 w-4" />
-                                    Retirer
+                                    {t("students.remove")}
                                   </>
                                 ) : (
                                   <>
                                     <UserCheck className="h-4 w-4" />
-                                    Réactiver
+                                    {t("students.reactivate")}
                                   </>
                                 )}
                               </DropdownMenuItem>
@@ -323,15 +324,17 @@ export function StudentsView({
         onOpenChange={(open) => !open && setConfirmTarget(null)}
         title={
           confirmTarget?.status === "ACTIVE"
-            ? "Retirer cet élève de l'école ?"
-            : "Réactiver cet élève ?"
+            ? t("students.deleteConfirm")
+            : t("students.reactivateConfirm")
         }
         description={
           confirmTarget?.status === "ACTIVE"
-            ? "L'élève sera marqué comme inactif. Son historique (notes, présences, paiements) sera conservé."
-            : "L'élève redeviendra actif dans l'école."
+            ? t("students.deleteConfirmBody")
+            : t("students.reactivateBody")
         }
-        confirmLabel={confirmTarget?.status === "ACTIVE" ? "Retirer" : "Réactiver"}
+        confirmLabel={
+          confirmTarget?.status === "ACTIVE" ? t("students.remove") : t("students.reactivate")
+        }
         variant={confirmTarget?.status === "ACTIVE" ? "danger" : "primary"}
         loading={confirmLoading}
         onConfirm={handleConfirmToggle}

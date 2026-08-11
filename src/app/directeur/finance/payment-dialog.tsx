@@ -27,7 +27,9 @@ import {
 import { paymentSchema, type PaymentFormValues } from "./schema";
 import { recordPayment } from "./actions";
 import { formatMRU } from "@/lib/format";
-import { PAYMENT_METHOD_LABELS } from "@/lib/roles";
+import { useLanguage } from "@/lib/i18n/language-provider";
+
+const PAYMENT_METHODS = ["CASH", "BANK_TRANSFER", "MASRVI", "SEDAD"] as const;
 
 interface PaymentDialogTarget {
   feeId: string;
@@ -43,6 +45,7 @@ interface PaymentDialogProps {
 
 export function PaymentDialog({ target, onOpenChange }: PaymentDialogProps) {
   const router = useRouter();
+  const { t } = useLanguage();
   const {
     register,
     handleSubmit,
@@ -65,12 +68,12 @@ export function PaymentDialog({ target, onOpenChange }: PaymentDialogProps) {
     if (!target) return;
     try {
       const result = await recordPayment(target.feeId, values);
-      toast.success("Paiement enregistré.");
+      toast.success(t("finance.paymentSaved"));
       onOpenChange(false);
       router.refresh();
       window.open(`/directeur/finance/recus/${result.paymentId}`, "_blank");
     } catch {
-      toast.error("Une erreur est survenue. Réessayez.");
+      toast.error(t("common.error"));
     }
   }
 
@@ -80,10 +83,10 @@ export function PaymentDialog({ target, onOpenChange }: PaymentDialogProps) {
     <Dialog open={Boolean(target)} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Enregistrer un paiement</DialogTitle>
+          <DialogTitle>{t("finance.recordPaymentTitle")}</DialogTitle>
           {target && (
             <DialogDescription>
-              {target.studentName} — {target.label} · Restant dû :{" "}
+              {target.studentName} — {target.label} · {t("finance.remaining")}:{" "}
               {formatMRU(target.remaining)}
             </DialogDescription>
           )}
@@ -92,14 +95,14 @@ export function PaymentDialog({ target, onOpenChange }: PaymentDialogProps) {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="amount">Montant payé (MRU)</Label>
+              <Label htmlFor="amount">{t("finance.paidAmountMru")}</Label>
               <Input id="amount" type="number" min={0} {...register("amount")} />
               {errors.amount && (
                 <p className="text-xs text-danger">{errors.amount.message}</p>
               )}
             </div>
             <div className="space-y-1.5">
-              <Label>Mode de paiement</Label>
+              <Label>{t("finance.method")}</Label>
               <Select
                 value={method}
                 onValueChange={(v) =>
@@ -110,9 +113,9 @@ export function PaymentDialog({ target, onOpenChange }: PaymentDialogProps) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => (
+                  {PAYMENT_METHODS.map((value) => (
                     <SelectItem key={value} value={value}>
-                      {label}
+                      {t(`finance.method.${value}` as const)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -122,18 +125,21 @@ export function PaymentDialog({ target, onOpenChange }: PaymentDialogProps) {
 
           <div className="space-y-1.5">
             <Label htmlFor="note">
-              Note <span className="font-normal text-foreground/40">(optionnel)</span>
+              {t("finance.note")}{" "}
+              <span className="font-normal text-foreground/40">
+                ({t("common.optional")})
+              </span>
             </Label>
             <Input id="note" {...register("note")} />
           </div>
 
           <DialogFooter>
             <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
-              Annuler
+              {t("common.cancel")}
             </Button>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              Enregistrer le paiement
+              {t("finance.recordPayment")}
             </Button>
           </DialogFooter>
         </form>
