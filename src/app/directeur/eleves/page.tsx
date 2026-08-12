@@ -6,10 +6,10 @@ import { StudentsView, type StudentRow } from "./students-view";
 export default async function StudentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; new?: string }>;
 }) {
   const user = await requireRole(ROLES.DIRECTOR);
-  const { q } = await searchParams;
+  const { q, new: openNew } = await searchParams;
 
   const [students, classes, school] = await Promise.all([
     prisma.student.findMany({
@@ -63,6 +63,7 @@ export default async function StudentsPage({
       classes={classes}
       schoolName={school?.name ?? "Madrasati"}
       initialQuery={q ?? ""}
+      autoOpenNew={openNew === "1"}
     />
   );
 }

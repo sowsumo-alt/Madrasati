@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
 import {
@@ -70,12 +70,15 @@ export function StudentsView({
   classes,
   schoolName,
   initialQuery = "",
+  autoOpenNew = false,
 }: {
   students: StudentRow[];
   classes: StudentClassOption[];
   schoolName: string;
   /** Terme envoyé par la recherche globale de l'en-tête (?q=…). */
   initialQuery?: string;
+  /** Ouvre directement le formulaire d'inscription (?new=1), depuis le menu "Inscription". */
+  autoOpenNew?: boolean;
 }) {
   const router = useRouter();
   const { t } = useLanguage();
@@ -87,6 +90,15 @@ export function StudentsView({
   const [editTarget, setEditTarget] = useState<StudentEditTarget | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<StudentRow | null>(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
+
+  useEffect(() => {
+    if (autoOpenNew) {
+      setEditTarget(null);
+      setFormOpen(true);
+      router.replace("/directeur/eleves");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpenNew]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();

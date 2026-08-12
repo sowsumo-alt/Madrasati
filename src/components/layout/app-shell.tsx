@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { Logo } from "@/components/brand/logo";
 import { LanguageToggle } from "./language-toggle";
-import { navItemsByRole, type NavKey } from "./nav-items";
+import { navGroupsByRole, type NavKey } from "./nav-items";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -41,7 +41,7 @@ export function AppShell({
   const { t } = useLanguage();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const navItems = navItemsByRole[navKey];
+  const navGroups = navGroupsByRole[navKey];
 
   function onSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -52,32 +52,41 @@ export function AppShell({
 
   const navContent = (
     <>
-      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-        {navItems.map((item) => {
-          const active =
-            pathname === item.href ||
-            (item.href !== "/directeur" &&
-              item.href !== "/enseignant" &&
-              item.href !== "/parent" &&
-              pathname.startsWith(item.href));
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={() => setMobileOpen(false)}
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
-                active
-                  ? "bg-primary-600 font-semibold text-white shadow-sm"
-                  : "font-medium text-white/70 hover:bg-white/10 hover:text-white",
-              )}
-            >
-              <Icon className="h-4.5 w-4.5 shrink-0" strokeWidth={2} />
-              {t(item.labelKey)}
-            </Link>
-          );
-        })}
+      <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-4">
+        {navGroups.map((group, groupIndex) => (
+          <div key={group.labelKey ?? `group-${groupIndex}`} className="space-y-1">
+            {group.labelKey && (
+              <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-white/40">
+                {t(group.labelKey)}
+              </p>
+            )}
+            {group.items.map((item) => {
+              const active =
+                pathname === item.href ||
+                (item.href !== "/directeur" &&
+                  item.href !== "/enseignant" &&
+                  item.href !== "/parent" &&
+                  pathname.startsWith(item.href));
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMobileOpen(false)}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
+                    active
+                      ? "bg-primary-600 font-semibold text-white shadow-sm"
+                      : "font-medium text-white/70 hover:bg-white/10 hover:text-white",
+                  )}
+                >
+                  <Icon className="h-4.5 w-4.5 shrink-0" strokeWidth={2} />
+                  {t(item.labelKey)}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </nav>
       <div className="border-t border-white/10 px-3 py-3">
         <p className="truncate px-3 pb-2 text-xs text-white/50" title={schoolName}>
