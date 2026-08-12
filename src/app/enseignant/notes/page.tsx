@@ -10,7 +10,7 @@ export default async function TeacherGradesPage() {
   const scope = await getTeacherScope(user.id, user.schoolId);
   const classIds = scope?.classIds ?? [];
 
-  const [exams, classes, students] = await Promise.all([
+  const [exams, classes, students, school] = await Promise.all([
     prisma.exam.findMany({
       where: { schoolId: user.schoolId, classId: { in: classIds } },
       orderBy: { date: "desc" },
@@ -30,8 +30,19 @@ export default async function TeacherGradesPage() {
     prisma.student.findMany({
       where: { schoolId: user.schoolId, classId: { in: classIds }, status: "ACTIVE" },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-      select: { id: true, firstName: true, lastName: true, classId: true },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        classId: true,
+        parentLinks: {
+          where: { isPrimary: true },
+          include: { parent: { select: { firstName: true, lastName: true, phone: true } } },
+          take: 1,
+        },
+      },
     }),
+    prisma.school.findUnique({ where: { id: user.schoolId }, select: { name: true } }),
   ]);
 
   const examRows: ExamRow[] = exams.map((e) => {
@@ -59,12 +70,15 @@ export default async function TeacherGradesPage() {
       average,
       students: classStudents.map((s) => {
         const grade = gradeByStudent.get(s.id);
+        const parent = s.parentLinks[0]?.parent;
         return {
           id: s.id,
           firstName: s.firstName,
           lastName: s.lastName,
           score: grade?.score ?? null,
           isAbsent: grade?.isAbsent ?? false,
+          parentName: parent ? `${parent.firstName} ${parent.lastName}` : null,
+          parentPhone: parent?.phone ?? null,
         };
       }),
     };
@@ -76,5 +90,12 @@ export default async function TeacherGradesPage() {
     subjects: c.classSubjects.map((cs) => ({ id: cs.subject.id, name: cs.subject.name })),
   }));
 
-  return <ExamsView exams={examRows} classes={classOptions} canManageExams={false} />;
+  return (
+    <ExamsView
+      exams={examRows}
+      classes={classOptions}
+      canManageExams={false}
+      schoolName={school?.name ?? "Madrasati"}
+    />
+  );
 }

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, MessageCircle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { rankOf } from "@/lib/report-card";
+import { buildWhatsAppUrl } from "@/lib/whatsapp";
 import { saveGrades } from "./actions";
 
 export interface GradesDialogStudent {
@@ -22,6 +24,8 @@ export interface GradesDialogStudent {
   lastName: string;
   score: number | null;
   isAbsent: boolean;
+  parentName?: string | null;
+  parentPhone?: string | null;
 }
 
 export interface GradesDialogTarget {
@@ -33,16 +37,44 @@ export interface GradesDialogTarget {
   students: GradesDialogStudent[];
 }
 
+/** Message bilingue (français puis arabe) envoyé au parent sur WhatsApp. */
+function buildGradeMessage(params: {
+  parentName: string;
+  studentName: string;
+  score: number;
+  maxScore: number;
+  subjectName: string;
+  examTitle: string;
+  schoolName: string;
+  rank: number | null;
+  total: number;
+}) {
+  const { parentName, studentName, score, maxScore, subjectName, examTitle, schoolName, rank, total } =
+    params;
+  const rankFr = rank != null ? ` Rang : ${rank} sur ${total}.` : "";
+  const rankAr = rank != null ? ` الترتيب: ${rank} من ${total}.` : "";
+
+  return (
+    `Bonjour ${parentName}, ${studentName} a obtenu ${score}/${maxScore} en ${subjectName} ` +
+    `(${examTitle}).${rankFr} École ${schoolName}.\n\n` +
+    `مرحباً ${parentName}، حصل ${studentName} على ${score}/${maxScore} في مادة ${subjectName} ` +
+    `(${examTitle}).${rankAr} مدرسة ${schoolName}.`
+  );
+}
+
 export function GradesDialog({
   target,
+  schoolName,
   onOpenChange,
 }: {
   target: GradesDialogTarget | null;
+  schoolName: string;
   onOpenChange: (open: boolean) => void;
 }) {
   const router = useRouter();
   const [entries, setEntries] = useState<Record<string, { score: string; isAbsent: boolean }>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     if (!target) return;
@@ -54,6 +86,7 @@ export function GradesDialog({
       };
     }
     setEntries(next);
+    setSaved(false);
   }, [target]);
 
   const scored = Object.values(entries)
@@ -64,6 +97,14 @@ export function GradesDialog({
     scored.length > 0
       ? (scored.reduce((sum, n) => sum + n, 0) / scored.length).toFixed(2)
       : null;
+
+  function rankFor(studentId: string) {
+    const entry = entries[studentId];
+    if (!entry || entry.isAbsent || entry.score === "") return null;
+    const score = Number(entry.score);
+    if (Number.isNaN(score)) return null;
+    return rankOf(score, scored);
+  }
 
   async function handleSave() {
     if (!target) return;
@@ -78,7 +119,7 @@ export function GradesDialog({
         })),
       );
       toast.success("Notes enregistrées.");
-      onOpenChange(false);
+      setSaved(true);
       router.refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Une erreur est survenue.");
@@ -103,6 +144,26 @@ export function GradesDialog({
         <div className="max-h-80 space-y-1 overflow-y-auto">
           {target?.students.map((s) => {
             const entry = entries[s.id] ?? { score: "", isAbsent: false };
+            const rank = rankFor(s.id);
+            const canNotify =
+              saved && !entry.isAbsent && entry.score !== "" && Boolean(s.parentPhone);
+            const whatsappUrl = canNotify
+              ? buildWhatsAppUrl(
+                  s.parentPhone as string,
+                  buildGradeMessage({
+                    parentName: s.parentName ?? "",
+                    studentName: `${s.firstName} ${s.lastName}`,
+                    score: Number(entry.score),
+                    maxScore: target!.maxScore,
+                    subjectName: target!.subjectName,
+                    examTitle: target!.title,
+                    schoolName,
+                    rank,
+                    total: scored.length,
+                  }),
+                )
+              : null;
+
             return (
               <div
                 key={s.id}
@@ -110,6 +171,11 @@ export function GradesDialog({
               >
                 <span className="flex-1 text-sm text-foreground">
                   {s.firstName} {s.lastName}
+                  {rank != null && (
+                    <span className="ml-2 text-xs font-medium text-primary-600">
+                      #{rank}
+                    </span>
+                  )}
                 </span>
                 <label className="flex cursor-pointer items-center gap-1.5 text-xs text-foreground/60">
                   <input
@@ -128,7 +194,7 @@ export function GradesDialog({
                 <Input
                   type="number"
                   min={0}
-                  max={target.maxScore}
+                  max={target?.maxScore}
                   step="0.25"
                   value={entry.score}
                   disabled={entry.isAbsent}
@@ -140,6 +206,19 @@ export function GradesDialog({
                   }
                   className="w-24"
                 />
+                {whatsappUrl ? (
+                  <a
+                    href={whatsappUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Alerter le parent sur WhatsApp"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-primary-700 transition-colors hover:bg-primary-50"
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                  </a>
+                ) : (
+                  <span className="w-8 shrink-0" />
+                )}
               </div>
             );
           })}
@@ -153,10 +232,17 @@ export function GradesDialog({
             </span>
           </p>
         )}
+        {saved && (
+          <p className="text-xs text-foreground/50">
+            Notes enregistrées — cliquez sur{" "}
+            <MessageCircle className="inline h-3.5 w-3.5 text-primary-600" /> pour prévenir un
+            parent sur WhatsApp.
+          </p>
+        )}
 
         <DialogFooter>
           <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
-            Annuler
+            {saved ? "Fermer" : "Annuler"}
           </Button>
           <Button type="button" onClick={handleSave} disabled={isSaving}>
             {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
