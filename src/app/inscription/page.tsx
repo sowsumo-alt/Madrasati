@@ -2,7 +2,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { Logo } from "@/components/brand/logo";
-import { PlanEstimate } from "@/components/marketing/plan-estimate";
 import { SignupForm } from "./signup-form";
 
 export default async function SignupPage() {
@@ -27,7 +26,7 @@ export default async function SignupPage() {
         }}
       />
 
-      <div className="animate-fade-up relative w-full max-w-4xl">
+      <div className="animate-fade-up relative w-full max-w-md">
         <div className="flex flex-col items-center text-center">
           <Logo className="h-16 w-16" />
           <h1 className="mt-2 text-2xl font-bold tracking-tight text-white sm:text-3xl">
@@ -40,23 +39,17 @@ export default async function SignupPage() {
           </p>
         </div>
 
-        <div className="mt-8 grid gap-5 lg:grid-cols-[minmax(0,20rem)_1fr] lg:items-start">
-          <div className="animate-fade-up" style={{ animationDelay: "80ms" }}>
-            <PlanEstimate />
-          </div>
-
-          <div
-            className="animate-fade-up rounded-2xl bg-surface p-6 shadow-2xl sm:p-8"
-            style={{ animationDelay: "140ms" }}
-          >
-            <SignupForm />
-            <p className="mt-6 text-center text-sm text-foreground/55">
-              Vous avez déjà un compte ?{" "}
-              <Link href="/login" className="font-medium text-primary-600 hover:underline">
-                Se connecter
-              </Link>
-            </p>
-          </div>
+        <div
+          className="animate-fade-up mt-8 rounded-2xl bg-surface p-6 shadow-2xl sm:p-8"
+          style={{ animationDelay: "80ms" }}
+        >
+          <SignupForm />
+          <p className="mt-6 text-center text-sm text-foreground/55">
+            Vous avez déjà un compte ?{" "}
+            <Link href="/login" className="font-medium text-primary-600 hover:underline">
+              Se connecter
+            </Link>
+          </p>
         </div>
       </div>
 

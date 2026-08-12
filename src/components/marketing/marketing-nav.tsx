@@ -9,7 +9,6 @@ import { Logo } from "@/components/brand/logo";
 const LINKS = [
   { href: "#modules", label: "Fonctionnalités" },
   { href: "#mauritanie", label: "Pourquoi Madrasati" },
-  { href: "#tarifs", label: "Tarifs" },
   { href: "#questions", label: "Questions" },
 ];
 

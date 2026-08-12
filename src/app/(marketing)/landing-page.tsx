@@ -17,13 +17,12 @@ import {
   ShieldCheck,
   Clock,
   Languages,
-  HandCoins,
+  Building2,
 } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { Reveal } from "@/components/marketing/reveal";
 import { MarketingNav } from "@/components/marketing/marketing-nav";
 import { RotatingWords } from "@/components/marketing/rotating-words";
-import { PricingCalculator } from "@/components/marketing/pricing-calculator";
 import { buildWhatsAppUrl } from "@/lib/whatsapp";
 import { CONTACT_PHONE, CONTACT_EMAIL, DEMO_MESSAGE } from "./landing-config";
 
@@ -238,13 +237,13 @@ export function LandingPage() {
                   Demander une démo gratuite
                   <ArrowRight className="h-4 w-4" />
                 </a>
-                <a
-                  href="#tarifs"
+                <Link
+                  href="/inscription"
                   className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 px-6 py-4 text-base font-semibold text-white transition-colors hover:bg-white/10 sm:py-3.5 sm:text-sm"
                 >
-                  <HandCoins className="h-4 w-4" />
-                  Voir les tarifs
-                </a>
+                  <Building2 className="h-4 w-4" />
+                  Créer mon établissement
+                </Link>
               </div>
 
               <ul
@@ -426,40 +425,6 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* — Tarifs */}
-      <section id="tarifs" className="scroll-mt-20 border-b border-border bg-surface">
-        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
-          <Reveal>
-            <div className="text-center">
-              <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-                Un tarif à la taille de votre école
-              </h2>
-              <p className="mx-auto mt-3 max-w-2xl text-foreground/60">
-                Déplacez le curseur sur votre nombre d&apos;élèves : vous voyez
-                immédiatement ce que vous paierez. Plus l&apos;école est grande,
-                moins l&apos;élève coûte.
-              </p>
-            </div>
-          </Reveal>
-
-          <div className="mt-10">
-            <PricingCalculator phone={CONTACT_PHONE} />
-          </div>
-
-          <Reveal>
-            <p className="mt-8 text-center text-sm text-foreground/60">
-              Vous préférez démarrer seul ?{" "}
-              <Link
-                href="/inscription"
-                className="font-semibold text-primary-600 hover:underline"
-              >
-                Créez votre école en deux minutes
-              </Link>
-            </p>
-          </Reveal>
-        </div>
-      </section>
-
       {/* — Questions fréquentes */}
       <section id="questions" className="scroll-mt-20 border-b border-border">
         <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6 sm:py-20">
@@ -510,20 +475,21 @@ export function LandingPage() {
               engagement.
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <Link
+                href="/inscription"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent-400 px-7 py-4 text-base font-semibold text-primary-900 transition-transform hover:scale-[1.02] hover:bg-accent-300 sm:w-auto sm:py-3.5 sm:text-sm"
+              >
+                <Building2 className="h-4 w-4" />
+                Créer mon établissement
+              </Link>
               <a
                 href={demoUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent-400 px-7 py-4 text-base font-semibold text-primary-900 transition-transform hover:scale-[1.02] hover:bg-accent-300 sm:w-auto sm:py-3.5 sm:text-sm"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/20 px-7 py-4 text-base font-semibold text-white transition-colors hover:bg-white/10 sm:w-auto sm:py-3.5 sm:text-sm"
               >
                 <MessageCircle className="h-4 w-4" />
                 Nous écrire sur WhatsApp
-              </a>
-              <a
-                href={`tel:${CONTACT_PHONE}`}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/20 px-7 py-4 text-base font-semibold text-white transition-colors hover:bg-white/10 sm:w-auto sm:py-3.5 sm:text-sm"
-              >
-                {CONTACT_PHONE}
               </a>
             </div>
           </Reveal>
@@ -550,9 +516,6 @@ export function LandingPage() {
                 <div className="mt-3 flex flex-col gap-2 text-foreground/60">
                   <a href="#modules" className="hover:text-foreground">
                     Fonctionnalités
-                  </a>
-                  <a href="#tarifs" className="hover:text-foreground">
-                    Tarifs
                   </a>
                   <a href="#questions" className="hover:text-foreground">
                     Questions
