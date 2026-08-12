@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
+import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -59,11 +60,19 @@ export function SignupForm() {
     router.refresh();
   }
 
+  async function handleGoogleSignIn() {
+    const supabase = createSupabaseBrowserClient();
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    });
+  }
+
   return (
     <div className="space-y-6">
       <button
         type="button"
-        onClick={() => signIn("google", { callbackUrl: "/inscription/ecole" })}
+        onClick={handleGoogleSignIn}
         className="flex h-12 w-full items-center justify-center gap-3 rounded-lg border border-border bg-surface text-sm font-semibold text-foreground transition-colors hover:bg-surface-muted"
       >
         <GoogleIcon className="h-5 w-5" />

@@ -1,8 +1,8 @@
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import GoogleProvider from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { createSupabaseServerClient } from "@/lib/supabase";
 
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
@@ -37,9 +37,35 @@ export const authOptions: NextAuthOptions = {
         };
       },
     }),
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    CredentialsProvider({
+      id: "supabase-google",
+      name: "Google",
+      credentials: {
+        accessToken: { label: "Token", type: "text" },
+      },
+      /**
+       * L'identité Google est vérifiée par Supabase Auth (page /inscription,
+       * bouton "Continuer avec Google"). Le navigateur nous transmet le jeton
+       * d'accès Supabase obtenu après ce flux ; on le revalide ici auprès de
+       * Supabase pour en extraire l'email/nom, sans jamais faire confiance à
+       * une valeur envoyée telle quelle par le client.
+       */
+      async authorize(credentials) {
+        if (!credentials?.accessToken) return null;
+
+        const supabase = createSupabaseServerClient();
+        const { data, error } = await supabase.auth.getUser(credentials.accessToken);
+        if (error || !data.user?.email) return null;
+
+        return {
+          id: data.user.id,
+          email: data.user.email,
+          name:
+            (data.user.user_metadata?.full_name as string | undefined) ??
+            (data.user.user_metadata?.name as string | undefined) ??
+            data.user.email,
+        };
+      },
     }),
   ],
   callbacks: {
@@ -61,7 +87,7 @@ export const authOptions: NextAuthOptions = {
         return token;
       }
 
-      if (user && account?.provider === "google" && user.email) {
+      if (user && account?.provider === "supabase-google" && user.email) {
         const existing = await prisma.user.findUnique({
           where: { email: user.email.toLowerCase() },
         });
