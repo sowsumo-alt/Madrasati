@@ -12,6 +12,9 @@ export const studentSchema = z.object({
   parentFirstName: z.string().trim().optional().or(z.literal("")),
   parentLastName: z.string().trim().optional().or(z.literal("")),
   parentPhone: z.string().trim().optional().or(z.literal("")),
+  /** Frais d'inscription, optionnel : un montant à 0 ou vide = pas de paiement. */
+  enrollmentAmount: z.coerce.number().int().nonnegative().optional(),
+  enrollmentMethod: z.enum(["CASH", "BANK_TRANSFER", "MASRVI", "SEDAD"]).optional(),
 });
 
 export type StudentFormValues = z.infer<typeof studentSchema>;

@@ -28,6 +28,7 @@ import { ImagePicker } from "@/components/ui/image-picker";
 import { studentSchema, type StudentFormValues } from "./schema";
 import { createStudent, updateStudent } from "./actions";
 import { useLanguage } from "@/lib/i18n/language-provider";
+import { PAYMENT_METHOD_LABELS } from "@/lib/roles";
 
 export interface StudentClassOption {
   id: string;
@@ -116,8 +117,11 @@ export function StudentFormDialog({
         await updateStudent(editTarget.id, values);
         toast.success(t("students.updatedSuccess"));
       } else {
-        await createStudent(values);
+        const result = await createStudent(values);
         toast.success(t("students.createdSuccess"));
+        if (result.paymentId) {
+          window.open(`/directeur/finance/recus/${result.paymentId}`, "_blank");
+        }
       }
       onOpenChange(false);
       router.refresh();
@@ -130,6 +134,8 @@ export function StudentFormDialog({
   const gender = watch("gender");
   const status = watch("status");
   const photoUrl = watch("photoUrl") ?? null;
+  const enrollmentAmount = watch("enrollmentAmount");
+  const enrollmentMethod = watch("enrollmentMethod");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -263,6 +269,53 @@ export function StudentFormDialog({
               />
             </div>
           </div>
+
+          {!isEdit && (
+            <div className="border-t border-border pt-4">
+              <p className="mb-3 text-sm font-medium text-foreground/80">
+                {t("students.enrollmentFeeSection")}{" "}
+                <span className="font-normal text-foreground/40">
+                  ({t("common.optional")})
+                </span>
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="enrollmentAmount">{t("students.enrollmentAmount")}</Label>
+                  <Input
+                    id="enrollmentAmount"
+                    type="number"
+                    min={0}
+                    placeholder="0"
+                    {...register("enrollmentAmount")}
+                  />
+                  {errors.enrollmentAmount && (
+                    <p className="text-xs text-danger">{errors.enrollmentAmount.message}</p>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  <Label>{t("students.enrollmentMethod")}</Label>
+                  <Select
+                    value={enrollmentMethod || undefined}
+                    onValueChange={(v) =>
+                      setValue("enrollmentMethod", v as StudentFormValues["enrollmentMethod"])
+                    }
+                    disabled={!enrollmentAmount}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={t("students.selectPlaceholder")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          )}
 
           <DialogFooter>
             <Button

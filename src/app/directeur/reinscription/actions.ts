@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
+import { generateReceiptNumber } from "@/lib/receipts";
 
 async function getCurrentAcademicYear(schoolId: string) {
   const year = await prisma.academicYear.findFirst({
@@ -22,18 +23,60 @@ async function getTargetClass(schoolId: string, targetClassId: string) {
   return targetClass;
 }
 
-export async function reenrollStudent(studentId: string, targetClassId: string) {
+export async function reenrollStudent(
+  studentId: string,
+  targetClassId: string,
+  amount?: number,
+  method?: string,
+) {
   const user = await requireRole(ROLES.DIRECTOR);
   const targetClass = await getTargetClass(user.schoolId, targetClassId);
 
-  await prisma.student.updateMany({
-    where: { id: studentId, schoolId: user.schoolId },
-    data: { classId: targetClass.id, status: "ACTIVE" },
+  const paymentId = await prisma.$transaction(async (tx) => {
+    await tx.student.updateMany({
+      where: { id: studentId, schoolId: user.schoolId },
+      data: { classId: targetClass.id, status: "ACTIVE" },
+    });
+
+    if (!amount || amount <= 0) return undefined;
+
+    const year = await tx.academicYear.findFirst({
+      where: { schoolId: user.schoolId, isCurrent: true },
+    });
+    if (!year) throw new Error("Aucune année scolaire active.");
+
+    const fee = await tx.fee.create({
+      data: {
+        schoolId: user.schoolId,
+        studentId,
+        academicYearId: year.id,
+        label: `Frais de réinscription — ${year.label}`,
+        amount,
+        dueDate: new Date(),
+        status: "PAID",
+      },
+    });
+
+    const receiptNumber = await generateReceiptNumber(tx, user.schoolId);
+    const payment = await tx.payment.create({
+      data: {
+        schoolId: user.schoolId,
+        feeId: fee.id,
+        studentId,
+        amount,
+        method: method || "CASH",
+        receiptNumber,
+        recordedByUserId: user.id,
+      },
+    });
+    return payment.id;
   });
 
   revalidatePath("/directeur/reinscription");
   revalidatePath("/directeur/eleves");
   revalidatePath("/directeur");
+  if (paymentId) revalidatePath("/directeur/finance");
+  return { paymentId };
 }
 
 export async function reenrollClass(sourceClassId: string, targetClassId: string) {

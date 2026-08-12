@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -13,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useLanguage } from "@/lib/i18n/language-provider";
+import { PAYMENT_METHOD_LABELS } from "@/lib/roles";
 import { reenrollStudent, reenrollClass, markNotReenrolled } from "./actions";
 
 export interface ReenrollStudent {
@@ -49,6 +51,8 @@ export function ReenrollView({
   const { t } = useLanguage();
   const [selections, setSelections] = useState<Record<string, string>>({});
   const [groupSelections, setGroupSelections] = useState<Record<string, string>>({});
+  const [amounts, setAmounts] = useState<Record<string, string>>({});
+  const [methods, setMethods] = useState<Record<string, string>>({});
   const [loadingKey, setLoadingKey] = useState<string | null>(null);
 
   const groups = useMemo(() => {
@@ -71,11 +75,16 @@ export function ReenrollView({
   async function handleReenroll(studentId: string) {
     const targetId = selections[studentId];
     if (!targetId) return;
+    const amountStr = amounts[studentId];
+    const amount = amountStr ? Number(amountStr) : undefined;
     setLoadingKey(studentId);
     try {
-      await reenrollStudent(studentId, targetId);
+      const result = await reenrollStudent(studentId, targetId, amount, methods[studentId]);
       toast.success(t("reenroll.reenrolled"));
       router.refresh();
+      if (result.paymentId) {
+        window.open(`/directeur/finance/recus/${result.paymentId}`, "_blank");
+      }
     } catch {
       toast.error(t("common.error"));
     } finally {
@@ -197,6 +206,34 @@ export function ReenrollView({
                           {targetClasses.map((c) => (
                             <SelectItem key={c.id} value={c.id}>
                               {c.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        type="number"
+                        min={0}
+                        placeholder={t("reenroll.amount")}
+                        className="h-8 w-28 text-xs"
+                        value={amounts[s.id] ?? ""}
+                        onChange={(e) =>
+                          setAmounts((prev) => ({ ...prev, [s.id]: e.target.value }))
+                        }
+                      />
+                      <Select
+                        value={methods[s.id] || undefined}
+                        onValueChange={(v) =>
+                          setMethods((prev) => ({ ...prev, [s.id]: v }))
+                        }
+                        disabled={!amounts[s.id]}
+                      >
+                        <SelectTrigger className="h-8 w-36 text-xs">
+                          <SelectValue placeholder={t("reenroll.method")} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => (
+                            <SelectItem key={value} value={value}>
+                              {label}
                             </SelectItem>
                           ))}
                         </SelectContent>

@@ -4,43 +4,86 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
+import { generateReceiptNumber } from "@/lib/receipts";
 import { studentSchema, type StudentFormValues } from "./schema";
 
 export async function createStudent(values: StudentFormValues) {
   const user = await requireRole(ROLES.DIRECTOR);
   const data = studentSchema.parse(values);
 
-  const student = await prisma.student.create({
-    data: {
-      schoolId: user.schoolId,
-      firstName: data.firstName,
-      lastName: data.lastName,
-      dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
-      gender: data.gender || null,
-      classId: data.classId || null,
-      status: data.status,
-      photoUrl: data.photoUrl || null,
-    },
-  });
-
-  if (data.parentFirstName && data.parentLastName && data.parentPhone) {
-    const parent = await prisma.parent.create({
+  const result = await prisma.$transaction(async (tx) => {
+    const student = await tx.student.create({
       data: {
         schoolId: user.schoolId,
-        firstName: data.parentFirstName,
-        lastName: data.parentLastName,
-        phone: data.parentPhone,
-        relationship: "tuteur",
+        firstName: data.firstName,
+        lastName: data.lastName,
+        dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
+        gender: data.gender || null,
+        classId: data.classId || null,
+        status: data.status,
+        photoUrl: data.photoUrl || null,
       },
     });
-    await prisma.studentParent.create({
-      data: { studentId: student.id, parentId: parent.id, isPrimary: true },
-    });
-  }
+
+    if (data.parentFirstName && data.parentLastName && data.parentPhone) {
+      const parent = await tx.parent.create({
+        data: {
+          schoolId: user.schoolId,
+          firstName: data.parentFirstName,
+          lastName: data.parentLastName,
+          phone: data.parentPhone,
+          relationship: "tuteur",
+        },
+      });
+      await tx.studentParent.create({
+        data: { studentId: student.id, parentId: parent.id, isPrimary: true },
+      });
+    }
+
+    let paymentId: string | undefined;
+
+    // Frais d'inscription payé sur place, optionnel : réutilise le même
+    // circuit Frais/Paiement/Reçu que le module Finance, réglé en une fois.
+    if (data.enrollmentAmount && data.enrollmentAmount > 0) {
+      const year = await tx.academicYear.findFirst({
+        where: { schoolId: user.schoolId, isCurrent: true },
+      });
+      if (!year) throw new Error("Aucune année scolaire active.");
+
+      const fee = await tx.fee.create({
+        data: {
+          schoolId: user.schoolId,
+          studentId: student.id,
+          academicYearId: year.id,
+          label: `Frais d'inscription — ${year.label}`,
+          amount: data.enrollmentAmount,
+          dueDate: new Date(),
+          status: "PAID",
+        },
+      });
+
+      const receiptNumber = await generateReceiptNumber(tx, user.schoolId);
+      const payment = await tx.payment.create({
+        data: {
+          schoolId: user.schoolId,
+          feeId: fee.id,
+          studentId: student.id,
+          amount: data.enrollmentAmount,
+          method: data.enrollmentMethod ?? "CASH",
+          receiptNumber,
+          recordedByUserId: user.id,
+        },
+      });
+      paymentId = payment.id;
+    }
+
+    return { id: student.id, paymentId };
+  });
 
   revalidatePath("/directeur/eleves");
   revalidatePath("/directeur");
-  return { id: student.id };
+  if (result.paymentId) revalidatePath("/directeur/finance");
+  return result;
 }
 
 export async function updateStudent(studentId: string, values: StudentFormValues) {
