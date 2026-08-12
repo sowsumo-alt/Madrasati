@@ -55,11 +55,29 @@ export function SignupForm() {
       return;
     }
 
-    router.push("/");
+    router.push("/inscription/bienvenue");
     router.refresh();
   }
 
   return (
+    <div className="space-y-6">
+      <button
+        type="button"
+        onClick={() => signIn("google", { callbackUrl: "/inscription/ecole" })}
+        className="flex h-12 w-full items-center justify-center gap-3 rounded-lg border border-border bg-surface text-sm font-semibold text-foreground transition-colors hover:bg-surface-muted"
+      >
+        <GoogleIcon className="h-5 w-5" />
+        Continuer avec Google
+      </button>
+
+      <div className="flex items-center gap-3">
+        <span className="h-px flex-1 bg-border" />
+        <span className="text-xs font-medium text-foreground/40">
+          OU CRÉER AVEC UN EMAIL
+        </span>
+        <span className="h-px flex-1 bg-border" />
+      </div>
+
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
       <div className="space-y-1.5">
         <Label htmlFor="schoolName">Nom de l&apos;école</Label>
@@ -209,5 +227,30 @@ export function SignupForm() {
         Essai libre, sans carte bancaire. Vos données restent les vôtres.
       </p>
     </form>
+    </div>
+  );
+}
+
+/** Logo multicolore Google, tel qu'exigé par leurs règles de marque. */
+function GoogleIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 48 48" className={className} aria-hidden="true">
+      <path
+        fill="#EA4335"
+        d="M24 9.5c3.4 0 6.4 1.2 8.8 3.5l6.6-6.6C35.3 2.5 30 0 24 0 14.6 0 6.5 5.4 2.5 13.2l7.7 6C12.1 13.1 17.5 9.5 24 9.5z"
+      />
+      <path
+        fill="#4285F4"
+        d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.6c-.5 3-2.2 5.5-4.6 7.2l7.2 5.6c4.2-3.9 6.7-9.6 6.7-17.3z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M10.2 19.2c-.6 1.7-.9 3.5-.9 5.3s.3 3.6.9 5.3l-7.7 6C.9 32.6 0 28.4 0 24.5s.9-8.1 2.5-11.3z"
+      />
+      <path
+        fill="#34A853"
+        d="M24 49c6 0 11.1-2 14.8-5.4l-7.2-5.6c-2 1.4-4.6 2.2-7.6 2.2-6.5 0-12-4.3-13.9-10.2l-7.7 6C6.5 43.6 14.6 49 24 49z"
+      />
+    </svg>
   );
 }

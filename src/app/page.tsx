@@ -10,6 +10,10 @@ export default async function Home() {
   // Utilisateur connecté : on l'envoie directement dans son espace.
   if (!user) return <LandingPage />;
 
+  // Identité Google authentifiée mais sans école : direction le formulaire
+  // de création avant tout accès à l'application.
+  if (!user.schoolId) redirect("/inscription/ecole");
+
   switch (user.role) {
     case ROLES.DIRECTOR:
       redirect("/directeur");

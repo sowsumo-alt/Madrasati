@@ -25,6 +25,7 @@ model School {
   id           String   @id @default(cuid())
   name         String
   address      String?
+  city         String?
   phone        String?
   email        String?
   logoUrl      String?
@@ -46,6 +47,7 @@ model School {
   templates     MessageTemplate[]
   holidays      Holiday[]
   reportComments ReportCardComment[]
+  disciplineIncidents DisciplineIncident[]
 
   @@map("schools")
 }
@@ -200,6 +202,7 @@ model Student {
   fees        Fee[]
   payments    Payment[]
   reportComments ReportCardComment[]
+  disciplineIncidents DisciplineIncident[]
 
   @@index([schoolId])
   @@index([classId])
@@ -413,6 +416,29 @@ model ReportCardComment {
   @@unique([studentId, term])
   @@index([schoolId])
   @@map("report_card_comments")
+}
+
+// ---------------------------------------------------------------------------
+// Discipline
+// ---------------------------------------------------------------------------
+
+// type : "WARNING" | "REPRIMAND" | "SUMMONS" | "SUSPENSION" | "OTHER"
+model DisciplineIncident {
+  id              String   @id @default(cuid())
+  schoolId        String
+  school          School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  studentId       String
+  student         Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  date            DateTime
+  type            String
+  description     String
+  sanction        String?
+  recordedByUserId String?
+  createdAt       DateTime @default(now())
+
+  @@index([schoolId])
+  @@index([studentId])
+  @@map("discipline_incidents")
 }
 
 model Holiday {

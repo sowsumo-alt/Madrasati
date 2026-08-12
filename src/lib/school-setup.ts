@@ -76,6 +76,7 @@ export async function createSchoolWithDirector(input: {
   directorName: string;
   email: string;
   phone: string;
+  city?: string;
   passwordHash: string;
 }) {
   const year = currentAcademicYear();
@@ -86,6 +87,7 @@ export async function createSchoolWithDirector(input: {
         name: input.schoolName,
         phone: input.phone,
         email: input.email,
+        city: input.city,
         currency: "MRU",
       },
     });
