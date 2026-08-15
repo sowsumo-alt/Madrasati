@@ -44,3 +44,6 @@ next-env.d.ts
 # database (dev only — production uses a real hosted Postgres)
 /prisma/dev.db
 /prisma/dev.db-journal
+
+.vercel
+.env*
