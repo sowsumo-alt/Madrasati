@@ -14,3 +14,15 @@ export function fillTemplate(
 ) {
   return template.replace(/\{(\w+)\}/g, (_, key) => values[key] ?? "");
 }
+
+/**
+ * Ajoute la traduction arabe à la suite du message — pour les parents qui ne
+ * lisent pas le français. Même format que le message bilingue déjà utilisé
+ * pour les notes (grades-dialog.tsx) : les deux paragraphes se suivent,
+ * séparés par une ligne vide.
+ */
+export function withArabic(body: string, bodyAr?: string | null) {
+  const ar = bodyAr?.trim();
+  if (!ar) return body;
+  return `${body}\n\n${ar}`;
+}

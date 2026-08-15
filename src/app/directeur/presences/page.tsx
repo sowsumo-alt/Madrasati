@@ -5,6 +5,8 @@ import { AttendanceView, type AttendanceStudent } from "./attendance-view";
 
 const DEFAULT_ABSENCE_TEMPLATE =
   "Bonjour {parentName}, nous vous informons que {studentName} est absent(e) aujourd'hui ({date}). Merci de nous contacter si besoin. École {schoolName}.";
+const DEFAULT_ABSENCE_TEMPLATE_AR =
+  "مرحبًا {parentName}، نعلمكم بأن {studentName} غائب(ة) اليوم ({date}). يرجى الاتصال بنا عند الحاجة. مدرسة {schoolName}.";
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
@@ -57,7 +59,7 @@ export default async function AttendancePage({
     prisma.school.findUnique({ where: { id: user.schoolId }, select: { name: true } }),
     prisma.messageTemplate.findFirst({
       where: { schoolId: user.schoolId, key: "ABSENCE_ALERT" },
-      select: { body: true },
+      select: { body: true, bodyAr: true },
     }),
   ]);
 
@@ -103,6 +105,7 @@ export default async function AttendancePage({
       selectedDate={selectedDate}
       schoolName={school?.name ?? "Madrasati"}
       absenceTemplate={template?.body ?? DEFAULT_ABSENCE_TEMPLATE}
+      absenceTemplateAr={template?.bodyAr ?? DEFAULT_ABSENCE_TEMPLATE_AR}
     />
   );
 }

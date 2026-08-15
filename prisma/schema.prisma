@@ -393,6 +393,7 @@ model MessageTemplate {
   key      String
   title    String
   body     String // avec placeholders {parentName}, {studentName}, {amount}, {schoolName}, {date}
+  bodyAr   String? // traduction arabe, ajoutée en bas du message envoyé au parent
 
   @@index([schoolId])
   @@map("message_templates")

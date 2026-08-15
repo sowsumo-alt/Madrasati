@@ -16,7 +16,7 @@ import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { StatTile } from "@/components/ui/stat-tile";
 import { WhatsAppLink } from "@/components/ui/whatsapp-link";
 import { formatMRU, formatAmount, formatDate } from "@/lib/format";
-import { fillTemplate } from "@/lib/whatsapp";
+import { fillTemplate, withArabic } from "@/lib/whatsapp";
 import { FeeFormDialog, type FeeStudentOption } from "./fee-form-dialog";
 import { PaymentDialog } from "./payment-dialog";
 import { useLanguage } from "@/lib/i18n/language-provider";
@@ -62,11 +62,13 @@ export function FinanceView({
   students,
   schoolName,
   reminderTemplate,
+  reminderTemplateAr,
 }: {
   fees: FeeRow[];
   students: FeeStudentOption[];
   schoolName: string;
   reminderTemplate: string;
+  reminderTemplateAr?: string;
 }) {
   const { t } = useLanguage();
   const [query, setQuery] = useState("");
@@ -178,12 +180,21 @@ export function FinanceView({
                   const remaining = Math.max(f.amount - f.totalPaid, 0);
                   const lastReceipt = f.payments[f.payments.length - 1];
                   const reminderMessage = f.parent
-                    ? fillTemplate(reminderTemplate, {
-                        parentName: `${f.parent.firstName} ${f.parent.lastName}`,
-                        studentName: `${f.student.firstName} ${f.student.lastName}`,
-                        amount: formatAmount(remaining),
-                        schoolName,
-                      })
+                    ? withArabic(
+                        fillTemplate(reminderTemplate, {
+                          parentName: `${f.parent.firstName} ${f.parent.lastName}`,
+                          studentName: `${f.student.firstName} ${f.student.lastName}`,
+                          amount: formatAmount(remaining),
+                          schoolName,
+                        }),
+                        reminderTemplateAr &&
+                          fillTemplate(reminderTemplateAr, {
+                            parentName: `${f.parent.firstName} ${f.parent.lastName}`,
+                            studentName: `${f.student.firstName} ${f.student.lastName}`,
+                            amount: formatAmount(remaining),
+                            schoolName,
+                          }),
+                      )
                     : "";
 
                   return (

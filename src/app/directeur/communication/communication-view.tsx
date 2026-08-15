@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { buildWhatsAppUrl, fillTemplate } from "@/lib/whatsapp";
+import { buildWhatsAppUrl, fillTemplate, withArabic } from "@/lib/whatsapp";
 import { formatDate } from "@/lib/format";
 import { TemplateDialog, type TemplateEditTarget } from "./template-dialog";
 import { deleteTemplate } from "./actions";
@@ -28,6 +28,7 @@ export interface TemplateRow {
   key: string;
   title: string;
   body: string;
+  bodyAr: string | null;
 }
 
 export function CommunicationView({
@@ -67,14 +68,18 @@ export function CommunicationView({
 
   /** Remplit les variables du modèle avec les données du destinataire choisi. */
   function applyTemplate(tpl: TemplateRow, recipient: Recipient | null) {
-    return fillTemplate(tpl.body, {
+    const values = {
       parentName: recipient?.name ?? "",
       teacherName: recipient?.name ?? "",
       studentName: recipient?.children[0] ?? "",
       schoolName,
       date: formatDate(new Date()),
       amount: "",
-    });
+    };
+    return withArabic(
+      fillTemplate(tpl.body, values),
+      tpl.bodyAr && fillTemplate(tpl.bodyAr, values),
+    );
   }
 
   function handlePickTemplate(tpl: TemplateRow) {
@@ -218,7 +223,7 @@ export function CommunicationView({
                     </button>
                     <button
                       onClick={() => {
-                        setEditTarget({ id: t.id, title: t.title, body: t.body });
+                        setEditTarget({ id: t.id, title: t.title, body: t.body, bodyAr: t.bodyAr });
                         setDialogOpen(true);
                       }}
                       title="Modifier ce modèle"

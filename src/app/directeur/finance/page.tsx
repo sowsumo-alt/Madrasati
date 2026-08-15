@@ -5,6 +5,8 @@ import { FinanceView, type FeeRow } from "./finance-view";
 
 const DEFAULT_REMINDER =
   "Bonjour {parentName}, nous vous rappelons que les frais de scolarité de {studentName} ({amount} MRU) sont en attente de paiement. École {schoolName}.";
+const DEFAULT_REMINDER_AR =
+  "مرحبًا {parentName}، نذكركم بأن الرسوم الدراسية لـ {studentName} ({amount} أوقية) لا تزال بانتظار الدفع. مدرسة {schoolName}.";
 
 export default async function FinancePage() {
   const user = await requireRole(ROLES.DIRECTOR);
@@ -34,7 +36,7 @@ export default async function FinancePage() {
     prisma.school.findUnique({ where: { id: user.schoolId }, select: { name: true } }),
     prisma.messageTemplate.findFirst({
       where: { schoolId: user.schoolId, key: "PAYMENT_REMINDER" },
-      select: { body: true },
+      select: { body: true, bodyAr: true },
     }),
   ]);
 
@@ -74,6 +76,7 @@ export default async function FinancePage() {
       students={studentOptions}
       schoolName={school?.name ?? "Madrasati"}
       reminderTemplate={template?.body ?? DEFAULT_REMINDER}
+      reminderTemplateAr={template?.bodyAr ?? DEFAULT_REMINDER_AR}
     />
   );
 }

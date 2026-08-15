@@ -47,6 +47,7 @@ export default async function CommunicationPage() {
     key: t.key,
     title: t.title,
     body: t.body,
+    bodyAr: t.bodyAr,
   }));
 
   return (

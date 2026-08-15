@@ -18,7 +18,7 @@ import { StatTile } from "@/components/ui/stat-tile";
 import { WhatsAppLink } from "@/components/ui/whatsapp-link";
 import { cn } from "@/lib/utils";
 import { formatLongDate } from "@/lib/format";
-import { fillTemplate } from "@/lib/whatsapp";
+import { fillTemplate, withArabic } from "@/lib/whatsapp";
 import { saveAttendance } from "./actions";
 
 export interface AttendanceClassOption {
@@ -48,6 +48,7 @@ export function AttendanceView({
   selectedDate,
   schoolName,
   absenceTemplate,
+  absenceTemplateAr,
   basePath = "/directeur/presences",
 }: {
   classes: AttendanceClassOption[];
@@ -57,6 +58,7 @@ export function AttendanceView({
   selectedDate: string;
   schoolName: string;
   absenceTemplate: string;
+  absenceTemplateAr?: string;
   /** Permet de réutiliser cette vue dans l'espace enseignant. */
   basePath?: string;
 }) {
@@ -187,12 +189,21 @@ export function AttendanceView({
                   {students.map((s) => {
                     const current = marks[s.id];
                     const message = s.parent
-                      ? fillTemplate(absenceTemplate, {
-                          parentName: `${s.parent.firstName} ${s.parent.lastName}`,
-                          studentName: `${s.firstName} ${s.lastName}`,
-                          date: formattedDate,
-                          schoolName,
-                        })
+                      ? withArabic(
+                          fillTemplate(absenceTemplate, {
+                            parentName: `${s.parent.firstName} ${s.parent.lastName}`,
+                            studentName: `${s.firstName} ${s.lastName}`,
+                            date: formattedDate,
+                            schoolName,
+                          }),
+                          absenceTemplateAr &&
+                            fillTemplate(absenceTemplateAr, {
+                              parentName: `${s.parent.firstName} ${s.parent.lastName}`,
+                              studentName: `${s.firstName} ${s.lastName}`,
+                              date: formattedDate,
+                              schoolName,
+                            }),
+                        )
                       : "";
                     return (
                       <tr key={s.id} className="hover:bg-surface-muted/40">

@@ -42,30 +42,39 @@ const DEFAULT_TEMPLATES: Array<{
   key: string;
   title: string;
   body: string;
+  bodyAr: string;
 }> = [
   {
     key: "PAYMENT_REMINDER",
     title: "Rappel de paiement",
     body:
       "Bonjour {parentName}, nous vous rappelons que les frais de scolarité de {studentName} ({amount} MRU) sont en attente de paiement. Merci de régulariser dès que possible. École {schoolName}.",
+    bodyAr:
+      "مرحبًا {parentName}، نذكركم بأن الرسوم الدراسية لـ {studentName} ({amount} أوقية) لا تزال بانتظار الدفع. يرجى التسوية في أقرب وقت ممكن. مدرسة {schoolName}.",
   },
   {
     key: "ABSENCE_ALERT",
     title: "Alerte d'absence",
     body:
       "Bonjour {parentName}, nous vous informons que {studentName} est absent(e) aujourd'hui ({date}). Merci de nous contacter si besoin. École {schoolName}.",
+    bodyAr:
+      "مرحبًا {parentName}، نعلمكم بأن {studentName} غائب(ة) اليوم ({date}). يرجى الاتصال بنا عند الحاجة. مدرسة {schoolName}.",
   },
   {
     key: "GRADES_AVAILABLE",
     title: "Notes disponibles",
     body:
       "Bonjour {parentName}, les notes de {studentName} sont désormais disponibles. N'hésitez pas à nous contacter pour en discuter. École {schoolName}.",
+    bodyAr:
+      "مرحبًا {parentName}، أصبحت نتائج {studentName} متوفرة الآن. لا تترددوا في الاتصال بنا لمناقشتها. مدرسة {schoolName}.",
   },
   {
     key: "MEETING_INVITE",
     title: "Invitation réunion",
     body:
       "Bonjour {parentName}, vous êtes invité(e) à une réunion concernant {studentName} le {date}. Votre présence est importante. École {schoolName}.",
+    bodyAr:
+      "مرحبًا {parentName}، أنتم مدعوون لحضور اجتماع بخصوص {studentName} يوم {date}. حضوركم مهم. مدرسة {schoolName}.",
   },
 ];
 

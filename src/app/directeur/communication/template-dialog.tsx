@@ -23,6 +23,7 @@ import { createTemplate, saveTemplate } from "./actions";
 const schema = z.object({
   title: z.string().trim().min(1, "Le titre est requis"),
   body: z.string().trim().min(1, "Le message est requis"),
+  bodyAr: z.string().trim().optional().or(z.literal("")),
 });
 type FormValues = z.infer<typeof schema>;
 
@@ -30,6 +31,7 @@ export interface TemplateEditTarget {
   id: string;
   title: string;
   body: string;
+  bodyAr: string | null;
 }
 
 export function TemplateDialog({
@@ -50,15 +52,15 @@ export function TemplateDialog({
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { title: "", body: "" },
+    defaultValues: { title: "", body: "", bodyAr: "" },
   });
 
   useEffect(() => {
     if (open) {
       reset(
         editTarget
-          ? { title: editTarget.title, body: editTarget.body }
-          : { title: "", body: "" },
+          ? { title: editTarget.title, body: editTarget.body, bodyAr: editTarget.bodyAr ?? "" }
+          : { title: "", body: "", bodyAr: "" },
       );
     }
   }, [open, editTarget, reset]);
@@ -109,6 +111,22 @@ export function TemplateDialog({
               className="w-full rounded-lg border border-border bg-surface p-3 text-sm leading-relaxed text-foreground placeholder:text-foreground/40 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
             />
             {errors.body && <p className="text-xs text-danger">{errors.body.message}</p>}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="bodyAr">Traduction en arabe (optionnel)</Label>
+            <textarea
+              id="bodyAr"
+              dir="rtl"
+              rows={5}
+              placeholder="مرحبًا {parentName}، …"
+              {...register("bodyAr")}
+              className="w-full rounded-lg border border-border bg-surface p-3 text-sm leading-relaxed text-foreground placeholder:text-foreground/40 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+            <p className="text-xs text-foreground/50">
+              Ajoutée automatiquement en bas du message envoyé, pour les parents qui
+              lisent l&apos;arabe.
+            </p>
           </div>
 
           <DialogFooter>

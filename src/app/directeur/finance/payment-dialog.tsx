@@ -30,7 +30,7 @@ import { recordPayment } from "./actions";
 import { formatMRU } from "@/lib/format";
 import { useLanguage } from "@/lib/i18n/language-provider";
 
-const PAYMENT_METHODS = ["CASH", "BANK_TRANSFER", "MASRVI", "SEDAD"] as const;
+const PAYMENT_METHODS = ["CASH", "BANK_TRANSFER", "MASRVI", "SEDAD", "BAKILY"] as const;
 
 interface PaymentDialogTarget {
   feeId: string;

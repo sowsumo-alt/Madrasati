@@ -7,6 +7,8 @@ import { BulletinsView, type BulletinRow } from "./bulletins-view";
 
 const DEFAULT_GRADES_TEMPLATE =
   "Bonjour {parentName}, les notes de {studentName} sont désormais disponibles. N'hésitez pas à nous contacter pour en discuter. École {schoolName}.";
+const DEFAULT_GRADES_TEMPLATE_AR =
+  "مرحبًا {parentName}، أصبحت نتائج {studentName} متوفرة الآن. لا تترددوا في الاتصال بنا لمناقشتها. مدرسة {schoolName}.";
 
 export default async function BulletinsPage({
   searchParams,
@@ -42,7 +44,7 @@ export default async function BulletinsPage({
     prisma.school.findUnique({ where: { id: user.schoolId }, select: { name: true } }),
     prisma.messageTemplate.findFirst({
       where: { schoolId: user.schoolId, key: "GRADES_AVAILABLE" },
-      select: { body: true },
+      select: { body: true, bodyAr: true },
     }),
   ]);
 
@@ -77,6 +79,7 @@ export default async function BulletinsPage({
       selectedTerm={selectedTerm}
       schoolName={school?.name ?? "Madrasati"}
       gradesTemplate={template?.body ?? DEFAULT_GRADES_TEMPLATE}
+      gradesTemplateAr={template?.bodyAr ?? DEFAULT_GRADES_TEMPLATE_AR}
     />
   );
 }

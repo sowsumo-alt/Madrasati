@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { WhatsAppLink } from "@/components/ui/whatsapp-link";
-import { fillTemplate } from "@/lib/whatsapp";
+import { fillTemplate, withArabic } from "@/lib/whatsapp";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import type { TranslationKey } from "@/lib/i18n/dictionaries";
 import type { MentionKey } from "@/lib/report-card";
@@ -62,6 +62,7 @@ export function BulletinsView({
   selectedTerm,
   schoolName,
   gradesTemplate,
+  gradesTemplateAr,
 }: {
   rows: BulletinRow[];
   classes: { id: string; name: string }[];
@@ -70,6 +71,7 @@ export function BulletinsView({
   selectedTerm: string;
   schoolName: string;
   gradesTemplate: string;
+  gradesTemplateAr?: string;
 }) {
   const router = useRouter();
   const { t, locale } = useLanguage();
@@ -148,11 +150,19 @@ export function BulletinsView({
               <tbody className="divide-y divide-border">
                 {rows.map((r) => {
                   const message = r.parent
-                    ? fillTemplate(gradesTemplate, {
-                        parentName: `${r.parent.firstName} ${r.parent.lastName}`,
-                        studentName: r.studentName,
-                        schoolName,
-                      })
+                    ? withArabic(
+                        fillTemplate(gradesTemplate, {
+                          parentName: `${r.parent.firstName} ${r.parent.lastName}`,
+                          studentName: r.studentName,
+                          schoolName,
+                        }),
+                        gradesTemplateAr &&
+                          fillTemplate(gradesTemplateAr, {
+                            parentName: `${r.parent.firstName} ${r.parent.lastName}`,
+                            studentName: r.studentName,
+                            schoolName,
+                          }),
+                      )
                     : "";
                   return (
                     <tr key={r.studentId} className="hover:bg-surface-muted/40">

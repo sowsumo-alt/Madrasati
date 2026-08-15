@@ -9,6 +9,7 @@ import { ROLES } from "@/lib/roles";
 const templateSchema = z.object({
   title: z.string().trim().min(1, "Le titre est requis"),
   body: z.string().trim().min(1, "Le message est requis"),
+  bodyAr: z.string().trim().optional().or(z.literal("")),
 });
 
 export type TemplateFormValues = z.infer<typeof templateSchema>;
@@ -19,7 +20,7 @@ export async function saveTemplate(templateId: string, values: TemplateFormValue
 
   await prisma.messageTemplate.updateMany({
     where: { id: templateId, schoolId: user.schoolId },
-    data: { title: data.title, body: data.body },
+    data: { title: data.title, body: data.body, bodyAr: data.bodyAr || null },
   });
 
   revalidatePath("/directeur/communication");
@@ -35,6 +36,7 @@ export async function createTemplate(values: TemplateFormValues) {
       key: `CUSTOM_${Date.now()}`,
       title: data.title,
       body: data.body,
+      bodyAr: data.bodyAr || null,
     },
   });
 
