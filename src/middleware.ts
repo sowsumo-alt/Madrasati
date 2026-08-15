@@ -18,11 +18,15 @@ export const config = {
      *   Google" : le navigateur n'est pas encore authentifié côté next-auth
      *   à ce stade, donc cette page doit rester accessible sans session)
      * - /api/auth (routes NextAuth)
+     * - manifest.webmanifest, sw.js, offline.html (PWA : le navigateur les
+     *   récupère sans session ; rediriger vers /login casserait
+     *   l'installation "Ajouter à l'écran d'accueil" et l'enregistrement du
+     *   service worker, qui recevraient du HTML au lieu du JSON/JS attendu)
      * - les fichiers statiques et assets Next.js
      *
      * Le « + » final (au lieu de « * ») est ce qui laisse la racine publique :
      * il impose au moins un caractère après le slash.
      */
-    "/((?!login|inscription|auth/callback|api/auth|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|webp)).+)",
+    "/((?!login|inscription|auth/callback|api/auth|manifest\\.webmanifest|sw\\.js|offline\\.html|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|webp)).+)",
   ],
 };

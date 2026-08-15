@@ -14,8 +14,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { WhatsAppLink } from "@/components/ui/whatsapp-link";
 import { rankOf } from "@/lib/report-card";
-import { buildWhatsAppUrl } from "@/lib/whatsapp";
 import { saveGrades } from "./actions";
 
 export interface GradesDialogStudent {
@@ -147,21 +147,18 @@ export function GradesDialog({
             const rank = rankFor(s.id);
             const canNotify =
               saved && !entry.isAbsent && entry.score !== "" && Boolean(s.parentPhone);
-            const whatsappUrl = canNotify
-              ? buildWhatsAppUrl(
-                  s.parentPhone as string,
-                  buildGradeMessage({
-                    parentName: s.parentName ?? "",
-                    studentName: `${s.firstName} ${s.lastName}`,
-                    score: Number(entry.score),
-                    maxScore: target!.maxScore,
-                    subjectName: target!.subjectName,
-                    examTitle: target!.title,
-                    schoolName,
-                    rank,
-                    total: scored.length,
-                  }),
-                )
+            const gradeMessage = canNotify
+              ? buildGradeMessage({
+                  parentName: s.parentName ?? "",
+                  studentName: `${s.firstName} ${s.lastName}`,
+                  score: Number(entry.score),
+                  maxScore: target!.maxScore,
+                  subjectName: target!.subjectName,
+                  examTitle: target!.title,
+                  schoolName,
+                  rank,
+                  total: scored.length,
+                })
               : null;
 
             return (
@@ -206,16 +203,13 @@ export function GradesDialog({
                   }
                   className="w-24"
                 />
-                {whatsappUrl ? (
-                  <a
-                    href={whatsappUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                {canNotify ? (
+                  <WhatsAppLink
+                    phone={s.parentPhone as string}
+                    message={gradeMessage as string}
                     title="Alerter le parent sur WhatsApp"
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-primary-700 transition-colors hover:bg-primary-50"
-                  >
-                    <MessageCircle className="h-4 w-4" />
-                  </a>
+                    className="shrink-0"
+                  />
                 ) : (
                   <span className="w-8 shrink-0" />
                 )}

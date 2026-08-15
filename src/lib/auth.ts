@@ -80,9 +80,10 @@ export const authOptions: NextAuthOptions = {
      */
     async jwt({ token, user, account, trigger }) {
       if (user && account?.provider === "credentials") {
+        // Toujours présents ici : c'est ce provider qui les fixe dans authorize().
         token.id = user.id;
-        token.role = user.role;
-        token.schoolId = user.schoolId;
+        token.role = user.role!;
+        token.schoolId = user.schoolId!;
         delete token.pending;
         return token;
       }

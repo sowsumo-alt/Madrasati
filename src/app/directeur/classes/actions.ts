@@ -14,10 +14,19 @@ async function getCurrentAcademicYear(schoolId: string) {
   return year;
 }
 
+// Un mainTeacherId d'une autre école ferait fuiter le nom de cet enseignant
+// (via les join `mainTeacher` des pages classes/emploi du temps) sans lui
+// donner accès à quoi que ce soit — mais reste une fuite de PII à bloquer.
+async function assertOwnTeacher(schoolId: string, teacherId: string) {
+  const teacher = await prisma.teacher.findFirst({ where: { id: teacherId, schoolId } });
+  if (!teacher) throw new Error("Enseignant introuvable.");
+}
+
 export async function createClass(values: ClassFormValues) {
   const user = await requireRole(ROLES.DIRECTOR);
   const data = classSchema.parse(values);
   const year = await getCurrentAcademicYear(user.schoolId);
+  if (data.mainTeacherId) await assertOwnTeacher(user.schoolId, data.mainTeacherId);
 
   await prisma.classRoom.create({
     data: {
@@ -37,6 +46,7 @@ export async function createClass(values: ClassFormValues) {
 export async function updateClass(classId: string, values: ClassFormValues) {
   const user = await requireRole(ROLES.DIRECTOR);
   const data = classSchema.parse(values);
+  if (data.mainTeacherId) await assertOwnTeacher(user.schoolId, data.mainTeacherId);
 
   await prisma.classRoom.updateMany({
     where: { id: classId, schoolId: user.schoolId },
@@ -122,6 +132,13 @@ export async function assignSubjectToClass(
     where: { id: classId, schoolId: user.schoolId },
   });
   if (!cls) throw new Error("Classe introuvable.");
+
+  const subject = await prisma.subject.findFirst({
+    where: { id: subjectId, schoolId: user.schoolId },
+  });
+  if (!subject) throw new Error("Matière introuvable.");
+
+  if (teacherId) await assertOwnTeacher(user.schoolId, teacherId);
 
   await prisma.classSubject.upsert({
     where: { classId_subjectId: { classId, subjectId } },

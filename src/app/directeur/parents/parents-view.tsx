@@ -7,7 +7,6 @@ import {
   Search,
   Plus,
   Pencil,
-  MessageCircle,
   Phone,
   KeyRound,
   Loader2,
@@ -20,12 +19,13 @@ import {
   type AccountResult,
 } from "@/app/directeur/comptes/actions";
 import { CredentialsDialog } from "@/app/directeur/comptes/credentials-dialog";
+import { WhatsAppLink } from "@/components/ui/whatsapp-link";
 import {
   ParentFormDialog,
   type ParentEditTarget,
   type ParentStudentOption,
 } from "./parent-form-dialog";
-import { buildWhatsAppUrl, buildTelUrl } from "@/lib/whatsapp";
+import { buildTelUrl } from "@/lib/whatsapp";
 
 export interface ParentRow {
   id: string;
@@ -190,15 +190,11 @@ export function ParentsView({
                       </td>
                       <td className="px-5 py-3">
                         <div className="flex items-center justify-end gap-1">
-                          <a
-                            href={buildWhatsAppUrl(p.phone, waMessage)}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <WhatsAppLink
+                            phone={p.phone}
+                            message={waMessage}
                             title="Contacter sur WhatsApp"
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-primary-700 transition-colors hover:bg-primary-50"
-                          >
-                            <MessageCircle className="h-4 w-4" />
-                          </a>
+                          />
                           <a
                             href={buildTelUrl(p.phone)}
                             title="Appeler"

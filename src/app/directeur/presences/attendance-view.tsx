@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Check, CheckCheck, Clock, MessageCircle, Loader2, X } from "lucide-react";
+import { Check, CheckCheck, Clock, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,8 +15,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { StatTile } from "@/components/ui/stat-tile";
+import { WhatsAppLink } from "@/components/ui/whatsapp-link";
 import { cn } from "@/lib/utils";
-import { buildWhatsAppUrl, fillTemplate } from "@/lib/whatsapp";
+import { formatLongDate } from "@/lib/format";
+import { fillTemplate } from "@/lib/whatsapp";
 import { saveAttendance } from "./actions";
 
 export interface AttendanceClassOption {
@@ -61,6 +63,7 @@ export function AttendanceView({
   const router = useRouter();
   const [marks, setMarks] = useState<Record<string, string>>(existingRecords);
   const [isSaving, setIsSaving] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
 
   useEffect(() => {
     setMarks(existingRecords);
@@ -85,6 +88,8 @@ export function AttendanceView({
       }));
       await saveAttendance(selectedClassId, selectedDate, entries);
       toast.success("Appel enregistré.");
+      setJustSaved(true);
+      setTimeout(() => setJustSaved(false), 650);
       router.refresh();
     } catch {
       toast.error("Une erreur est survenue.");
@@ -97,11 +102,7 @@ export function AttendanceView({
   const absentStudents = students.filter((s) => marks[s.id] === "ABSENT");
   const lateCount = students.filter((s) => marks[s.id] === "LATE").length;
 
-  const formattedDate = new Date(`${selectedDate}T00:00:00`).toLocaleDateString("fr-FR", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
+  const formattedDate = formatLongDate(`${selectedDate}T00:00:00`);
 
   return (
     <div className="space-y-5">
@@ -114,12 +115,12 @@ export function AttendanceView({
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="space-y-1.5 sm:w-56">
-          <Label>Classe</Label>
+          <Label htmlFor="attendance-class-select">Classe</Label>
           <Select
             value={selectedClassId}
             onValueChange={(v) => updateFilters(v, selectedDate)}
           >
-            <SelectTrigger>
+            <SelectTrigger id="attendance-class-select">
               <SelectValue placeholder="Choisir une classe" />
             </SelectTrigger>
             <SelectContent>
@@ -161,7 +162,11 @@ export function AttendanceView({
               <CheckCheck className="h-4 w-4" />
               Tous présents
             </Button>
-            <Button onClick={handleSave} disabled={isSaving}>
+            <Button
+              onClick={handleSave}
+              disabled={isSaving}
+              className={cn(justSaved && "animate-ring-pulse")}
+            >
               {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
               Enregistrer l&apos;appel
             </Button>
@@ -219,7 +224,10 @@ export function AttendanceView({
                                       : "bg-surface-muted text-foreground/50 hover:text-foreground",
                                   )}
                                 >
-                                  <Icon className="h-3.5 w-3.5" />
+                                  <Icon
+                                    key={active ? `${s.id}-${st.value}-active` : st.value}
+                                    className={cn("h-3.5 w-3.5", active && "animate-check-pop")}
+                                  />
                                   {st.label}
                                 </button>
                               );
@@ -229,15 +237,11 @@ export function AttendanceView({
                         <td className="px-5 py-3">
                           <div className="flex justify-end">
                             {s.parent && current === "ABSENT" ? (
-                              <a
-                                href={buildWhatsAppUrl(s.parent.phone, message)}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                              <WhatsAppLink
+                                phone={s.parent.phone}
+                                message={message}
                                 title="Alerter le parent sur WhatsApp"
-                                className="flex h-8 w-8 items-center justify-center rounded-lg text-primary-700 transition-colors hover:bg-primary-50"
-                              >
-                                <MessageCircle className="h-4 w-4" />
-                              </a>
+                              />
                             ) : (
                               <span className="text-xs text-foreground/30">—</span>
                             )}

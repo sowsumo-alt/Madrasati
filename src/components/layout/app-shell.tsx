@@ -56,7 +56,7 @@ export function AppShell({
         {navGroups.map((group, groupIndex) => (
           <div key={group.labelKey ?? `group-${groupIndex}`} className="space-y-1">
             {group.labelKey && (
-              <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-white/40">
+              <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-accent-300/80">
                 {t(group.labelKey)}
               </p>
             )}
@@ -74,10 +74,10 @@ export function AppShell({
                   href={item.href}
                   onClick={() => setMobileOpen(false)}
                   className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
+                    "flex items-center gap-3 rounded-lg border-s-[3px] px-3 py-2.5 text-sm transition-colors",
                     active
-                      ? "bg-primary-600 font-semibold text-white shadow-sm"
-                      : "font-medium text-white/70 hover:bg-white/10 hover:text-white",
+                      ? "border-accent-400 bg-primary-600 font-semibold text-white shadow-sm"
+                      : "border-transparent font-medium text-white/70 hover:bg-white/10 hover:text-white",
                   )}
                 >
                   <Icon className="h-4.5 w-4.5 shrink-0" strokeWidth={2} />
@@ -105,7 +105,7 @@ export function AppShell({
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="no-print fixed inset-x-0 top-0 z-40 flex h-16 items-center gap-3 border-b border-border bg-surface px-3 sm:gap-4 sm:px-4">
+      <header className="no-print fixed inset-x-0 top-0 z-40 flex h-16 items-center gap-3 border-b border-border bg-surface px-3 shadow-[0_1px_0_0_var(--accent-500)] sm:gap-4 sm:px-4">
         <Link href="/" className="flex shrink-0 items-center gap-2">
           <Logo className="h-9 w-9" />
           <span className="hidden text-xl font-bold tracking-tight text-primary-800 sm:inline">
@@ -163,7 +163,7 @@ export function AppShell({
             title="Mon compte"
             className="flex items-center gap-2"
           >
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-700 text-sm font-semibold text-white ring-2 ring-primary-100">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-700 text-sm font-semibold text-white ring-2 ring-accent-200">
               {userName.charAt(0).toUpperCase()}
             </span>
             <span className="hidden flex-col leading-tight sm:flex">

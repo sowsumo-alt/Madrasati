@@ -69,3 +69,28 @@ export function rankOf(studentAverage: number | null, allAverages: number[]): nu
   const better = allAverages.filter((a) => a > studentAverage).length;
   return better + 1;
 }
+
+/**
+ * Plage de dates d'un trimestre ("Trimestre 1" | "Trimestre 2" | "Trimestre 3"),
+ * en découpant l'année scolaire en trois tiers égaux. Le schéma ne stocke pas
+ * de bornes de trimestre distinctes (seulement le début/fin de l'année) ; ce
+ * découpage à parts égales est une approximation raisonnable en l'absence de
+ * dates de trimestre configurables. Renvoie la plage complète de l'année pour
+ * tout libellé de trimestre non reconnu, afin de ne rien exclure par erreur.
+ */
+export function termDateRange(
+  academicYear: { startDate: Date; endDate: Date },
+  term: string,
+): { start: Date; end: Date } {
+  const index = ["Trimestre 1", "Trimestre 2", "Trimestre 3"].indexOf(term);
+  if (index === -1) return { start: academicYear.startDate, end: academicYear.endDate };
+
+  const totalMs = academicYear.endDate.getTime() - academicYear.startDate.getTime();
+  const thirdMs = totalMs / 3;
+  const start = new Date(academicYear.startDate.getTime() + index * thirdMs);
+  const end =
+    index === 2
+      ? academicYear.endDate
+      : new Date(academicYear.startDate.getTime() + (index + 1) * thirdMs);
+  return { start, end };
+}

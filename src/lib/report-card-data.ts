@@ -3,6 +3,7 @@ import {
   weightedAverage,
   mentionFor,
   rankOf,
+  termDateRange,
   type SubjectResult,
   type MentionKey,
 } from "@/lib/report-card";
@@ -29,7 +30,7 @@ export async function buildReportCards(
   classId: string,
   term: string,
 ): Promise<ReportCard[]> {
-  const [classRoom, students, exams, attendanceCounts] = await Promise.all([
+  const [classRoom, students, exams, academicYear] = await Promise.all([
     prisma.classRoom.findFirst({
       where: { id: classId, schoolId },
       include: {
@@ -45,14 +46,22 @@ export async function buildReportCards(
       where: { schoolId, classId, term },
       include: { grades: true, subject: true },
     }),
-    prisma.attendanceRecord.groupBy({
-      by: ["studentId", "status"],
-      where: { schoolId, classId },
-      _count: { _all: true },
-    }),
+    prisma.academicYear.findFirst({ where: { schoolId, isCurrent: true } }),
   ]);
 
   if (!classRoom) return [];
+
+  // Les présences comptabilisées se limitent à la période du trimestre
+  // demandé, pas au cumul de toute l'année scolaire. Sans année active, la
+  // plage reste vide plutôt que de remonter tout l'historique par erreur.
+  const attendanceRange = academicYear
+    ? termDateRange(academicYear, term)
+    : { start: new Date(0), end: new Date(0) };
+  const attendanceCounts = await prisma.attendanceRecord.groupBy({
+    by: ["studentId", "status"],
+    where: { schoolId, classId, date: { gte: attendanceRange.start, lte: attendanceRange.end } },
+    _count: { _all: true },
+  });
 
   const subjects = classRoom.classSubjects.map((cs) => ({
     id: cs.subjectId,

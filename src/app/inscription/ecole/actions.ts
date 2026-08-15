@@ -2,7 +2,8 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
-import { hashPassword, generateTempPassword } from "@/lib/account";
+import { hashPassword } from "@/lib/account";
+import { generateTempPassword } from "@/lib/account-server";
 import { createSchoolWithDirector } from "@/lib/school-setup";
 import { createSchoolSchema, type CreateSchoolValues } from "./schema";
 

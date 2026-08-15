@@ -250,7 +250,7 @@ export function SettingsView({
           <CardTitle className="text-sm">Votre école en chiffres</CardTitle>
         </CardHeader>
         <CardContent className="p-4 pt-0">
-          <div className="grid grid-cols-3 gap-4 text-center">
+          <div className="grid grid-cols-3 gap-2 text-center sm:gap-4">
             <div>
               <p className="text-2xl font-semibold text-foreground">{counts.students}</p>
               <p className="text-xs text-foreground/50">Élèves</p>

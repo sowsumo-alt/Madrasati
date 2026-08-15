@@ -238,7 +238,7 @@ export function LoginForm() {
         <p className="text-center text-sm text-foreground/50">
           Se connecter en mode démonstration
         </p>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {DEMO_ACCOUNTS.map(({ label, email, icon: Icon, badge, hover }) => (
             <button
               key={email}

@@ -48,24 +48,32 @@ export default async function ParentHome({
   const selected =
     children.find((c) => c.id === params.childId) ?? children[0];
 
-  // — Présences de l'enfant sélectionné
-  const attendanceRecords = await prisma.attendanceRecord.findMany({
-    where: { studentId: selected.id },
-    orderBy: { date: "desc" },
-    take: 30,
-    select: { date: true, status: true },
-  });
-  const presentCount = attendanceRecords.filter(
-    (a) => a.status === "PRESENT" || a.status === "LATE",
-  ).length;
+  // — Présences de l'enfant sélectionné. Le taux se calcule sur tout
+  // l'historique (même méthode que src/app/directeur/presences/page.tsx),
+  // tandis que la liste affichée reste limitée aux 30 derniers jours.
+  const [attendanceRecords, attendanceRateGroups] = await Promise.all([
+    prisma.attendanceRecord.findMany({
+      where: { schoolId: user.schoolId, studentId: selected.id },
+      orderBy: { date: "desc" },
+      take: 30,
+      select: { date: true, status: true },
+    }),
+    prisma.attendanceRecord.groupBy({
+      by: ["status"],
+      where: { schoolId: user.schoolId, studentId: selected.id },
+      _count: { _all: true },
+    }),
+  ]);
+  const totalAttendance = attendanceRateGroups.reduce((sum, r) => sum + r._count._all, 0);
+  const presentAttendance = attendanceRateGroups
+    .filter((r) => r.status === "PRESENT" || r.status === "LATE")
+    .reduce((sum, r) => sum + r._count._all, 0);
   const attendanceRate =
-    attendanceRecords.length > 0
-      ? Math.round((presentCount / attendanceRecords.length) * 100)
-      : 100;
+    totalAttendance > 0 ? Math.round((presentAttendance / totalAttendance) * 100) : 100;
 
   // — Frais et paiements
   const fees = await prisma.fee.findMany({
-    where: { studentId: selected.id },
+    where: { schoolId: user.schoolId, studentId: selected.id },
     orderBy: { dueDate: "asc" },
     include: { payments: { select: { amount: true, paidAt: true, receiptNumber: true } } },
   });
@@ -101,7 +109,7 @@ export default async function ParentHome({
   // — Emploi du temps de sa classe
   const slots = selected.classRoom
     ? await prisma.scheduleSlot.findMany({
-        where: { classId: selected.classRoom.id },
+        where: { classId: selected.classRoom.id, classRoom: { schoolId: user.schoolId } },
         orderBy: { startMinutes: "asc" },
         include: {
           classSubject: {

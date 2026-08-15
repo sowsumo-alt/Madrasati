@@ -141,12 +141,12 @@ export function ClassFormDialog({
               )}
             </div>
             <div className="space-y-1.5">
-              <Label>Professeur principal</Label>
+              <Label htmlFor="class-main-teacher-select">Professeur principal</Label>
               <Select
                 value={mainTeacherId || "none"}
                 onValueChange={(v) => setValue("mainTeacherId", v === "none" ? "" : v)}
               >
-                <SelectTrigger>
+                <SelectTrigger id="class-main-teacher-select">
                   <SelectValue placeholder="Aucun" />
                 </SelectTrigger>
                 <SelectContent>

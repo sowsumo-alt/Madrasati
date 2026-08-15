@@ -130,14 +130,18 @@ export function DisciplineView({
                     <td className="px-5 py-3">
                       <Badge variant={TYPE_VARIANT[i.type]}>{t(TYPE_KEYS[i.type])}</Badge>
                     </td>
-                    <td className="max-w-xs truncate px-5 py-3 text-foreground/70">
+                    <td
+                      className="max-w-xs truncate px-5 py-3 text-foreground/70"
+                      title={i.description}
+                    >
                       {i.description}
                     </td>
                     <td className="px-5 py-3 text-foreground/70">{i.sanction ?? "—"}</td>
                     <td className="px-5 py-3">
                       <div className="flex items-center justify-end gap-1">
                         <button
-                          title={t("common.actions")}
+                          title={t("common.delete")}
+                          aria-label={t("common.delete")}
                           disabled={deletingId === i.id}
                           onClick={() => handleDelete(i.id)}
                           className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground/60 transition-colors hover:bg-surface-muted disabled:opacity-50"

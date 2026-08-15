@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -57,10 +58,12 @@ export function PaymentDialog({ target, onOpenChange }: PaymentDialogProps) {
     resolver: zodResolver(paymentSchema),
     defaultValues: { amount: 0, method: "CASH", note: "" },
   });
+  const [justSaved, setJustSaved] = useState(false);
 
   useEffect(() => {
     if (target) {
       reset({ amount: target.remaining, method: "CASH", note: "" });
+      setJustSaved(false);
     }
   }, [target, reset]);
 
@@ -68,7 +71,12 @@ export function PaymentDialog({ target, onOpenChange }: PaymentDialogProps) {
     if (!target) return;
     try {
       const result = await recordPayment(target.feeId, values);
+      // Un court accusé de réception visuel avant de fermer : sans lui, le
+      // paiement disparaît de l'écran si vite que rien ne confirme qu'il a
+      // bien été enregistré.
+      setJustSaved(true);
       toast.success(t("finance.paymentSaved"));
+      await new Promise((resolve) => setTimeout(resolve, 450));
       onOpenChange(false);
       router.refresh();
       window.open(`/directeur/finance/recus/${result.paymentId}`, "_blank");
@@ -102,14 +110,14 @@ export function PaymentDialog({ target, onOpenChange }: PaymentDialogProps) {
               )}
             </div>
             <div className="space-y-1.5">
-              <Label>{t("finance.method")}</Label>
+              <Label htmlFor="payment-method-select">{t("finance.method")}</Label>
               <Select
                 value={method}
                 onValueChange={(v) =>
                   setValue("method", v as PaymentFormValues["method"])
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger id="payment-method-select">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -137,8 +145,13 @@ export function PaymentDialog({ target, onOpenChange }: PaymentDialogProps) {
             <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
               {t("common.cancel")}
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className={cn(justSaved && "bg-primary-600")}
+            >
+              {isSubmitting && !justSaved && <Loader2 className="h-4 w-4 animate-spin" />}
+              {justSaved && <Check className="h-4 w-4 animate-check-pop" />}
               {t("finance.recordPayment")}
             </Button>
           </DialogFooter>

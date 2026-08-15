@@ -7,27 +7,27 @@
   --surface-muted: #eef1ee;
   --border: #dfe4e0;
 
-  /* Vert profond — couleur principale (drapeau mauritanien) */
+  /* Vert forêt profond — identité Madrasati (ancrée sur #0B5E38) */
   --primary-50: #eaf6f0;
   --primary-100: #cfeadd;
   --primary-200: #9edabb;
   --primary-300: #6cc397;
-  --primary-400: #3aa877;
-  --primary-500: #178a5c;
-  --primary-600: #0f7049;
-  --primary-700: #0a5b3c;
-  --primary-800: #094830;
-  --primary-900: #073626;
+  --primary-400: #38a675;
+  --primary-500: #168a58;
+  --primary-600: #0f7248;
+  --primary-700: #0b5e38;
+  --primary-800: #094a2d;
+  --primary-900: #073622;
 
-  /* Or / sable — couleur d'accent */
-  --accent-50: #fbf7ec;
-  --accent-100: #f5ead0;
-  --accent-200: #ebd69c;
-  --accent-300: #dfbe6a;
-  --accent-400: #d1a542;
-  --accent-500: #bd8d2c;
-  --accent-600: #9c7322;
-  --accent-700: #7a5a1c;
+  /* Or chaud — couleur d'accent (ancrée sur #C9973A) */
+  --accent-50: #fbf6ea;
+  --accent-100: #f5e8cb;
+  --accent-200: #ead29c;
+  --accent-300: #ddbb6e;
+  --accent-400: #d4a94c;
+  --accent-500: #c9973a;
+  --accent-600: #a67c2e;
+  --accent-700: #7f5f24;
 
   --success: #178a5c;
   --warning: #c2861a;
@@ -200,6 +200,43 @@ body {
   animation: grow-bar 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+/* ---------------------------------------------------------------------------
+   Retour d'interaction : une confirmation discrète au moment précis où une
+   action métier aboutit (appel enregistré, paiement saisi, message WhatsApp
+   envoyé) — jamais un effet décoratif permanent, juste un accusé de réception.
+   --------------------------------------------------------------------------- */
+@keyframes check-pop {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  55% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes ring-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgb(11 94 56 / 0.35);
+  }
+  100% {
+    box-shadow: 0 0 0 0.85rem rgb(11 94 56 / 0);
+  }
+}
+
+.animate-check-pop {
+  animation: check-pop 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-ring-pulse {
+  animation: ring-pulse 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 /* Curseur du calculateur de tarif : pastille large, confortable au pouce. */
 .range-brand::-webkit-slider-thumb {
   -webkit-appearance: none;
@@ -240,7 +277,9 @@ body {
   .animate-float,
   .animate-wave,
   .animate-word,
-  .animate-bar {
+  .animate-bar,
+  .animate-check-pop,
+  .animate-ring-pulse {
     animation: none !important;
     opacity: 1;
     transform: none;
@@ -272,6 +311,7 @@ body {
   .print\:pl-0 { padding-left: 0; padding-right: 0; }
   .pr-2 { padding-right: 0; padding-left: 0.5rem; }
   .pr-3 { padding-right: 0; padding-left: 0.75rem; }
+  .pr-10 { padding-right: 0; padding-left: 2.5rem; }
   .pr-11 { padding-right: 0; padding-left: 2.75rem; }
 
   .left-0 { left: auto; right: 0; }
@@ -282,6 +322,7 @@ body {
   .left-10 { left: auto; right: 2.5rem; }
   .right-0\.5 { right: auto; left: 0.125rem; }
   .right-1 { right: auto; left: 0.25rem; }
+  .right-1\.5 { right: auto; left: 0.375rem; }
   .right-3 { right: auto; left: 0.75rem; }
   .right-4 { right: auto; left: 1rem; }
 

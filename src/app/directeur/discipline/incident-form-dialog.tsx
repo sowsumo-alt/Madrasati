@@ -114,12 +114,12 @@ export function IncidentFormDialog({ open, onOpenChange, students }: IncidentFor
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
           <div className="space-y-1.5">
-            <Label>{t("discipline.student")}</Label>
+            <Label htmlFor="incident-student-select">{t("discipline.student")}</Label>
             <Select
               value={studentId || undefined}
               onValueChange={(v) => setValue("studentId", v)}
             >
-              <SelectTrigger>
+              <SelectTrigger id="incident-student-select">
                 <SelectValue placeholder={t("discipline.selectStudent")} />
               </SelectTrigger>
               <SelectContent>
@@ -138,12 +138,12 @@ export function IncidentFormDialog({ open, onOpenChange, students }: IncidentFor
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>{t("discipline.type")}</Label>
+              <Label htmlFor="incident-type-select">{t("discipline.type")}</Label>
               <Select
                 value={type}
                 onValueChange={(v) => setValue("type", v as IncidentFormValues["type"])}
               >
-                <SelectTrigger>
+                <SelectTrigger id="incident-type-select">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

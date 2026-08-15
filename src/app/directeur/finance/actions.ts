@@ -1,14 +1,25 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
+import { generateReceiptNumber } from "@/lib/receipts";
 import { feeSchema, paymentSchema, type FeeFormValues, type PaymentFormValues } from "./schema";
 
 export async function createFee(values: FeeFormValues) {
   const user = await requireRole(ROLES.DIRECTOR);
   const data = feeSchema.parse(values);
+
+  // L'élève doit appartenir à l'école de l'appelant : sans ce contrôle, un
+  // studentId d'une autre école créerait un frais (et une fuite de nom/
+  // classe/téléphone parent via la page Finance) sur un élève qui n'est pas
+  // le sien.
+  const student = await prisma.student.findFirst({
+    where: { id: data.studentId, schoolId: user.schoolId },
+  });
+  if (!student) throw new Error("Élève introuvable.");
 
   const academicYear = await prisma.academicYear.findFirst({
     where: { schoolId: user.schoolId, isCurrent: true },
@@ -18,7 +29,7 @@ export async function createFee(values: FeeFormValues) {
   await prisma.fee.create({
     data: {
       schoolId: user.schoolId,
-      studentId: data.studentId,
+      studentId: student.id,
       academicYearId: academicYear.id,
       label: data.label,
       amount: data.amount,
@@ -31,46 +42,70 @@ export async function createFee(values: FeeFormValues) {
   revalidatePath("/directeur");
 }
 
+const MAX_RECEIPT_ATTEMPTS = 5;
+
 export async function recordPayment(feeId: string, values: PaymentFormValues) {
   const user = await requireRole(ROLES.DIRECTOR);
   const data = paymentSchema.parse(values);
 
   const fee = await prisma.fee.findFirst({
     where: { id: feeId, schoolId: user.schoolId },
-    include: { payments: true },
   });
   if (!fee) throw new Error("Frais introuvable.");
 
-  const year = new Date().getFullYear();
-  const countThisYear = await prisma.payment.count({
-    where: { schoolId: user.schoolId },
-  });
-  const receiptNumber = `REC-${year}-${String(countThisYear + 1).padStart(4, "0")}`;
+  // La création du reçu et le recalcul du statut doivent réussir ou échouer
+  // ensemble (transaction), sinon deux paiements simultanés peuvent tous les
+  // deux lire "0 déjà payé" et poser un statut PARTIAL alors que le frais est
+  // en réalité soldé. Le numéro de reçu (contrainte @unique) peut malgré
+  // tout entrer en collision sous forte concurrence : on retente alors avec
+  // un nouveau numéro plutôt que de faire échouer l'enregistrement.
+  let lastError: unknown;
+  for (let attempt = 0; attempt < MAX_RECEIPT_ATTEMPTS; attempt++) {
+    try {
+      const paymentId = await prisma.$transaction(
+        async (tx) => {
+          const receiptNumber = await generateReceiptNumber(tx, user.schoolId);
 
-  const payment = await prisma.payment.create({
-    data: {
-      schoolId: user.schoolId,
-      feeId: fee.id,
-      studentId: fee.studentId,
-      amount: data.amount,
-      method: data.method,
-      note: data.note || null,
-      receiptNumber,
-      recordedByUserId: user.id,
-    },
-  });
+          const payment = await tx.payment.create({
+            data: {
+              schoolId: user.schoolId,
+              feeId: fee.id,
+              studentId: fee.studentId,
+              amount: data.amount,
+              method: data.method,
+              note: data.note || null,
+              receiptNumber,
+              recordedByUserId: user.id,
+            },
+          });
 
-  const totalPaid =
-    fee.payments.reduce((sum, p) => sum + p.amount, 0) + data.amount;
-  const nextStatus =
-    totalPaid >= fee.amount ? "PAID" : totalPaid > 0 ? "PARTIAL" : "PENDING";
+          const totalPaid = await tx.payment.aggregate({
+            where: { feeId: fee.id },
+            _sum: { amount: true },
+          });
+          const paid = totalPaid._sum.amount ?? 0;
+          const nextStatus = paid >= fee.amount ? "PAID" : paid > 0 ? "PARTIAL" : "PENDING";
 
-  await prisma.fee.update({
-    where: { id: fee.id },
-    data: { status: nextStatus },
-  });
+          await tx.fee.update({ where: { id: fee.id }, data: { status: nextStatus } });
 
-  revalidatePath("/directeur/finance");
-  revalidatePath("/directeur");
-  return { paymentId: payment.id };
+          return payment.id;
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+
+      revalidatePath("/directeur/finance");
+      revalidatePath("/directeur");
+      return { paymentId };
+    } catch (e) {
+      lastError = e;
+      const retryable =
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        (e.code === "P2002" || e.code === "P2034");
+      if (!retryable) throw e;
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("L'enregistrement du paiement a échoué, réessayez.");
 }

@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { FileText, MessageCircle } from "lucide-react";
+import { FileText } from "lucide-react";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import {
   Select,
@@ -12,7 +12,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { buildWhatsAppUrl, fillTemplate } from "@/lib/whatsapp";
+import { WhatsAppLink } from "@/components/ui/whatsapp-link";
+import { fillTemplate } from "@/lib/whatsapp";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import type { TranslationKey } from "@/lib/i18n/dictionaries";
 import type { MentionKey } from "@/lib/report-card";
@@ -88,12 +89,12 @@ export function BulletinsView({
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="space-y-1.5 sm:w-56">
-          <Label>{t("bulletin.class")}</Label>
+          <Label htmlFor="bulletin-class-select">{t("bulletin.class")}</Label>
           <Select
             value={selectedClassId}
             onValueChange={(v) => updateFilters(v, selectedTerm)}
           >
-            <SelectTrigger>
+            <SelectTrigger id="bulletin-class-select">
               <SelectValue placeholder={t("bulletin.chooseClass")} />
             </SelectTrigger>
             <SelectContent>
@@ -106,12 +107,12 @@ export function BulletinsView({
           </Select>
         </div>
         <div className="space-y-1.5 sm:w-56">
-          <Label>{t("bulletin.term")}</Label>
+          <Label htmlFor="bulletin-term-select">{t("bulletin.term")}</Label>
           <Select
             value={selectedTerm}
             onValueChange={(v) => updateFilters(selectedClassId, v)}
           >
-            <SelectTrigger>
+            <SelectTrigger id="bulletin-term-select">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -195,15 +196,12 @@ export function BulletinsView({
                             <FileText className="h-4 w-4" />
                           </Link>
                           {r.parent && (
-                            <a
-                              href={buildWhatsAppUrl(r.parent.phone, message)}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                            <WhatsAppLink
+                              phone={r.parent.phone}
+                              message={message}
                               title={t("bulletin.notifyParent")}
-                              className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground/60 transition-colors hover:bg-surface-muted"
-                            >
-                              <MessageCircle className="h-4 w-4" />
-                            </a>
+                              className="text-foreground/60 hover:bg-surface-muted"
+                            />
                           )}
                         </div>
                       </td>

@@ -5,11 +5,11 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import {
-  generateTempPassword,
   hashPassword,
   buildLoginEmail,
   schoolSlug,
 } from "@/lib/account";
+import { generateTempPassword } from "@/lib/account-server";
 
 export interface AccountResult {
   email: string;

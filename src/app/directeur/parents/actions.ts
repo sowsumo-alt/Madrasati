@@ -11,11 +11,20 @@ async function syncStudentLinks(
   parentId: string,
   studentIds: string[],
 ) {
+  // Sans ce filtre, un studentId d'une autre école lierait le parent à un
+  // élève étranger : celui-ci apparaîtrait ensuite en entier (présences,
+  // notes, bulletins, frais) dans le portail de ce parent.
+  const ownStudents = await prisma.student.findMany({
+    where: { id: { in: studentIds }, schoolId },
+    select: { id: true },
+  });
+  const ownStudentIds = new Set(ownStudents.map((s) => s.id));
+
   const existingLinks = await prisma.studentParent.findMany({
     where: { parentId },
   });
   const existingStudentIds = new Set(existingLinks.map((l) => l.studentId));
-  const nextStudentIds = new Set(studentIds);
+  const nextStudentIds = new Set(studentIds.filter((id) => ownStudentIds.has(id)));
 
   const toRemove = existingLinks.filter((l) => !nextStudentIds.has(l.studentId));
   if (toRemove.length > 0) {
@@ -24,7 +33,7 @@ async function syncStudentLinks(
     });
   }
 
-  const toAdd = studentIds.filter((id) => !existingStudentIds.has(id));
+  const toAdd = [...nextStudentIds].filter((id) => !existingStudentIds.has(id));
   for (const studentId of toAdd) {
     const hasPrimary = await prisma.studentParent.findFirst({
       where: { studentId, isPrimary: true },

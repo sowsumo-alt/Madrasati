@@ -10,10 +10,15 @@ export async function createIncident(values: IncidentFormValues) {
   const user = await requireRole(ROLES.DIRECTOR);
   const data = incidentSchema.parse(values);
 
+  const student = await prisma.student.findFirst({
+    where: { id: data.studentId, schoolId: user.schoolId },
+  });
+  if (!student) throw new Error("Élève introuvable.");
+
   await prisma.disciplineIncident.create({
     data: {
       schoolId: user.schoolId,
-      studentId: data.studentId,
+      studentId: student.id,
       date: new Date(data.date),
       type: data.type,
       description: data.description,

@@ -162,7 +162,10 @@ export function ReenrollView({
                       setGroupSelections((prev) => ({ ...prev, [group.key]: v }))
                     }
                   >
-                    <SelectTrigger className="h-8 w-48 text-xs">
+                    <SelectTrigger
+                      aria-label={t("reenroll.destinationClass")}
+                      className="h-8 w-48 text-xs"
+                    >
                       <SelectValue placeholder={t("reenroll.selectClass")} />
                     </SelectTrigger>
                     <SelectContent>
@@ -199,7 +202,10 @@ export function ReenrollView({
                           setSelections((prev) => ({ ...prev, [s.id]: v }))
                         }
                       >
-                        <SelectTrigger className="h-8 w-48 text-xs">
+                        <SelectTrigger
+                          aria-label={t("reenroll.destinationClass")}
+                          className="h-8 w-48 text-xs"
+                        >
                           <SelectValue placeholder={t("reenroll.selectClass")} />
                         </SelectTrigger>
                         <SelectContent>

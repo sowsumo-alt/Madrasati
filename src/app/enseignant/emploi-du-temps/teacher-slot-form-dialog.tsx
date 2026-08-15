@@ -105,12 +105,12 @@ export function TeacherSlotFormDialog({
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
           <div className="space-y-1.5">
-            <Label>Classe & matière</Label>
+            <Label htmlFor="teacher-slot-class-subject-select">Classe & matière</Label>
             <Select
               value={classSubjectId || undefined}
               onValueChange={(v) => setValue("classSubjectId", v)}
             >
-              <SelectTrigger>
+              <SelectTrigger id="teacher-slot-class-subject-select">
                 <SelectValue placeholder="Sélectionner" />
               </SelectTrigger>
               <SelectContent>
@@ -132,12 +132,12 @@ export function TeacherSlotFormDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label>Jour</Label>
+            <Label htmlFor="teacher-slot-day-select">Jour</Label>
             <Select
               value={String(dayOfWeek)}
               onValueChange={(v) => setValue("dayOfWeek", Number(v))}
             >
-              <SelectTrigger>
+              <SelectTrigger id="teacher-slot-day-select">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   Search,
   Plus,
-  MessageCircle,
   Receipt,
   Wallet,
   AlertCircle,
@@ -15,8 +14,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { StatTile } from "@/components/ui/stat-tile";
-import { formatMRU, formatDate } from "@/lib/format";
-import { buildWhatsAppUrl, fillTemplate } from "@/lib/whatsapp";
+import { WhatsAppLink } from "@/components/ui/whatsapp-link";
+import { formatMRU, formatAmount, formatDate } from "@/lib/format";
+import { fillTemplate } from "@/lib/whatsapp";
 import { FeeFormDialog, type FeeStudentOption } from "./fee-form-dialog";
 import { PaymentDialog } from "./payment-dialog";
 import { useLanguage } from "@/lib/i18n/language-provider";
@@ -181,7 +181,7 @@ export function FinanceView({
                     ? fillTemplate(reminderTemplate, {
                         parentName: `${f.parent.firstName} ${f.parent.lastName}`,
                         studentName: `${f.student.firstName} ${f.student.lastName}`,
-                        amount: String(remaining),
+                        amount: formatAmount(remaining),
                         schoolName,
                       })
                     : "";
@@ -211,15 +211,11 @@ export function FinanceView({
                       <td className="px-5 py-3">
                         <div className="flex items-center justify-end gap-1">
                           {status !== "PAID" && f.parent && (
-                            <a
-                              href={buildWhatsAppUrl(f.parent.phone, reminderMessage)}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                            <WhatsAppLink
+                              phone={f.parent.phone}
+                              message={reminderMessage}
                               title={t("finance.sendReminder")}
-                              className="flex h-8 w-8 items-center justify-center rounded-lg text-primary-700 transition-colors hover:bg-primary-50"
-                            >
-                              <MessageCircle className="h-4 w-4" />
-                            </a>
+                            />
                           )}
                           {status !== "PAID" && (
                             <button

@@ -184,12 +184,12 @@ export function StudentFormDialog({
               <DateInput id="dateOfBirth" {...register("dateOfBirth")} />
             </div>
             <div className="space-y-1.5">
-              <Label>{t("students.gender")}</Label>
+              <Label htmlFor="student-gender-select">{t("students.gender")}</Label>
               <Select
                 value={gender || undefined}
                 onValueChange={(v) => setValue("gender", v as "M" | "F")}
               >
-                <SelectTrigger>
+                <SelectTrigger id="student-gender-select">
                   <SelectValue placeholder={t("students.selectPlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
@@ -202,12 +202,12 @@ export function StudentFormDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>{t("students.class")}</Label>
+              <Label htmlFor="student-class-select">{t("students.class")}</Label>
               <Select
                 value={classId || "none"}
                 onValueChange={(v) => setValue("classId", v === "none" ? "" : v)}
               >
-                <SelectTrigger>
+                <SelectTrigger id="student-class-select">
                   <SelectValue placeholder={t("students.noClass")} />
                 </SelectTrigger>
                 <SelectContent>
@@ -221,14 +221,14 @@ export function StudentFormDialog({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>{t("students.status")}</Label>
+              <Label htmlFor="student-status-select">{t("students.status")}</Label>
               <Select
                 value={status}
                 onValueChange={(v) =>
                   setValue("status", v as StudentFormValues["status"])
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger id="student-status-select">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -293,7 +293,9 @@ export function StudentFormDialog({
                   )}
                 </div>
                 <div className="space-y-1.5">
-                  <Label>{t("students.enrollmentMethod")}</Label>
+                  <Label htmlFor="student-enrollment-method-select">
+                    {t("students.enrollmentMethod")}
+                  </Label>
                   <Select
                     value={enrollmentMethod || undefined}
                     onValueChange={(v) =>
@@ -301,7 +303,7 @@ export function StudentFormDialog({
                     }
                     disabled={!enrollmentAmount}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="student-enrollment-method-select">
                       <SelectValue placeholder={t("students.selectPlaceholder")} />
                     </SelectTrigger>
                     <SelectContent>

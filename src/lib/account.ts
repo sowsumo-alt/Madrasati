@@ -1,28 +1,7 @@
 import bcrypt from "bcryptjs";
 
-/**
- * Mot de passe temporaire lisible à voix haute et facile à recopier sur un
- * téléphone : le directeur le transmet au parent ou à l'enseignant par
- * WhatsApp. On évite donc les caractères ambigus (0/O, 1/l/I) et la casse
- * mélangée.
- */
-const ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ";
-const DIGITS = "23456789";
-
 /** Plage Unicode des accents laissés par normalize("NFD"). */
 const DIACRITICS = /[̀-ͯ]/g;
-
-export function generateTempPassword() {
-  const letters = Array.from(
-    { length: 4 },
-    () => ALPHABET[Math.floor(Math.random() * ALPHABET.length)],
-  ).join("");
-  const digits = Array.from(
-    { length: 4 },
-    () => DIGITS[Math.floor(Math.random() * DIGITS.length)],
-  ).join("");
-  return `${letters}-${digits}`;
-}
 
 export function hashPassword(plain: string) {
   return bcrypt.hash(plain, 10);

@@ -90,6 +90,7 @@ export default async function DashboardPage() {
     recentAttendance,
     grades,
     students,
+    school,
   ] = await Promise.all([
     prisma.student.count({ where: { schoolId, status: "ACTIVE" } }),
     prisma.student.count({ where: { schoolId, createdAt: { gte: startOfMonth } } }),
@@ -164,7 +165,17 @@ export default async function DashboardPage() {
     }),
     prisma.grade.findMany({
       where: { exam: { schoolId }, isAbsent: false, score: { not: null } },
-      select: { studentId: true, score: true, exam: { select: { maxScore: true } } },
+      select: {
+        studentId: true,
+        score: true,
+        exam: {
+          select: {
+            maxScore: true,
+            subjectId: true,
+            subject: { select: { coefficient: true } },
+          },
+        },
+      },
     }),
     prisma.student.findMany({
       where: { schoolId, status: "ACTIVE" },
@@ -175,6 +186,7 @@ export default async function DashboardPage() {
         classRoom: { select: { name: true } },
       },
     }),
+    prisma.school.findUnique({ where: { id: schoolId }, select: { name: true } }),
   ]);
 
   // — Présence du jour
@@ -214,25 +226,44 @@ export default async function DashboardPage() {
     .filter((d) => d.value > 0);
   const activeClasses = classes.filter((c) => c._count.students > 0).length;
 
-  // — Meilleures moyennes : notes ramenées sur 20, tous examens confondus.
-  const perStudent = new Map<string, { total: number; count: number }>();
+  // — Meilleures moyennes : moyenne par matière (notes ramenées sur 20) puis
+  // pondération par coefficient, exactement comme sur les bulletins
+  // (src/lib/report-card.ts, weightedAverage) — pour que ce classement ne
+  // diverge jamais de celui affiché sur les bulletins des mêmes élèves.
+  const perStudentSubject = new Map<string, Map<string, { total: number; count: number; coefficient: number }>>();
   for (const g of grades) {
     if (g.score == null) continue;
-    const entry = perStudent.get(g.studentId) ?? { total: 0, count: 0 };
+    const bySubject = perStudentSubject.get(g.studentId) ?? new Map();
+    const entry = bySubject.get(g.exam.subjectId) ?? {
+      total: 0,
+      count: 0,
+      coefficient: g.exam.subject.coefficient,
+    };
     entry.total += (g.score / (g.exam.maxScore || 20)) * 20;
     entry.count += 1;
-    perStudent.set(g.studentId, entry);
+    bySubject.set(g.exam.subjectId, entry);
+    perStudentSubject.set(g.studentId, bySubject);
+  }
+  const perStudent = new Map<string, number>();
+  for (const [studentId, bySubject] of perStudentSubject) {
+    let weightedSum = 0;
+    let totalCoefficient = 0;
+    for (const entry of bySubject.values()) {
+      weightedSum += (entry.total / entry.count) * entry.coefficient;
+      totalCoefficient += entry.coefficient;
+    }
+    if (totalCoefficient > 0) perStudent.set(studentId, weightedSum / totalCoefficient);
   }
   const topStudents = students
     .flatMap((s) => {
-      const entry = perStudent.get(s.id);
-      if (!entry || entry.count === 0) return [];
+      const average = perStudent.get(s.id);
+      if (average == null) return [];
       return [
         {
           id: s.id,
           name: `${s.firstName} ${s.lastName}`,
           className: s.classRoom?.name ?? t("students.noClass"),
-          average: entry.total / entry.count,
+          average,
         },
       ];
     })
@@ -292,17 +323,26 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="animate-page-in flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            {t("dashboard.hello")}, {firstName} <span className="inline-block animate-wave" aria-hidden>👋</span>
-          </h1>
-          <p className="mt-1 text-sm text-foreground/55">{t("dashboard.title")}</p>
+      <div className="animate-page-in overflow-hidden rounded-2xl bg-primary-800 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-6 sm:px-8">
+          <div>
+            <p className="text-sm font-medium text-accent-200">
+              {school?.name ?? "Madrasati"}
+            </p>
+            <h1 className="mt-1 text-2xl font-bold tracking-tight text-white">
+              {t("dashboard.hello")}, {firstName}{" "}
+              <span className="inline-block animate-wave" aria-hidden>
+                👋
+              </span>
+            </h1>
+            <p className="mt-1 text-sm text-white/60">{t("dashboard.title")}</p>
+          </div>
+          <span className="flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-4 py-2.5 text-sm text-white/80">
+            {t("dashboard.today")}, {formatLongDate(now)}
+            <CalendarDays className="h-4 w-4 text-accent-300" />
+          </span>
         </div>
-        <span className="flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2.5 text-sm text-foreground/70 shadow-sm">
-          {t("dashboard.today")}, {formatLongDate(now)}
-          <CalendarDays className="h-4 w-4 text-foreground/40" />
-        </span>
+        <div className="h-1 bg-accent-500" />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">

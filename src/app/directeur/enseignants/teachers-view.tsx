@@ -8,7 +8,6 @@ import {
   Plus,
   MoreVertical,
   Pencil,
-  MessageCircle,
   Phone,
   UserX,
   UserCheck,
@@ -25,6 +24,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { WhatsAppLink } from "@/components/ui/whatsapp-link";
 import {
   TeacherFormDialog,
   type TeacherEditTarget,
@@ -36,7 +36,7 @@ import {
   type AccountResult,
 } from "@/app/directeur/comptes/actions";
 import { CredentialsDialog } from "@/app/directeur/comptes/credentials-dialog";
-import { buildWhatsAppUrl, buildTelUrl } from "@/lib/whatsapp";
+import { buildTelUrl } from "@/lib/whatsapp";
 import { formatMRU, formatDate } from "@/lib/format";
 
 export interface TeacherRow {
@@ -251,15 +251,11 @@ export function TeachersView({
                       </td>
                       <td className="px-5 py-3">
                         <div className="flex items-center justify-end gap-1">
-                          <a
-                            href={buildWhatsAppUrl(t.phone, waMessage)}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <WhatsAppLink
+                            phone={t.phone}
+                            message={waMessage}
                             title="Contacter sur WhatsApp"
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-primary-700 transition-colors hover:bg-primary-50"
-                          >
-                            <MessageCircle className="h-4 w-4" />
-                          </a>
+                          />
                           <a
                             href={buildTelUrl(t.phone)}
                             title="Appeler"
@@ -269,7 +265,10 @@ export function TeachersView({
                           </a>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <button className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground/60 transition-colors hover:bg-surface-muted">
+                              <button
+                                aria-label="Actions"
+                                className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground/60 transition-colors hover:bg-surface-muted"
+                              >
                                 <MoreVertical className="h-4 w-4" />
                               </button>
                             </DropdownMenuTrigger>

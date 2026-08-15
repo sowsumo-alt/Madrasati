@@ -20,7 +20,10 @@ export default async function FinancePage() {
             parentLinks: { where: { isPrimary: true }, include: { parent: true } },
           },
         },
-        payments: { select: { id: true, amount: true, receiptNumber: true } },
+        payments: {
+          select: { id: true, amount: true, receiptNumber: true },
+          orderBy: { paidAt: "asc" },
+        },
       },
     }),
     prisma.student.findMany({

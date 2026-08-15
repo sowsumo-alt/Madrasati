@@ -163,12 +163,12 @@ export function TeacherFormDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Matière enseignée</Label>
+              <Label htmlFor="teacher-subject-select">Matière enseignée</Label>
               <Select
                 value={subjectSpecialty || undefined}
                 onValueChange={(v) => setValue("subjectSpecialty", v)}
               >
-                <SelectTrigger>
+                <SelectTrigger id="teacher-subject-select">
                   <SelectValue placeholder="Sélectionner" />
                 </SelectTrigger>
                 <SelectContent>
@@ -211,12 +211,12 @@ export function TeacherFormDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label>Statut</Label>
+            <Label htmlFor="teacher-status-select">Statut</Label>
             <Select
               value={status}
               onValueChange={(v) => setValue("status", v as TeacherFormValues["status"])}
             >
-              <SelectTrigger>
+              <SelectTrigger id="teacher-status-select">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

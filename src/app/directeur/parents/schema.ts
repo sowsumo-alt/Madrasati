@@ -1,9 +1,10 @@
 import { z } from "zod";
+import { phoneSchema } from "@/lib/phone";
 
 export const parentSchema = z.object({
   firstName: z.string().trim().min(1, "Le prénom est requis"),
   lastName: z.string().trim().min(1, "Le nom est requis"),
-  phone: z.string().trim().min(1, "Le téléphone est requis"),
+  phone: phoneSchema,
   email: z.string().trim().optional().or(z.literal("")),
   address: z.string().trim().optional().or(z.literal("")),
   relationship: z.string().trim().optional().or(z.literal("")),

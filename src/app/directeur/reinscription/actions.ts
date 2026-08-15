@@ -33,10 +33,14 @@ export async function reenrollStudent(
   const targetClass = await getTargetClass(user.schoolId, targetClassId);
 
   const paymentId = await prisma.$transaction(async (tx) => {
-    await tx.student.updateMany({
+    const updated = await tx.student.updateMany({
       where: { id: studentId, schoolId: user.schoolId },
       data: { classId: targetClass.id, status: "ACTIVE" },
     });
+    // Aucune ligne modifiée : le studentId ne fait pas partie de cette école.
+    // Sans ce contrôle, un Fee/Payment serait quand même créé plus bas pour
+    // un élève d'une autre école (fuite de nom/classe/parent côté Finance).
+    if (updated.count === 0) throw new Error("Élève introuvable.");
 
     if (!amount || amount <= 0) return undefined;
 

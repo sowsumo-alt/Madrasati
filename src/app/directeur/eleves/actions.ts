@@ -11,6 +11,16 @@ export async function createStudent(values: StudentFormValues) {
   const user = await requireRole(ROLES.DIRECTOR);
   const data = studentSchema.parse(values);
 
+  // classId non vérifié : un ID d'une autre école ferait apparaître son nom
+  // de classe (et fausserait ses effectifs) dans les listings de ce
+  // directeur, sans qu'il ait le droit d'y rattacher qui que ce soit.
+  if (data.classId) {
+    const cls = await prisma.classRoom.findFirst({
+      where: { id: data.classId, schoolId: user.schoolId },
+    });
+    if (!cls) throw new Error("Classe introuvable.");
+  }
+
   const result = await prisma.$transaction(async (tx) => {
     const student = await tx.student.create({
       data: {
@@ -95,6 +105,13 @@ export async function updateStudent(studentId: string, values: StudentFormValues
     include: { parentLinks: { include: { parent: true } } },
   });
   if (!existing) throw new Error("Élève introuvable.");
+
+  if (data.classId) {
+    const cls = await prisma.classRoom.findFirst({
+      where: { id: data.classId, schoolId: user.schoolId },
+    });
+    if (!cls) throw new Error("Classe introuvable.");
+  }
 
   await prisma.student.update({
     where: { id: studentId },

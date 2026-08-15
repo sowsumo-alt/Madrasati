@@ -92,7 +92,7 @@ export function ExamFormDialog({ open, onOpenChange, classes }: ExamFormDialogPr
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Classe</Label>
+              <Label htmlFor="exam-class-select">Classe</Label>
               <Select
                 value={classId || undefined}
                 onValueChange={(v) => {
@@ -100,7 +100,7 @@ export function ExamFormDialog({ open, onOpenChange, classes }: ExamFormDialogPr
                   setValue("subjectId", "");
                 }}
               >
-                <SelectTrigger>
+                <SelectTrigger id="exam-class-select">
                   <SelectValue placeholder="Sélectionner" />
                 </SelectTrigger>
                 <SelectContent>
@@ -116,13 +116,13 @@ export function ExamFormDialog({ open, onOpenChange, classes }: ExamFormDialogPr
               )}
             </div>
             <div className="space-y-1.5">
-              <Label>Matière</Label>
+              <Label htmlFor="exam-subject-select">Matière</Label>
               <Select
                 value={subjectId || undefined}
                 onValueChange={(v) => setValue("subjectId", v)}
                 disabled={!selectedClass}
               >
-                <SelectTrigger>
+                <SelectTrigger id="exam-subject-select">
                   <SelectValue placeholder="Sélectionner" />
                 </SelectTrigger>
                 <SelectContent>
@@ -154,12 +154,12 @@ export function ExamFormDialog({ open, onOpenChange, classes }: ExamFormDialogPr
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Trimestre</Label>
+              <Label htmlFor="exam-term-select">Trimestre</Label>
               <Select
                 value={term}
                 onValueChange={(v) => setValue("term", v as ExamFormValues["term"])}
               >
-                <SelectTrigger>
+                <SelectTrigger id="exam-term-select">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

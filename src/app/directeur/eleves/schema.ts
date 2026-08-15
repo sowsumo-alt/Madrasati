@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { optionalPhoneSchema } from "@/lib/phone";
 
 export const studentSchema = z.object({
   firstName: z.string().trim().min(1, "Le prénom est requis"),
@@ -11,7 +12,7 @@ export const studentSchema = z.object({
   photoUrl: z.string().max(400_000, "Image trop lourde").nullable().optional(),
   parentFirstName: z.string().trim().optional().or(z.literal("")),
   parentLastName: z.string().trim().optional().or(z.literal("")),
-  parentPhone: z.string().trim().optional().or(z.literal("")),
+  parentPhone: optionalPhoneSchema,
   /** Frais d'inscription, optionnel : un montant à 0 ou vide = pas de paiement. */
   enrollmentAmount: z.coerce.number().int().nonnegative().optional(),
   enrollmentMethod: z.enum(["CASH", "BANK_TRANSFER", "MASRVI", "SEDAD"]).optional(),

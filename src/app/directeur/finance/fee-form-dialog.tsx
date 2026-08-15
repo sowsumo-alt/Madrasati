@@ -81,12 +81,12 @@ export function FeeFormDialog({ open, onOpenChange, students }: FeeFormDialogPro
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
           <div className="space-y-1.5">
-            <Label>{t("finance.student")}</Label>
+            <Label htmlFor="fee-student-select">{t("finance.student")}</Label>
             <Select
               value={studentId || undefined}
               onValueChange={(v) => setValue("studentId", v)}
             >
-              <SelectTrigger>
+              <SelectTrigger id="fee-student-select">
                 <SelectValue placeholder={t("finance.selectStudent")} />
               </SelectTrigger>
               <SelectContent>

@@ -7,6 +7,12 @@ export function formatMRU(amount: number) {
   return `${mruFormatter.format(amount)} MRU`;
 }
 
+/** Même séparateur de milliers que formatMRU, sans le suffixe "MRU" — pour
+ *  les modèles de message qui l'ajoutent déjà eux-mêmes (ex: "{amount} MRU"). */
+export function formatAmount(amount: number) {
+  return mruFormatter.format(amount);
+}
+
 const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
   day: "2-digit",
   month: "short",
