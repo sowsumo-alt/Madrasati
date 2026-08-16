@@ -513,7 +513,7 @@ model Fee {
   @@map("fees")
 }
 
-// method : "CASH" | "BANK_TRANSFER" | "MASRVI" | "SEDAD"
+// method : "CASH" | "BANK_TRANSFER" | "MASRVI" | "SEDAD" | "BAKILY"
 model Payment {
   id             String   @id @default(cuid())
   schoolId       String
@@ -524,11 +524,17 @@ model Payment {
   student        Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
   amount         Int // MRU
   method         String
-  receiptNumber  String   @unique
+  // Unicité composée avec schoolId : generateReceiptNumber() (src/lib/receipts.ts)
+  // numérote à partir de 1 séparément pour chaque école, donc deux écoles
+  // produisent légitimement toutes les deux "REC-2026-0001" — une contrainte
+  // unique globale sur ce seul champ ferait échouer le premier paiement de
+  // toute école qui ne serait pas arrivée en premier.
+  receiptNumber  String
   paidAt         DateTime @default(now())
   recordedByUserId String?
   note           String?
 
+  @@unique([schoolId, receiptNumber])
   @@index([schoolId])
   @@index([studentId])
   @@map("payments")
