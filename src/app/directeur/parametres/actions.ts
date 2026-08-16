@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
+import { isPlan } from "@/lib/plans";
 
 /** Data URI d'image, plafonné pour éviter de gonfler la base. */
 const LOGO_MAX_CHARS = 400_000; // ~300 Ko une fois décodé
@@ -39,6 +40,32 @@ export async function updateSchool(values: SchoolFormValues) {
 
   revalidatePath("/directeur/parametres");
   revalidatePath("/directeur");
+}
+
+/**
+ * Enregistre une demande de mise à niveau — ne change jamais School.plan
+ * elle-même : c'est un journal consultable, l'activation reste manuelle
+ * (l'éditeur valide le paiement avant d'activer la formule).
+ */
+export async function requestPlanUpgrade(requestedPlan: string) {
+  const user = await requireRole(ROLES.DIRECTOR);
+  if (!isPlan(requestedPlan)) throw new Error("Formule invalide.");
+
+  const school = await prisma.school.findUnique({
+    where: { id: user.schoolId },
+    select: { plan: true },
+  });
+
+  await prisma.planUpgradeRequest.create({
+    data: {
+      schoolId: user.schoolId,
+      currentPlan: school?.plan ?? "standard",
+      requestedPlan,
+      requestedByUserId: user.id,
+    },
+  });
+
+  revalidatePath("/directeur/parametres");
 }
 
 const yearSchema = z.object({

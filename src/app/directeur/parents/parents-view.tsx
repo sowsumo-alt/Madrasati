@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -10,6 +11,7 @@ import {
   Phone,
   KeyRound,
   Loader2,
+  Lock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,10 +47,12 @@ export function ParentsView({
   parents,
   students,
   schoolName,
+  parentPortalEnabled,
 }: {
   parents: ParentRow[];
   students: ParentStudentOption[];
   schoolName: string;
+  parentPortalEnabled: boolean;
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -172,7 +176,7 @@ export function ParentsView({
                           <span className="text-xs text-foreground/60">
                             {p.accountEmail}
                           </span>
-                        ) : (
+                        ) : parentPortalEnabled ? (
                           <Button
                             variant="secondary"
                             size="sm"
@@ -186,6 +190,14 @@ export function ParentsView({
                             )}
                             Créer un accès
                           </Button>
+                        ) : (
+                          <Link
+                            href="/directeur/fonctionnalite-verrouillee?feature=parentPortal"
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-surface-muted px-2.5 py-1.5 text-xs font-medium text-foreground/50 hover:text-foreground"
+                          >
+                            <Lock className="h-3 w-3" />
+                            Plan Avancé
+                          </Link>
                         )}
                       </td>
                       <td className="px-5 py-3">

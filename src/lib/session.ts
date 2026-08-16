@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import type { Role } from "@/lib/roles";
+import { ROLES } from "@/lib/roles";
+import { planHasFeature, type Feature } from "@/lib/plans";
 
 export async function getCurrentUser() {
   const session = await getServerSession(authOptions);
@@ -33,6 +35,33 @@ export async function requireRole(...roles: Role[]) {
     select: { mustChangePassword: true },
   });
   if (account?.mustChangePassword) redirect("/mon-compte");
+
+  return user;
+}
+
+/**
+ * Comme requireRole, mais impose en plus que la formule de l'école inclue
+ * cette fonctionnalité — vérifié ici côté serveur (pas seulement caché dans
+ * le menu), donc une URL directe ne suffit pas à contourner le plan.
+ *
+ * Un directeur atterrit sur la page « fonctionnalité verrouillée » (avec
+ * l'invitation à mettre à niveau) ; un enseignant ou un parent n'a rien à
+ * décider sur l'abonnement, il est simplement renvoyé vers son espace.
+ */
+export async function requireFeature(feature: Feature, ...roles: Role[]) {
+  const user = await requireRole(...roles);
+
+  const school = await prisma.school.findUnique({
+    where: { id: user.schoolId },
+    select: { plan: true },
+  });
+
+  if (!planHasFeature(school?.plan, feature)) {
+    if (user.role === ROLES.DIRECTOR) {
+      redirect(`/directeur/fonctionnalite-verrouillee?feature=${feature}`);
+    }
+    redirect("/");
+  }
 
   return user;
 }

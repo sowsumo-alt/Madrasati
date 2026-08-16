@@ -97,6 +97,14 @@ export const DEFAULT_TEMPLATES = [
     bodyAr:
       "مرحبًا {parentName}،\n\n[أدخلوا إعلانكم هنا — مناسبة، عطلة، تغيير في التوقيت، إلخ.]\n\n{schoolName}",
   },
+  {
+    key: "AT_RISK_ALERT",
+    title: "Élève à surveiller",
+    body:
+      "Bonjour {parentName},\n\nNous avons remarqué que {studentName} pourrait avoir besoin d'un accompagnement supplémentaire en ce moment — {reason}. Nous serions heureux d'en discuter avec vous.\n\n{schoolName}",
+    bodyAr:
+      "مرحبًا {parentName}،\n\nلاحظنا أن {studentName} قد يحتاج إلى بعض المتابعة الإضافية حاليًا — {reason}. يسعدنا مناقشة الأمر معكم.\n\n{schoolName}",
+  },
 ];
 
 /**

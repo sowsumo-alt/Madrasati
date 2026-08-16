@@ -1,6 +1,7 @@
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
+import { FEATURES, planHasFeature } from "@/lib/plans";
 import { CommunicationView, type Recipient, type TemplateRow } from "./communication-view";
 
 export default async function CommunicationPage() {
@@ -20,8 +21,10 @@ export default async function CommunicationPage() {
       where: { schoolId: user.schoolId },
       orderBy: { title: "asc" },
     }),
-    prisma.school.findUnique({ where: { id: user.schoolId }, select: { name: true } }),
+    prisma.school.findUnique({ where: { id: user.schoolId }, select: { name: true, plan: true } }),
   ]);
+
+  const bilingual = planHasFeature(school?.plan, FEATURES.BILINGUAL_MESSAGES);
 
   const recipients: Recipient[] = [
     ...parents.map((p) => ({
@@ -47,7 +50,7 @@ export default async function CommunicationPage() {
     key: t.key,
     title: t.title,
     body: t.body,
-    bodyAr: t.bodyAr,
+    bodyAr: bilingual ? t.bodyAr : null,
   }));
 
   return (

@@ -1,6 +1,7 @@
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
+import { FEATURES, planHasFeature } from "@/lib/plans";
 import { ExamsView, type ExamRow } from "./exams-view";
 import type { ExamClassOption } from "./exam-form-dialog";
 
@@ -39,8 +40,10 @@ export default async function ExamsPage() {
         },
       },
     }),
-    prisma.school.findUnique({ where: { id: user.schoolId }, select: { name: true } }),
+    prisma.school.findUnique({ where: { id: user.schoolId }, select: { name: true, plan: true } }),
   ]);
+
+  const bilingual = planHasFeature(school?.plan, FEATURES.BILINGUAL_MESSAGES);
 
   const examRows: ExamRow[] = exams.map((e) => {
     const classStudents = students.filter((s) => s.classId === e.classId);
@@ -91,6 +94,11 @@ export default async function ExamsPage() {
   }));
 
   return (
-    <ExamsView exams={examRows} classes={classOptions} schoolName={school?.name ?? "Madrasati"} />
+    <ExamsView
+      exams={examRows}
+      classes={classOptions}
+      schoolName={school?.name ?? "Madrasati"}
+      bilingual={bilingual}
+    />
   );
 }

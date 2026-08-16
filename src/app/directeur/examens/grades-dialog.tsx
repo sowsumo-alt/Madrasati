@@ -38,7 +38,7 @@ export interface GradesDialogTarget {
   students: GradesDialogStudent[];
 }
 
-/** Message bilingue (français puis arabe) envoyé au parent sur WhatsApp. */
+/** Message bilingue (français puis arabe, si le plan de l'école l'inclut) envoyé au parent sur WhatsApp. */
 function buildGradeMessage(params: {
   parentName: string;
   studentName: string;
@@ -49,8 +49,9 @@ function buildGradeMessage(params: {
   schoolName: string;
   rank: number | null;
   total: number;
+  bilingual: boolean;
 }) {
-  const { parentName, studentName, score, maxScore, subjectName, examTitle, schoolName, rank, total } =
+  const { parentName, studentName, score, maxScore, subjectName, examTitle, schoolName, rank, total, bilingual } =
     params;
   const rankFr = rank != null ? ` Rang : ${rank} sur ${total}.` : "";
   const rankAr = rank != null ? ` الترتيب: ${rank} من ${total}.` : "";
@@ -59,6 +60,8 @@ function buildGradeMessage(params: {
     `Bonjour ${parentName},\n\n` +
     `${studentName} a obtenu ${score}/${maxScore} en ${subjectName} (${examTitle}).${rankFr}\n\n` +
     schoolSignatureFr(schoolName);
+  if (!bilingual) return fr;
+
   const ar =
     `مرحبًا ${parentName}،\n\n` +
     `حصل ${studentName} على ${score}/${maxScore} في مادة ${subjectName} (${examTitle}).${rankAr}\n\n` +
@@ -70,10 +73,12 @@ function buildGradeMessage(params: {
 export function GradesDialog({
   target,
   schoolName,
+  bilingual,
   onOpenChange,
 }: {
   target: GradesDialogTarget | null;
   schoolName: string;
+  bilingual: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
   const router = useRouter();
@@ -163,6 +168,7 @@ export function GradesDialog({
                   schoolName,
                   rank,
                   total: scored.length,
+                  bilingual,
                 })
               : null;
 

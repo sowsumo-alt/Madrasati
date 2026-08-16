@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LineChart, DonutChart, type Point } from "@/components/charts/chart-primitives";
 import { formatMRU, formatLongDate, formatEventTime } from "@/lib/format";
 import { getTranslations } from "@/lib/i18n/server";
+import { FEATURES, planHasFeature } from "@/lib/plans";
+import { findAtRiskStudents } from "@/lib/at-risk";
 import {
   BookOpen,
   CalendarCheck,
@@ -17,6 +19,7 @@ import {
   GraduationCap,
   Hourglass,
   UserPlus,
+  UserSearch,
   Users,
   Wallet,
 } from "lucide-react";
@@ -186,8 +189,11 @@ export default async function DashboardPage() {
         classRoom: { select: { name: true } },
       },
     }),
-    prisma.school.findUnique({ where: { id: schoolId }, select: { name: true } }),
+    prisma.school.findUnique({ where: { id: schoolId }, select: { name: true, plan: true } }),
   ]);
+
+  const atRiskEnabled = planHasFeature(school?.plan, FEATURES.AT_RISK_DETECTION);
+  const atRiskCount = atRiskEnabled ? (await findAtRiskStudents(schoolId)).length : 0;
 
   // — Présence du jour
   const presentToday = todayAttendance.filter(
@@ -344,6 +350,25 @@ export default async function DashboardPage() {
         </div>
         <div className="h-1 bg-accent-500" />
       </div>
+
+      {atRiskEnabled && atRiskCount > 0 && (
+        <Link
+          href="/directeur/eleves-a-surveiller"
+          className="animate-page-in flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm shadow-sm transition-colors hover:bg-amber-100"
+        >
+          <span className="flex items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+              <UserSearch className="h-4.5 w-4.5" strokeWidth={2} />
+            </span>
+            <span className="font-medium text-amber-900">
+              {atRiskCount} élève{atRiskCount > 1 ? "s" : ""} à surveiller cette semaine
+            </span>
+          </span>
+          <span className="shrink-0 text-xs font-medium text-amber-700">
+            Voir le détail →
+          </span>
+        </Link>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatTile

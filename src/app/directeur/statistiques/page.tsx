@@ -1,5 +1,6 @@
-import { requireRole } from "@/lib/session";
+import { requireFeature } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
+import { FEATURES } from "@/lib/plans";
 import { prisma } from "@/lib/prisma";
 import { StatisticsView, type StatsData } from "./statistics-view";
 
@@ -25,7 +26,7 @@ function lastSixMonths() {
 }
 
 export default async function StatisticsPage() {
-  const user = await requireRole(ROLES.DIRECTOR);
+  const user = await requireFeature(FEATURES.ADVANCED_STATS, ROLES.DIRECTOR);
   const months = lastSixMonths();
   const since = new Date(months[0].year, months[0].month, 1);
 

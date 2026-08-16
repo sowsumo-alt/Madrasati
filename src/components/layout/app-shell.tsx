@@ -4,12 +4,13 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { Bell, LogOut, Menu, Search, X } from "lucide-react";
+import { Bell, LogOut, Menu, Search, X, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { Logo } from "@/components/brand/logo";
 import { LanguageToggle } from "./language-toggle";
-import { navGroupsByRole, type NavKey } from "./nav-items";
+import { navGroupsByRole, type NavKey, type NavItem } from "./nav-items";
+import { planHasFeature, type Plan } from "@/lib/plans";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -23,6 +24,26 @@ interface AppShellProps {
   alertCount?: number;
   alertHref?: string;
   alertLabel?: string;
+  /** Formule de l'école — détermine les entrées de menu verrouillées. */
+  plan: Plan;
+}
+
+/**
+ * Un directeur voit les fonctionnalités non incluses dans son plan, grisées
+ * avec un cadenas (invitation à mettre à niveau) — c'est lui le décideur de
+ * l'abonnement. Un enseignant ou un parent ne voit rien de tout ça : les
+ * entrées correspondantes disparaissent purement et simplement du menu.
+ */
+function visibleNavItems(items: NavItem[], plan: Plan, navKey: NavKey) {
+  if (navKey !== "director") {
+    return items
+      .filter((item) => !item.feature || planHasFeature(plan, item.feature))
+      .map((item) => ({ item, locked: false }));
+  }
+  return items.map((item) => ({
+    item,
+    locked: Boolean(item.feature) && !planHasFeature(plan, item.feature!),
+  }));
 }
 
 export function AppShell({
@@ -35,6 +56,7 @@ export function AppShell({
   alertCount = 0,
   alertHref = "#",
   alertLabel = "Notifications",
+  plan,
 }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -60,7 +82,7 @@ export function AppShell({
                 {t(group.labelKey)}
               </p>
             )}
-            {group.items.map((item) => {
+            {visibleNavItems(group.items, plan, navKey).map(({ item, locked }) => {
               const active =
                 pathname === item.href ||
                 (item.href !== "/directeur" &&
@@ -68,20 +90,26 @@ export function AppShell({
                   item.href !== "/parent" &&
                   pathname.startsWith(item.href));
               const Icon = item.icon;
+              const href = locked
+                ? `/directeur/fonctionnalite-verrouillee?feature=${item.feature}`
+                : item.href;
               return (
                 <Link
                   key={item.href}
-                  href={item.href}
+                  href={href}
                   onClick={() => setMobileOpen(false)}
                   className={cn(
                     "flex items-center gap-3 rounded-lg border-s-[3px] px-3 py-2.5 text-sm transition-colors",
-                    active
-                      ? "border-accent-400 bg-primary-600 font-semibold text-white shadow-sm"
-                      : "border-transparent font-medium text-white/70 hover:bg-white/10 hover:text-white",
+                    locked
+                      ? "border-transparent font-medium text-white/40 hover:bg-white/5 hover:text-white/60"
+                      : active
+                        ? "border-accent-400 bg-primary-600 font-semibold text-white shadow-sm"
+                        : "border-transparent font-medium text-white/70 hover:bg-white/10 hover:text-white",
                   )}
                 >
                   <Icon className="h-4.5 w-4.5 shrink-0" strokeWidth={2} />
                   {t(item.labelKey)}
+                  {locked && <Lock className="ms-auto h-3.5 w-3.5 shrink-0" strokeWidth={2} />}
                 </Link>
               );
             })}

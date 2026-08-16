@@ -1,6 +1,7 @@
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
+import { FEATURES, planHasFeature } from "@/lib/plans";
 import { AttendanceView, type AttendanceStudent } from "./attendance-view";
 
 const DEFAULT_ABSENCE_TEMPLATE =
@@ -60,7 +61,7 @@ export default async function AttendancePage({
           select: { studentId: true, status: true },
         })
       : Promise.resolve([]),
-    prisma.school.findUnique({ where: { id: user.schoolId }, select: { name: true } }),
+    prisma.school.findUnique({ where: { id: user.schoolId }, select: { name: true, plan: true } }),
     prisma.messageTemplate.findFirst({
       where: { schoolId: user.schoolId, key: "ABSENCE_ALERT" },
       select: { body: true, bodyAr: true },
@@ -70,6 +71,8 @@ export default async function AttendancePage({
       select: { body: true, bodyAr: true },
     }),
   ]);
+
+  const bilingual = planHasFeature(school?.plan, FEATURES.BILINGUAL_MESSAGES);
 
   const totalsByStudent = new Map<string, { present: number; total: number }>();
   for (const r of records) {
@@ -113,9 +116,9 @@ export default async function AttendancePage({
       selectedDate={selectedDate}
       schoolName={school?.name ?? "Madrasati"}
       absenceTemplate={template?.body ?? DEFAULT_ABSENCE_TEMPLATE}
-      absenceTemplateAr={template?.bodyAr ?? DEFAULT_ABSENCE_TEMPLATE_AR}
+      absenceTemplateAr={bilingual ? (template?.bodyAr ?? DEFAULT_ABSENCE_TEMPLATE_AR) : undefined}
       lateTemplate={lateTemplateRow?.body ?? DEFAULT_LATE_TEMPLATE}
-      lateTemplateAr={lateTemplateRow?.bodyAr ?? DEFAULT_LATE_TEMPLATE_AR}
+      lateTemplateAr={bilingual ? (lateTemplateRow?.bodyAr ?? DEFAULT_LATE_TEMPLATE_AR) : undefined}
     />
   );
 }

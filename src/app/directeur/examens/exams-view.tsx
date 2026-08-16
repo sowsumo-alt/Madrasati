@@ -41,12 +41,14 @@ export function ExamsView({
   classes,
   canManageExams = true,
   schoolName,
+  bilingual,
 }: {
   exams: ExamRow[];
   classes: ExamClassOption[];
   /** L'enseignant saisit les notes mais ne crée ni ne supprime les examens. */
   canManageExams?: boolean;
   schoolName: string;
+  bilingual: boolean;
 }) {
   const router = useRouter();
   const [termFilter, setTermFilter] = useState<string>("ALL");
@@ -211,6 +213,7 @@ export function ExamsView({
             : null
         }
         schoolName={schoolName}
+        bilingual={bilingual}
         onOpenChange={(open) => !open && setGradesExamId(null)}
       />
       <ConfirmDialog

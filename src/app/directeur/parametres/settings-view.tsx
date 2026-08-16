@@ -21,12 +21,14 @@ import {
 } from "@/components/ui/dialog";
 import { ImagePicker } from "@/components/ui/image-picker";
 import { formatDate } from "@/lib/format";
+import type { Plan } from "@/lib/plans";
 import {
   updateSchool,
   createAcademicYear,
   setCurrentYear,
   type SchoolFormValues,
 } from "./actions";
+import { PlanCard } from "./plan-card";
 
 const schoolSchema = z.object({
   name: z.string().trim().min(1, "Le nom de l'école est requis"),
@@ -55,10 +57,12 @@ export function SettingsView({
   school,
   years,
   counts,
+  plan,
 }: {
   school: SchoolFormValues;
   years: YearRow[];
   counts: { students: number; teachers: number; classes: number };
+  plan: Plan;
 }) {
   const router = useRouter();
   const [yearDialogOpen, setYearDialogOpen] = useState(false);
@@ -187,6 +191,8 @@ export function SettingsView({
           </form>
         </CardContent>
       </Card>
+
+      <PlanCard currentPlan={plan} schoolName={school.name} studentCount={counts.students} />
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">

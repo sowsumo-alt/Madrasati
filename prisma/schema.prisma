@@ -30,6 +30,9 @@ model School {
   email        String?
   logoUrl      String?
   currency     String   @default("MRU")
+  // Formule d'abonnement — "standard" | "advanced" | "network" (voir src/lib/plans.ts).
+  // String plutôt qu'enum Prisma, comme le reste des champs de statut du schéma.
+  plan         String   @default("standard")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -48,8 +51,28 @@ model School {
   holidays      Holiday[]
   reportComments ReportCardComment[]
   disciplineIncidents DisciplineIncident[]
+  planUpgradeRequests PlanUpgradeRequest[]
+  teacherContracts TeacherContract[]
+  teacherLeaves TeacherLeave[]
+  payslips      Payslip[]
 
   @@map("schools")
+}
+
+// Demande de changement de formule envoyée par un directeur : journal
+// consultable, sans activation automatique — c'est toujours l'éditeur qui
+// valide le paiement avant de changer School.plan lui-même.
+model PlanUpgradeRequest {
+  id                String   @id @default(cuid())
+  schoolId          String
+  school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  currentPlan       String
+  requestedPlan     String
+  requestedByUserId String?
+  createdAt         DateTime @default(now())
+
+  @@index([schoolId])
+  @@map("plan_upgrade_requests")
 }
 
 // Rôle applicatif. Stocké en String (pas d'enum Prisma) pour rester
@@ -260,9 +283,99 @@ model Teacher {
 
   mainOfClasses ClassRoom[]
   classSubjects ClassSubject[]
+  contract      TeacherContract?
+  leaves        TeacherLeave[]
+  payslips      Payslip[]
 
   @@index([schoolId])
   @@map("teachers")
+}
+
+// ---------------------------------------------------------------------------
+// RH & paie — plan Avancé uniquement (voir src/lib/plans.ts)
+// ---------------------------------------------------------------------------
+
+// type : "CDI" | "CDD" | "VACATAIRE"
+model TeacherContract {
+  id               String    @id @default(cuid())
+  schoolId         String
+  school           School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  teacherId        String    @unique
+  teacher          Teacher   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  type             String
+  startDate        DateTime
+  endDate          DateTime?
+  leaveDaysPerYear Int       @default(30)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  bonuses TeacherBonus[]
+
+  @@index([schoolId])
+  @@map("teacher_contracts")
+}
+
+/** Prime récurrente mensuelle (transport, ancienneté...), reprise automatiquement à chaque bulletin de salaire généré. */
+model TeacherBonus {
+  id         String          @id @default(cuid())
+  contractId String
+  contract   TeacherContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  label      String
+  amount     Int // MRU / mois
+
+  @@index([contractId])
+  @@map("teacher_bonuses")
+}
+
+// reason : "ANNUAL" | "SICK" | "OTHER"
+model TeacherLeave {
+  id        String   @id @default(cuid())
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  teacherId String
+  teacher   Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  startDate DateTime
+  endDate   DateTime
+  reason    String
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@index([schoolId])
+  @@index([teacherId])
+  @@map("teacher_leaves")
+}
+
+/** Snapshot au moment de la génération : reste exact même si le contrat change ensuite. */
+model Payslip {
+  id                String   @id @default(cuid())
+  schoolId          String
+  school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  teacherId         String
+  teacher           Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  month             Int
+  year              Int
+  baseSalary        Int
+  deductions        Int      @default(0)
+  deductionNote     String?
+  netPay            Int
+  generatedAt       DateTime @default(now())
+  generatedByUserId String?
+
+  bonusLines PayslipBonusLine[]
+
+  @@unique([teacherId, month, year])
+  @@index([schoolId])
+  @@map("payslips")
+}
+
+model PayslipBonusLine {
+  id        String  @id @default(cuid())
+  payslipId String
+  payslip   Payslip @relation(fields: [payslipId], references: [id], onDelete: Cascade)
+  label     String
+  amount    Int
+
+  @@map("payslip_bonus_lines")
 }
 
 // ---------------------------------------------------------------------------

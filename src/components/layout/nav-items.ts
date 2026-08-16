@@ -1,4 +1,5 @@
 import type { TranslationKey } from "@/lib/i18n/dictionaries";
+import type { Feature } from "@/lib/plans";
 import {
   LayoutDashboard,
   Users,
@@ -16,12 +17,16 @@ import {
   UserPlus,
   ClipboardPlus,
   ShieldAlert,
+  Briefcase,
+  UserSearch,
 } from "lucide-react";
 
 export interface NavItem {
   href: string;
   labelKey: TranslationKey;
   icon: typeof LayoutDashboard;
+  /** Fonctionnalité du plan requise — absent si incluse dans toutes les formules. */
+  feature?: Feature;
 }
 
 export interface NavGroup {
@@ -51,6 +56,12 @@ const directorNavGroups: NavGroup[] = [
       { href: "/directeur/examens", labelKey: "nav.exams", icon: GraduationCap },
       { href: "/directeur/bulletins", labelKey: "nav.reportCards", icon: FileText },
       { href: "/directeur/discipline", labelKey: "nav.discipline", icon: ShieldAlert },
+      {
+        href: "/directeur/eleves-a-surveiller",
+        labelKey: "nav.atRisk",
+        icon: UserSearch,
+        feature: "atRiskDetection",
+      },
     ],
   },
   {
@@ -61,9 +72,15 @@ const directorNavGroups: NavGroup[] = [
     labelKey: "nav.category.admin",
     items: [
       { href: "/directeur/enseignants", labelKey: "nav.teachers", icon: BookUser },
+      { href: "/directeur/rh", labelKey: "nav.hr", icon: Briefcase, feature: "hrPayroll" },
       { href: "/directeur/parents", labelKey: "nav.parents", icon: Contact },
       { href: "/directeur/communication", labelKey: "nav.communication", icon: MessageCircle },
-      { href: "/directeur/statistiques", labelKey: "nav.statistics", icon: BarChart3 },
+      {
+        href: "/directeur/statistiques",
+        labelKey: "nav.statistics",
+        icon: BarChart3,
+        feature: "advancedStats",
+      },
       { href: "/directeur/parametres", labelKey: "nav.settings", icon: Settings },
     ],
   },
@@ -76,6 +93,12 @@ const teacherNavGroups: NavGroup[] = [
       { href: "/enseignant/presences", labelKey: "nav.attendance", icon: ClipboardCheck },
       { href: "/enseignant/notes", labelKey: "nav.exams", icon: GraduationCap },
       { href: "/enseignant/emploi-du-temps", labelKey: "nav.schedule", icon: CalendarDays },
+      {
+        href: "/enseignant/eleves-a-surveiller",
+        labelKey: "nav.atRisk",
+        icon: UserSearch,
+        feature: "atRiskDetection",
+      },
     ],
   },
 ];
