@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2, MessageCircle } from "lucide-react";
@@ -17,7 +17,18 @@ import { Input } from "@/components/ui/input";
 import { WhatsAppLink } from "@/components/ui/whatsapp-link";
 import { rankOf } from "@/lib/report-card";
 import { withArabic, schoolSignatureFr, schoolSignatureAr } from "@/lib/whatsapp";
+import { cn } from "@/lib/utils";
 import { saveGrades } from "./actions";
+
+/** Couleur de fond du champ de note selon le niveau, pour un repérage visuel
+ *  immédiat des élèves en difficulté pendant la saisie. */
+function scoreColorClass(score: number, maxScore: number) {
+  if (!maxScore || Number.isNaN(score)) return "";
+  const pct = (score / maxScore) * 100;
+  if (pct >= 70) return "border-green-300 bg-green-50";
+  if (pct >= 50) return "border-amber-300 bg-amber-50";
+  return "border-red-300 bg-red-50";
+}
 
 export interface GradesDialogStudent {
   id: string;
@@ -85,6 +96,7 @@ export function GradesDialog({
   const [entries, setEntries] = useState<Record<string, { score: string; isAbsent: boolean }>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
 
   useEffect(() => {
     if (!target) return;
@@ -97,7 +109,27 @@ export function GradesDialog({
     }
     setEntries(next);
     setSaved(false);
+    inputRefs.current = [];
   }, [target]);
+
+  /** Entrée ou Tab dans un champ de note passe directement au champ de note
+   *  suivant (en sautant les élèves absents, dont le champ est désactivé)
+   *  plutôt que de laisser le focus atterrir sur la case à cocher suivante. */
+  function handleScoreKeyDown(e: React.KeyboardEvent<HTMLInputElement>, index: number) {
+    const forward = e.key === "Enter" || (e.key === "Tab" && !e.shiftKey);
+    const backward = e.key === "Tab" && e.shiftKey;
+    if (!forward && !backward) return;
+    const direction = forward ? 1 : -1;
+    for (let i = index + direction; i >= 0 && i < inputRefs.current.length; i += direction) {
+      const el = inputRefs.current[i];
+      if (el && !el.disabled) {
+        e.preventDefault();
+        el.focus();
+        el.select();
+        return;
+      }
+    }
+  }
 
   const scored = Object.values(entries)
     .filter((e) => !e.isAbsent && e.score !== "")
@@ -107,6 +139,11 @@ export function GradesDialog({
     scored.length > 0
       ? (scored.reduce((sum, n) => sum + n, 0) / scored.length).toFixed(2)
       : null;
+
+  const totalStudents = target?.students.length ?? 0;
+  const filledCount = Object.values(entries).filter(
+    (e) => e.isAbsent || e.score !== "",
+  ).length;
 
   function rankFor(studentId: string) {
     const entry = entries[studentId];
@@ -151,8 +188,22 @@ export function GradesDialog({
           )}
         </DialogHeader>
 
+        {target && (
+          <div className="sticky top-0 z-10 mb-2 flex items-center justify-between gap-3 border-b border-border bg-surface pb-2 text-sm">
+            <span className="font-medium text-foreground/70">
+              {filledCount} / {totalStudents} notes saisies
+            </span>
+            <span className="text-foreground/70">
+              Moyenne :{" "}
+              <span className="font-semibold text-primary-800">
+                {average ? `${average} / ${target.maxScore}` : "—"}
+              </span>
+            </span>
+          </div>
+        )}
+
         <div className="max-h-80 space-y-1 overflow-y-auto">
-          {target?.students.map((s) => {
+          {target?.students.map((s, index) => {
             const entry = entries[s.id] ?? { score: "", isAbsent: false };
             const rank = rankFor(s.id);
             const canNotify =
@@ -171,6 +222,11 @@ export function GradesDialog({
                   bilingual,
                 })
               : null;
+            const scoreNum = entry.score !== "" ? Number(entry.score) : NaN;
+            const colorClass =
+              !entry.isAbsent && !Number.isNaN(scoreNum)
+                ? scoreColorClass(scoreNum, target!.maxScore)
+                : "";
 
             return (
               <div
@@ -200,6 +256,9 @@ export function GradesDialog({
                   Absent
                 </label>
                 <Input
+                  ref={(el) => {
+                    inputRefs.current[index] = el;
+                  }}
                   type="number"
                   min={0}
                   max={target?.maxScore}
@@ -212,7 +271,8 @@ export function GradesDialog({
                       [s.id]: { score: e.target.value, isAbsent: false },
                     }))
                   }
-                  className="w-24"
+                  onKeyDown={(e) => handleScoreKeyDown(e, index)}
+                  className={cn("w-24", entry.isAbsent && "bg-surface-muted", colorClass)}
                 />
                 {canNotify ? (
                   <WhatsAppLink
@@ -229,23 +289,15 @@ export function GradesDialog({
           })}
         </div>
 
-        {average && (
-          <p className="text-sm text-foreground/70">
-            Moyenne de la classe :{" "}
-            <span className="font-semibold text-primary-800">
-              {average} / {target?.maxScore}
-            </span>
-          </p>
-        )}
         {saved && (
-          <p className="text-xs text-foreground/50">
+          <p className="mt-2 text-xs text-foreground/50">
             Notes enregistrées — cliquez sur{" "}
             <MessageCircle className="inline h-3.5 w-3.5 text-primary-600" /> pour prévenir un
             parent sur WhatsApp.
           </p>
         )}
 
-        <DialogFooter>
+        <DialogFooter className="sticky bottom-0 -mx-6 -mb-6 border-t border-border bg-surface px-6 pb-6 pt-4">
           <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
             {saved ? "Fermer" : "Annuler"}
           </Button>
