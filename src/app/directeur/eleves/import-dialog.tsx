@@ -39,8 +39,16 @@ function mapRow(row: Record<string, unknown>) {
 
   for (const [field, aliases] of Object.entries(HEADER_ALIASES)) {
     const match = entries.find(([k]) => aliases.includes(k));
-    if (match && match[1] != null) {
-      result[field] = String(match[1]).trim();
+    if (match && match[1] != null && match[1] !== "") {
+      // Une cellule Excel formatée en date arrive ici comme un objet Date
+      // JS (voir cellDates dans handleFile) : on la convertit en ISO plutôt
+      // qu'en toString() du fuseau local, pour ne jamais glisser d'un jour
+      // selon l'heure de la machine.
+      const value = match[1];
+      result[field] =
+        value instanceof Date
+          ? value.toISOString().slice(0, 10)
+          : String(value).trim();
     }
   }
   return result as {
@@ -67,7 +75,10 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
         import("xlsx"),
         file.arrayBuffer(),
       ]);
-      const workbook = XLSX.read(buffer, { type: "array" });
+      // cellDates : les cellules formatées en date arrivent en objets Date
+      // JS plutôt qu'en numéro de série Excel brut (ex: 42078), qui sinon se
+      // transformait silencieusement en date de naissance absurde ou nulle.
+      const workbook = XLSX.read(buffer, { type: "array", cellDates: true });
       const firstSheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[firstSheetName];
       const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
@@ -85,6 +96,18 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
       }
       if (result.created === 0 && result.skipped.length === 0) {
         toast.error(t("students.importNoRows"));
+      }
+      if (result.unmatchedClassNames.length > 0) {
+        toast.warning(
+          `Classe(s) non reconnue(s), élèves importés sans classe : ${result.unmatchedClassNames.join(", ")}. Vérifiez l'orthographe ou créez ces classes d'abord.`,
+          { duration: 10000 },
+        );
+      }
+      if (result.missingDateCount > 0) {
+        toast.warning(
+          `${result.missingDateCount} date(s) de naissance illisible(s), importées vides. Utilisez le format JJ/MM/AAAA.`,
+          { duration: 10000 },
+        );
       }
 
       onOpenChange(false);

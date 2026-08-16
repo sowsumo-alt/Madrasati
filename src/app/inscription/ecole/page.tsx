@@ -6,7 +6,11 @@ import { CreateSchoolForm } from "./create-school-form";
 export default async function CreateSchoolPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/inscription");
-  if (user.schoolId) redirect("/");
+  // Seule une identité Google "pending" (voir jwt() dans src/lib/auth.ts)
+  // doit atterrir ici — pas un compte déjà rattaché à une école, ni un
+  // Super Admin (dont le schoolId est aussi vide, mais qui n'est jamais
+  // "pending").
+  if (!user.pending) redirect("/");
 
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-primary-700 via-primary-600 to-primary-400 px-4 py-10">

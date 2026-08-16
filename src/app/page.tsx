@@ -10,10 +10,10 @@ export default async function Home() {
   // Utilisateur connecté : on l'envoie directement dans son espace.
   if (!user) return <LandingPage />;
 
-  // Identité Google authentifiée mais sans école : direction le formulaire
-  // de création avant tout accès à l'application.
-  if (!user.schoolId) redirect("/inscription/ecole");
-
+  // Le rôle est vérifié avant tout : un Super Admin a lui aussi un schoolId
+  // vide (voir jwt() dans src/lib/auth.ts) mais ne doit jamais atterrir sur
+  // le formulaire de création d'école — seule une identité Google réellement
+  // "pending" (aucun rôle du tout, voir plus bas) doit y être envoyée.
   switch (user.role) {
     case ROLES.DIRECTOR:
       redirect("/directeur");
@@ -23,7 +23,11 @@ export default async function Home() {
       redirect("/parent");
     case "SUPER_ADMIN":
       redirect("/super-admin");
-    default:
-      redirect("/login");
   }
+
+  // Identité Google authentifiée mais sans école : direction le formulaire
+  // de création avant tout accès à l'application.
+  if (user.pending) redirect("/inscription/ecole");
+
+  redirect("/login");
 }

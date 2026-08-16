@@ -21,8 +21,12 @@ export async function completeGoogleSignup(
   values: CreateSchoolValues,
 ): Promise<CreateSchoolResult> {
   const user = await requireUser();
-  if (user.schoolId) {
-    return { ok: false, error: "Votre compte est déjà rattaché à une école." };
+  // Seule une identité Google fraîchement authentifiée mais encore "pending"
+  // a le droit de créer une école ici — pas un compte déjà rattaché à une
+  // école, ni un Super Admin (dont le schoolId est vide comme un compte
+  // pending, mais qui n'en est pas un).
+  if (!user.pending) {
+    return { ok: false, error: "Votre compte ne peut pas créer d'école ici." };
   }
   if (!user.email) {
     return { ok: false, error: "Adresse email introuvable sur votre compte Google." };

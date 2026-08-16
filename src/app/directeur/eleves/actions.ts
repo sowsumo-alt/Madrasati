@@ -175,6 +175,47 @@ interface ImportRow {
   className?: string;
 }
 
+/** Normalise pour comparer deux noms de classe malgré espaces, accents
+ *  différemment encodés ("è" composé vs décomposé) ou casse différente. */
+function normalizeClassName(name: string) {
+  return name.trim().toLowerCase().normalize("NFC");
+}
+
+/**
+ * Lit une date de naissance depuis une cellule Excel, qui peut arriver sous
+ * plusieurs formes selon comment la feuille a été remplie :
+ * - une date Excel réelle, déjà convertie en texte lisible par le client
+ *   (voir cellDates dans import-dialog.tsx) ;
+ * - du texte saisi à la main au format français JJ/MM/AAAA ;
+ * - un numéro de série Excel resté brut (cellule non formatée en date).
+ */
+function parseFlexibleDate(value: string): Date | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const frMatch = trimmed.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
+  if (frMatch) {
+    const [, day, month, year] = frMatch;
+    const date = new Date(Number(year), Number(month) - 1, Number(day));
+    if (!Number.isNaN(date.getTime())) return date;
+  }
+
+  if (/^\d+(\.\d+)?$/.test(trimmed)) {
+    const serial = Number(trimmed);
+    // Plage plausible pour une date de naissance stockée en numéro de série
+    // Excel (jours depuis le 30/12/1899) — évite de mal interpréter un
+    // simple entier qui ne serait pas du tout une date.
+    if (serial > 1000 && serial < 100000) {
+      const excelEpoch = Date.UTC(1899, 11, 30);
+      const date = new Date(excelEpoch + serial * 86_400_000);
+      if (!Number.isNaN(date.getTime())) return date;
+    }
+  }
+
+  const parsed = new Date(trimmed);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 export async function importStudents(rows: ImportRow[]) {
   const user = await requireRole(ROLES.DIRECTOR);
 
@@ -183,11 +224,13 @@ export async function importStudents(rows: ImportRow[]) {
     select: { id: true, name: true },
   });
   const classByName = new Map(
-    classes.map((c) => [c.name.trim().toLowerCase(), c.id]),
+    classes.map((c) => [normalizeClassName(c.name), c.id]),
   );
 
   let created = 0;
   const skipped: { row: number; reason: string }[] = [];
+  const unmatchedClassNames = new Set<string>();
+  let missingDateCount = 0;
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
@@ -207,15 +250,14 @@ export async function importStudents(rows: ImportRow[]) {
           ? "F"
           : null;
 
-    let dateOfBirth: Date | null = null;
-    if (row.dateOfBirth) {
-      const parsed = new Date(row.dateOfBirth);
-      if (!Number.isNaN(parsed.getTime())) dateOfBirth = parsed;
-    }
+    const dateOfBirth = row.dateOfBirth ? parseFlexibleDate(row.dateOfBirth) : null;
+    if (row.dateOfBirth && !dateOfBirth) missingDateCount++;
 
-    const classId = row.className
-      ? (classByName.get(row.className.trim().toLowerCase()) ?? null)
-      : null;
+    let classId: string | null = null;
+    if (row.className) {
+      classId = classByName.get(normalizeClassName(row.className)) ?? null;
+      if (!classId) unmatchedClassNames.add(row.className.trim());
+    }
 
     await prisma.student.create({
       data: {
@@ -233,5 +275,10 @@ export async function importStudents(rows: ImportRow[]) {
 
   revalidatePath("/directeur/eleves");
   revalidatePath("/directeur");
-  return { created, skipped };
+  return {
+    created,
+    skipped,
+    unmatchedClassNames: [...unmatchedClassNames],
+    missingDateCount,
+  };
 }
