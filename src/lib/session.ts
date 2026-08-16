@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import type { Role } from "@/lib/roles";
 import { ROLES } from "@/lib/roles";
-import { planHasFeature, type Feature } from "@/lib/plans";
+import { planHasFeature, effectivePlan, type Feature } from "@/lib/plans";
 
 export async function getCurrentUser() {
   const session = await getServerSession(authOptions);
@@ -32,9 +32,14 @@ export async function requireRole(...roles: Role[]) {
 
   const account = await prisma.user.findUnique({
     where: { id: user.id },
-    select: { mustChangePassword: true },
+    select: { mustChangePassword: true, school: { select: { subscriptionStatus: true } } },
   });
   if (account?.mustChangePassword) redirect("/mon-compte");
+
+  // Un abonnement suspendu par le Super Admin coupe l'accès pour toute
+  // l'école (directeur, enseignants, parents) tant qu'il n'est pas réactivé
+  // via « Marquer comme payé ».
+  if (account?.school?.subscriptionStatus === "suspended") redirect("/compte-suspendu");
 
   return user;
 }
@@ -53,10 +58,11 @@ export async function requireFeature(feature: Feature, ...roles: Role[]) {
 
   const school = await prisma.school.findUnique({
     where: { id: user.schoolId },
-    select: { plan: true },
+    select: { plan: true, subscriptionStatus: true },
   });
 
-  if (!planHasFeature(school?.plan, feature)) {
+  const plan = school ? effectivePlan(school) : "standard";
+  if (!planHasFeature(plan, feature)) {
     if (user.role === ROLES.DIRECTOR) {
       redirect(`/directeur/fonctionnalite-verrouillee?feature=${feature}`);
     }

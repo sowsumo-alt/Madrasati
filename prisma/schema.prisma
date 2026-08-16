@@ -33,6 +33,11 @@ model School {
   // Formule d'abonnement — "standard" | "advanced" | "network" (voir src/lib/plans.ts).
   // String plutôt qu'enum Prisma, comme le reste des champs de statut du schéma.
   plan         String   @default("standard")
+  // Statut de facturation — "trial" | "active" | "past_due" | "restricted" | "suspended".
+  // Géré uniquement depuis le tableau de bord Super Admin (src/app/super-admin).
+  subscriptionStatus String   @default("trial")
+  lastPaymentAt      DateTime?
+  nextDueAt          DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -55,8 +60,43 @@ model School {
   teacherContracts TeacherContract[]
   teacherLeaves TeacherLeave[]
   payslips      Payslip[]
+  subscriptionPayments SubscriptionPayment[]
 
   @@map("schools")
+}
+
+/** Paiement d'abonnement Madrasati reçu d'une école — distinct de Payment
+ *  (les frais de scolarité payés par les parents à l'école). Enregistré
+ *  uniquement par un Super Admin depuis /super-admin. */
+model SubscriptionPayment {
+  id        String   @id @default(cuid())
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  amount    Int // MRU
+  paidAt    DateTime @default(now())
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@index([schoolId])
+  @@map("subscription_payments")
+}
+
+/**
+ * Compte propriétaire de la plateforme — entièrement séparé du modèle User
+ * (qui appartient toujours à une école). Aucune relation avec School : un
+ * Super Admin n'est jamais scopé à un tenant, et ne passe jamais par
+ * requireRole/requireUser (voir src/lib/super-admin-session.ts), pour qu'un
+ * bug dans le système de rôles écoles ne puisse jamais lui donner accès —
+ * ni l'inverse.
+ */
+model SuperAdmin {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime @default(now())
+
+  @@map("super_admins")
 }
 
 // Demande de changement de formule envoyée par un directeur : journal

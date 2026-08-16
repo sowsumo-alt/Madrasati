@@ -38,6 +38,37 @@ export const authOptions: NextAuthOptions = {
       },
     }),
     CredentialsProvider({
+      id: "super-admin",
+      name: "Super Admin",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Mot de passe", type: "password" },
+      },
+      /**
+       * Table entièrement séparée de `User` (aucune colonne schoolId) : un
+       * Super Admin n'appartient à aucune école, et ce provider ne renvoie
+       * donc jamais de schoolId — voir la note dans jwt() ci-dessous.
+       */
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) return null;
+
+        const admin = await prisma.superAdmin.findUnique({
+          where: { email: credentials.email.toLowerCase().trim() },
+        });
+        if (!admin) return null;
+
+        const isValid = await bcrypt.compare(credentials.password, admin.passwordHash);
+        if (!isValid) return null;
+
+        return {
+          id: admin.id,
+          email: admin.email,
+          name: admin.name,
+          role: "SUPER_ADMIN",
+        };
+      },
+    }),
+    CredentialsProvider({
       id: "supabase-google",
       name: "Google",
       credentials: {
@@ -84,6 +115,20 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id;
         token.role = user.role!;
         token.schoolId = user.schoolId!;
+        delete token.pending;
+        return token;
+      }
+
+      if (user && account?.provider === "super-admin") {
+        token.id = user.id;
+        token.role = "SUPER_ADMIN";
+        // Chaîne vide et non `undefined` : un filtre Prisma `{ schoolId:
+        // undefined }` est ignoré (retourne TOUTES les écoles) alors qu'un
+        // `{ schoolId: "" }` ne matche jamais rien — si du code scopé-école
+        // était par erreur atteint avec ce jeton, il échouerait fermé, pas
+        // ouvert. En pratique, aucune page école n'accepte ce rôle : ce
+        // n'est qu'un filet de sécurité.
+        token.schoolId = "";
         delete token.pending;
         return token;
       }

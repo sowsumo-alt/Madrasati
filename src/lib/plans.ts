@@ -98,3 +98,49 @@ export function planHasFeature(plan: string | null | undefined, feature: Feature
   const normalized = plan && isPlan(plan) ? plan : "standard";
   return PLAN_FEATURE_SET[normalized].has(feature);
 }
+
+// ---------------------------------------------------------------------------
+// Statut de facturation — géré depuis le tableau de bord Super Admin.
+// ---------------------------------------------------------------------------
+
+export const SUBSCRIPTION_STATUSES = [
+  "trial",
+  "active",
+  "past_due",
+  "restricted",
+  "suspended",
+] as const;
+export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number];
+
+export function isSubscriptionStatus(value: string): value is SubscriptionStatus {
+  return (SUBSCRIPTION_STATUSES as readonly string[]).includes(value);
+}
+
+export const SUBSCRIPTION_STATUS_LABELS: Record<SubscriptionStatus, string> = {
+  trial: "En période d'essai",
+  active: "Actif",
+  past_due: "En retard",
+  restricted: "Restreint",
+  suspended: "Suspendu",
+};
+
+/**
+ * Plan réellement accordé compte tenu du statut de facturation : un compte
+ * "restricted" retombe sur les fonctionnalités Standard (ses fonctionnalités
+ * payantes se reverrouillent) même s'il reste sur le papier en Avancé/Réseau
+ * — le plan d'origine n'est jamais effacé, il redevient actif dès que le
+ * statut repasse à "active" (bouton « Marquer comme payé »).
+ */
+export function effectivePlan(school: { plan: string; subscriptionStatus: string }): Plan {
+  if (school.subscriptionStatus === "restricted") return "standard";
+  return isPlan(school.plan) ? school.plan : "standard";
+}
+
+/** Montant dû ce mois-ci pour une école, arrondi à l'unité. `null` pour le
+ *  plan Réseau (sur devis, pas de formule fixe). */
+export function computeMonthlyDue(plan: string, activeStudentCount: number): number | null {
+  const normalized = isPlan(plan) ? plan : "standard";
+  const amountPerStudent = PLAN_PRICE[normalized].amountPerStudent;
+  if (amountPerStudent == null) return null;
+  return amountPerStudent * activeStudentCount;
+}

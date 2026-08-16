@@ -21,6 +21,8 @@ export default async function Home() {
       redirect("/enseignant");
     case ROLES.PARENT:
       redirect("/parent");
+    case "SUPER_ADMIN":
+      redirect("/super-admin");
     default:
       redirect("/login");
   }
