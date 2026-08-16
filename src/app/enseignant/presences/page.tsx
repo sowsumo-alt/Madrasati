@@ -8,9 +8,13 @@ import {
 } from "@/app/directeur/presences/attendance-view";
 
 const DEFAULT_ABSENCE_TEMPLATE =
-  "Bonjour {parentName}, nous vous informons que {studentName} est absent(e) aujourd'hui ({date}). Merci de nous contacter si besoin. École {schoolName}.";
+  "Bonjour {parentName},\n\nNous vous informons que {studentName} est absent(e) aujourd'hui ({date}). Merci de nous contacter si besoin.\n\n{schoolName}";
 const DEFAULT_ABSENCE_TEMPLATE_AR =
-  "مرحبًا {parentName}، نعلمكم بأن {studentName} غائب(ة) اليوم ({date}). يرجى الاتصال بنا عند الحاجة. مدرسة {schoolName}.";
+  "مرحبًا {parentName}،\n\nنعلمكم بأن {studentName} غائب(ة) اليوم الموافق {date}. يرجى الاتصال بنا عند الحاجة.\n\n{schoolName}";
+const DEFAULT_LATE_TEMPLATE =
+  "Bonjour {parentName},\n\nNous vous informons que {studentName} est arrivé(e) en retard aujourd'hui ({date}). Merci de veiller à la ponctualité.\n\n{schoolName}";
+const DEFAULT_LATE_TEMPLATE_AR =
+  "مرحبًا {parentName}،\n\nنعلمكم بأن {studentName} وصل(ت) متأخرًا اليوم الموافق {date}. يرجى الحرص على الالتزام بالوقت.\n\n{schoolName}";
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
@@ -42,7 +46,7 @@ export default async function TeacherAttendancePage({
   const selectedDate = params.date ?? todayISO();
   const date = new Date(`${selectedDate}T00:00:00.000Z`);
 
-  const [students, records, todayRecords, school, template] = await Promise.all([
+  const [students, records, todayRecords, school, template, lateTemplateRow] = await Promise.all([
     selectedClassId
       ? prisma.student.findMany({
           where: { schoolId: user.schoolId, classId: selectedClassId, status: "ACTIVE" },
@@ -68,6 +72,10 @@ export default async function TeacherAttendancePage({
     prisma.school.findUnique({ where: { id: user.schoolId }, select: { name: true } }),
     prisma.messageTemplate.findFirst({
       where: { schoolId: user.schoolId, key: "ABSENCE_ALERT" },
+      select: { body: true, bodyAr: true },
+    }),
+    prisma.messageTemplate.findFirst({
+      where: { schoolId: user.schoolId, key: "LATE_ARRIVAL" },
       select: { body: true, bodyAr: true },
     }),
   ]);
@@ -114,6 +122,8 @@ export default async function TeacherAttendancePage({
       schoolName={school?.name ?? "Madrasati"}
       absenceTemplate={template?.body ?? DEFAULT_ABSENCE_TEMPLATE}
       absenceTemplateAr={template?.bodyAr ?? DEFAULT_ABSENCE_TEMPLATE_AR}
+      lateTemplate={lateTemplateRow?.body ?? DEFAULT_LATE_TEMPLATE}
+      lateTemplateAr={lateTemplateRow?.bodyAr ?? DEFAULT_LATE_TEMPLATE_AR}
       basePath="/enseignant/presences"
     />
   );

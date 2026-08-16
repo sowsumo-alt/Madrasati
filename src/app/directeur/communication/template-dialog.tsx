@@ -88,7 +88,9 @@ export function TemplateDialog({
           <DialogTitle>{isEdit ? "Modifier le modèle" : "Nouveau modèle"}</DialogTitle>
           <DialogDescription>
             Utilisez {"{parentName}"}, {"{studentName}"}, {"{schoolName}"},{" "}
-            {"{date}"} — ils seront remplacés automatiquement.
+            {"{date}"} — ils seront remplacés automatiquement. {"{schoolName}"}{" "}
+            inclut déjà « École » (ou « مدرسة » en arabe) : ne l&apos;écrivez pas
+            vous-même.
           </DialogDescription>
         </DialogHeader>
 

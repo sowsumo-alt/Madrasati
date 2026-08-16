@@ -16,13 +16,27 @@ export function fillTemplate(
 }
 
 /**
- * Ajoute la traduction arabe à la suite du message — pour les parents qui ne
- * lisent pas le français. Même format que le message bilingue déjà utilisé
- * pour les notes (grades-dialog.tsx) : les deux paragraphes se suivent,
- * séparés par une ligne vide.
+ * Ajoute la traduction arabe à la suite du message, séparée par une ligne de
+ * tirets — pour les parents qui ne lisent pas le français.
  */
 export function withArabic(body: string, bodyAr?: string | null) {
   const ar = bodyAr?.trim();
   if (!ar) return body;
-  return `${body}\n\n${ar}`;
+  return `${body}\n————————\n${ar}`;
+}
+
+/**
+ * Ligne de signature française : « École {nom} ». Si le nom de l'école
+ * commence déjà par « École » (ex. « École Al Amal »), on ne le répète pas —
+ * sinon le message affiche « École École Al Amal ».
+ */
+export function schoolSignatureFr(schoolName: string) {
+  const trimmed = schoolName.trim();
+  return /^(é|e)cole\b/i.test(trimmed) ? trimmed : `École ${trimmed}`;
+}
+
+/** Équivalent arabe de {@link schoolSignatureFr} : « مدرسة {nom} ». */
+export function schoolSignatureAr(schoolName: string) {
+  const trimmed = schoolName.trim();
+  return trimmed.startsWith("مدرسة") ? trimmed : `مدرسة ${trimmed}`;
 }

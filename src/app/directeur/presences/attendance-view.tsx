@@ -17,8 +17,8 @@ import {
 import { StatTile } from "@/components/ui/stat-tile";
 import { WhatsAppLink } from "@/components/ui/whatsapp-link";
 import { cn } from "@/lib/utils";
-import { formatLongDate } from "@/lib/format";
-import { fillTemplate, withArabic } from "@/lib/whatsapp";
+import { formatLongDate, formatLongDateAr } from "@/lib/format";
+import { fillTemplate, withArabic, schoolSignatureFr, schoolSignatureAr } from "@/lib/whatsapp";
 import { saveAttendance } from "./actions";
 
 export interface AttendanceClassOption {
@@ -49,6 +49,8 @@ export function AttendanceView({
   schoolName,
   absenceTemplate,
   absenceTemplateAr,
+  lateTemplate,
+  lateTemplateAr,
   basePath = "/directeur/presences",
 }: {
   classes: AttendanceClassOption[];
@@ -59,6 +61,8 @@ export function AttendanceView({
   schoolName: string;
   absenceTemplate: string;
   absenceTemplateAr?: string;
+  lateTemplate: string;
+  lateTemplateAr?: string;
   /** Permet de réutiliser cette vue dans l'espace enseignant. */
   basePath?: string;
 }) {
@@ -105,6 +109,9 @@ export function AttendanceView({
   const lateCount = students.filter((s) => marks[s.id] === "LATE").length;
 
   const formattedDate = formatLongDate(`${selectedDate}T00:00:00`);
+  const formattedDateAr = formatLongDateAr(`${selectedDate}T00:00:00`);
+  const schoolFr = schoolSignatureFr(schoolName);
+  const schoolAr = schoolSignatureAr(schoolName);
 
   return (
     <div className="space-y-5">
@@ -188,20 +195,24 @@ export function AttendanceView({
                 <tbody className="divide-y divide-border">
                   {students.map((s) => {
                     const current = marks[s.id];
+                    const [templateFr, templateAr] =
+                      current === "LATE"
+                        ? [lateTemplate, lateTemplateAr]
+                        : [absenceTemplate, absenceTemplateAr];
                     const message = s.parent
                       ? withArabic(
-                          fillTemplate(absenceTemplate, {
+                          fillTemplate(templateFr, {
                             parentName: `${s.parent.firstName} ${s.parent.lastName}`,
                             studentName: `${s.firstName} ${s.lastName}`,
                             date: formattedDate,
-                            schoolName,
+                            schoolName: schoolFr,
                           }),
-                          absenceTemplateAr &&
-                            fillTemplate(absenceTemplateAr, {
+                          templateAr &&
+                            fillTemplate(templateAr, {
                               parentName: `${s.parent.firstName} ${s.parent.lastName}`,
                               studentName: `${s.firstName} ${s.lastName}`,
-                              date: formattedDate,
-                              schoolName,
+                              date: formattedDateAr,
+                              schoolName: schoolAr,
                             }),
                         )
                       : "";
@@ -247,7 +258,7 @@ export function AttendanceView({
                         </td>
                         <td className="px-5 py-3">
                           <div className="flex justify-end">
-                            {s.parent && current === "ABSENT" ? (
+                            {s.parent && (current === "ABSENT" || current === "LATE") ? (
                               <WhatsAppLink
                                 phone={s.parent.phone}
                                 message={message}

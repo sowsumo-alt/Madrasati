@@ -9,8 +9,14 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { buildWhatsAppUrl, fillTemplate, withArabic } from "@/lib/whatsapp";
-import { formatDate } from "@/lib/format";
+import {
+  buildWhatsAppUrl,
+  fillTemplate,
+  withArabic,
+  schoolSignatureFr,
+  schoolSignatureAr,
+} from "@/lib/whatsapp";
+import { formatLongDate, formatLongDateAr } from "@/lib/format";
 import { TemplateDialog, type TemplateEditTarget } from "./template-dialog";
 import { deleteTemplate } from "./actions";
 
@@ -68,17 +74,25 @@ export function CommunicationView({
 
   /** Remplit les variables du modèle avec les données du destinataire choisi. */
   function applyTemplate(tpl: TemplateRow, recipient: Recipient | null) {
-    const values = {
+    const today = new Date();
+    const base = {
       parentName: recipient?.name ?? "",
       teacherName: recipient?.name ?? "",
       studentName: recipient?.children[0] ?? "",
-      schoolName,
-      date: formatDate(new Date()),
       amount: "",
     };
     return withArabic(
-      fillTemplate(tpl.body, values),
-      tpl.bodyAr && fillTemplate(tpl.bodyAr, values),
+      fillTemplate(tpl.body, {
+        ...base,
+        date: formatLongDate(today),
+        schoolName: schoolSignatureFr(schoolName),
+      }),
+      tpl.bodyAr &&
+        fillTemplate(tpl.bodyAr, {
+          ...base,
+          date: formatLongDateAr(today),
+          schoolName: schoolSignatureAr(schoolName),
+        }),
     );
   }
 

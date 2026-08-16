@@ -34,6 +34,22 @@ export function formatLongDate(date: Date | string) {
   return longDateFormatter.format(new Date(date));
 }
 
+const longDateFormatterAr = new Intl.DateTimeFormat("ar", {
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+});
+
+/**
+ * Ex: 18 مايو 2025 — nom du mois en arabe standard, chiffres latins (comme
+ * l'écrivent naturellement les parents en Mauritanie). Utilisé dans le bloc
+ * arabe des messages WhatsApp bilingues, jamais la date française copiée
+ * telle quelle.
+ */
+export function formatLongDateAr(date: Date | string) {
+  return longDateFormatterAr.format(new Date(date));
+}
+
 const timeFormatter = new Intl.DateTimeFormat("fr-FR", {
   hour: "2-digit",
   minute: "2-digit",

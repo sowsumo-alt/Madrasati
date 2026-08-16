@@ -6,9 +6,9 @@ import { TERMS } from "@/app/directeur/examens/schema";
 import { BulletinsView, type BulletinRow } from "./bulletins-view";
 
 const DEFAULT_GRADES_TEMPLATE =
-  "Bonjour {parentName}, les notes de {studentName} sont désormais disponibles. N'hésitez pas à nous contacter pour en discuter. École {schoolName}.";
+  "Bonjour {parentName},\n\nLes notes de {studentName} sont désormais disponibles (moyenne générale : {average}/20). N'hésitez pas à nous contacter pour en discuter.\n\n{schoolName}";
 const DEFAULT_GRADES_TEMPLATE_AR =
-  "مرحبًا {parentName}، أصبحت نتائج {studentName} متوفرة الآن. لا تترددوا في الاتصال بنا لمناقشتها. مدرسة {schoolName}.";
+  "مرحبًا {parentName}،\n\nأصبح كشف نقاط {studentName} متوفرًا الآن (المعدل العام: {average}/20). لا تترددوا في الاتصال بنا لمناقشته.\n\n{schoolName}";
 
 export default async function BulletinsPage({
   searchParams,

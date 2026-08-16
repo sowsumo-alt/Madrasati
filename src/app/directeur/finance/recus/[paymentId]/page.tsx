@@ -3,11 +3,24 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
-import { formatMRU, formatDate } from "@/lib/format";
+import { formatMRU, formatDate, formatLongDate, formatLongDateAr, formatAmount } from "@/lib/format";
 import { PrintButton } from "@/components/ui/print-button";
-import { GraduationCap } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
+import { GraduationCap, MessageCircle } from "lucide-react";
 import { getTranslations } from "@/lib/i18n/server";
 import type { TranslationKey } from "@/lib/i18n/dictionaries";
+import {
+  buildWhatsAppUrl,
+  fillTemplate,
+  withArabic,
+  schoolSignatureFr,
+  schoolSignatureAr,
+} from "@/lib/whatsapp";
+
+const DEFAULT_CONFIRMATION =
+  "Bonjour {parentName},\n\nNous confirmons la réception d'un paiement de {amount} MRU pour {studentName}, effectué le {date}. Merci pour votre règlement.\n\n{schoolName}";
+const DEFAULT_CONFIRMATION_AR =
+  "مرحبًا {parentName}،\n\nنؤكد استلام دفعة بمبلغ {amount} أوقية موريتانية لـ {studentName}، بتاريخ {date}. شكرًا لتسديدكم.\n\n{schoolName}";
 
 export default async function ReceiptPage({
   params,
@@ -37,9 +50,44 @@ export default async function ReceiptPage({
   const { t } = await getTranslations();
   const methodLabel = t(`finance.method.${payment.method}` as TranslationKey);
 
+  const confirmationTemplate = await prisma.messageTemplate.findFirst({
+    where: { schoolId: user.schoolId, key: "PAYMENT_CONFIRMATION" },
+    select: { body: true, bodyAr: true },
+  });
+
+  const confirmationMessage = parent
+    ? withArabic(
+        fillTemplate(confirmationTemplate?.body ?? DEFAULT_CONFIRMATION, {
+          parentName: `${parent.firstName} ${parent.lastName}`,
+          studentName: `${payment.student.firstName} ${payment.student.lastName}`,
+          amount: formatAmount(payment.amount),
+          date: formatLongDate(payment.paidAt),
+          schoolName: schoolSignatureFr(payment.school.name),
+        }),
+        fillTemplate(confirmationTemplate?.bodyAr ?? DEFAULT_CONFIRMATION_AR, {
+          parentName: `${parent.firstName} ${parent.lastName}`,
+          studentName: `${payment.student.firstName} ${payment.student.lastName}`,
+          amount: formatAmount(payment.amount),
+          date: formatLongDateAr(payment.paidAt),
+          schoolName: schoolSignatureAr(payment.school.name),
+        }),
+      )
+    : "";
+
   return (
     <div className="mx-auto max-w-xl px-4 py-10">
-      <div className="no-print mb-6 flex justify-end">
+      <div className="no-print mb-6 flex flex-wrap justify-end gap-2">
+        {parent && (
+          <a
+            href={buildWhatsAppUrl(parent.phone, confirmationMessage)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={buttonVariants({ variant: "secondary" })}
+          >
+            <MessageCircle className="h-4 w-4" />
+            Confirmer sur WhatsApp
+          </a>
+        )}
         <PrintButton label={t("finance.printReceipt")} />
       </div>
 

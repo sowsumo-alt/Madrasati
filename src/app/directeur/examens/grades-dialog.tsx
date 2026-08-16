@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { WhatsAppLink } from "@/components/ui/whatsapp-link";
 import { rankOf } from "@/lib/report-card";
+import { withArabic, schoolSignatureFr, schoolSignatureAr } from "@/lib/whatsapp";
 import { saveGrades } from "./actions";
 
 export interface GradesDialogStudent {
@@ -54,12 +55,16 @@ function buildGradeMessage(params: {
   const rankFr = rank != null ? ` Rang : ${rank} sur ${total}.` : "";
   const rankAr = rank != null ? ` الترتيب: ${rank} من ${total}.` : "";
 
-  return (
-    `Bonjour ${parentName}, ${studentName} a obtenu ${score}/${maxScore} en ${subjectName} ` +
-    `(${examTitle}).${rankFr} École ${schoolName}.\n\n` +
-    `مرحباً ${parentName}، حصل ${studentName} على ${score}/${maxScore} في مادة ${subjectName} ` +
-    `(${examTitle}).${rankAr} مدرسة ${schoolName}.`
-  );
+  const fr =
+    `Bonjour ${parentName},\n\n` +
+    `${studentName} a obtenu ${score}/${maxScore} en ${subjectName} (${examTitle}).${rankFr}\n\n` +
+    schoolSignatureFr(schoolName);
+  const ar =
+    `مرحبًا ${parentName}،\n\n` +
+    `حصل ${studentName} على ${score}/${maxScore} في مادة ${subjectName} (${examTitle}).${rankAr}\n\n` +
+    schoolSignatureAr(schoolName);
+
+  return withArabic(fr, ar);
 }
 
 export function GradesDialog({

@@ -15,8 +15,8 @@ import { Input } from "@/components/ui/input";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { StatTile } from "@/components/ui/stat-tile";
 import { WhatsAppLink } from "@/components/ui/whatsapp-link";
-import { formatMRU, formatAmount, formatDate } from "@/lib/format";
-import { fillTemplate, withArabic } from "@/lib/whatsapp";
+import { formatMRU, formatAmount, formatDate, formatLongDate, formatLongDateAr } from "@/lib/format";
+import { fillTemplate, withArabic, schoolSignatureFr, schoolSignatureAr } from "@/lib/whatsapp";
 import { FeeFormDialog, type FeeStudentOption } from "./fee-form-dialog";
 import { PaymentDialog } from "./payment-dialog";
 import { useLanguage } from "@/lib/i18n/language-provider";
@@ -71,6 +71,8 @@ export function FinanceView({
   reminderTemplateAr?: string;
 }) {
   const { t } = useLanguage();
+  const schoolFr = schoolSignatureFr(schoolName);
+  const schoolAr = schoolSignatureAr(schoolName);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>("ALL");
   const [feeFormOpen, setFeeFormOpen] = useState(false);
@@ -185,14 +187,16 @@ export function FinanceView({
                           parentName: `${f.parent.firstName} ${f.parent.lastName}`,
                           studentName: `${f.student.firstName} ${f.student.lastName}`,
                           amount: formatAmount(remaining),
-                          schoolName,
+                          date: formatLongDate(f.dueDate),
+                          schoolName: schoolFr,
                         }),
                         reminderTemplateAr &&
                           fillTemplate(reminderTemplateAr, {
                             parentName: `${f.parent.firstName} ${f.parent.lastName}`,
                             studentName: `${f.student.firstName} ${f.student.lastName}`,
                             amount: formatAmount(remaining),
-                            schoolName,
+                            date: formatLongDateAr(f.dueDate),
+                            schoolName: schoolAr,
                           }),
                       )
                     : "";

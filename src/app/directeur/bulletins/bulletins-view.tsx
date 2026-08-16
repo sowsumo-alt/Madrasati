@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { WhatsAppLink } from "@/components/ui/whatsapp-link";
-import { fillTemplate, withArabic } from "@/lib/whatsapp";
+import { fillTemplate, withArabic, schoolSignatureFr, schoolSignatureAr } from "@/lib/whatsapp";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import type { TranslationKey } from "@/lib/i18n/dictionaries";
 import type { MentionKey } from "@/lib/report-card";
@@ -75,6 +75,8 @@ export function BulletinsView({
 }) {
   const router = useRouter();
   const { t, locale } = useLanguage();
+  const schoolFr = schoolSignatureFr(schoolName);
+  const schoolAr = schoolSignatureAr(schoolName);
 
   function updateFilters(classId: string, term: string) {
     router.push(
@@ -149,18 +151,21 @@ export function BulletinsView({
               </thead>
               <tbody className="divide-y divide-border">
                 {rows.map((r) => {
+                  const averageLabel = r.average != null ? r.average.toFixed(2) : "—";
                   const message = r.parent
                     ? withArabic(
                         fillTemplate(gradesTemplate, {
                           parentName: `${r.parent.firstName} ${r.parent.lastName}`,
                           studentName: r.studentName,
-                          schoolName,
+                          average: averageLabel,
+                          schoolName: schoolFr,
                         }),
                         gradesTemplateAr &&
                           fillTemplate(gradesTemplateAr, {
                             parentName: `${r.parent.firstName} ${r.parent.lastName}`,
                             studentName: r.studentName,
-                            schoolName,
+                            average: averageLabel,
+                            schoolName: schoolAr,
                           }),
                       )
                     : "";

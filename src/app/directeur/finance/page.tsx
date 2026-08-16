@@ -4,9 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { FinanceView, type FeeRow } from "./finance-view";
 
 const DEFAULT_REMINDER =
-  "Bonjour {parentName}, nous vous rappelons que les frais de scolarité de {studentName} ({amount} MRU) sont en attente de paiement. École {schoolName}.";
+  "Bonjour {parentName},\n\nNous vous rappelons que des frais de scolarité de {amount} MRU concernant {studentName} sont en attente de paiement, avec échéance au {date}. Merci de bien vouloir régulariser votre situation.\n\n{schoolName}";
 const DEFAULT_REMINDER_AR =
-  "مرحبًا {parentName}، نذكركم بأن الرسوم الدراسية لـ {studentName} ({amount} أوقية) لا تزال بانتظار الدفع. مدرسة {schoolName}.";
+  "مرحبًا {parentName}،\n\nنذكركم بأن مبلغ {amount} أوقية موريتانية الخاص بالرسوم الدراسية لـ {studentName} لا يزال معلقًا، وتاريخ الاستحقاق هو {date}. يرجى التكرم بتسوية وضعيتكم.\n\n{schoolName}";
 
 export default async function FinancePage() {
   const user = await requireRole(ROLES.DIRECTOR);

@@ -26,38 +26,76 @@ export const MAURITANIAN_SUBJECTS = [
   { name: "Éducation Physique", nameAr: "التربية البدنية", coefficient: 1 },
 ];
 
+/**
+ * Modèles livrés avec chaque école, dans les deux langues. Le jeton
+ * {schoolName} est toujours résolu par le code appelant vers « École X » (ou
+ * « مدرسة X » côté arabe) — le texte du modèle ne doit donc jamais écrire
+ * « École » ou « مدرسة » lui-même, sous peine de doublon (« École École X »).
+ */
 export const DEFAULT_TEMPLATES = [
-  {
-    key: "PAYMENT_REMINDER",
-    title: "Rappel de paiement",
-    body:
-      "Bonjour {parentName}, nous vous rappelons que les frais de scolarité de {studentName} ({amount} MRU) sont en attente de paiement. Merci de régulariser dès que possible. École {schoolName}.",
-    bodyAr:
-      "مرحبًا {parentName}، نذكركم بأن الرسوم الدراسية لـ {studentName} ({amount} أوقية) لا تزال بانتظار الدفع. يرجى التسوية في أقرب وقت ممكن. مدرسة {schoolName}.",
-  },
   {
     key: "ABSENCE_ALERT",
     title: "Alerte d'absence",
     body:
-      "Bonjour {parentName}, nous vous informons que {studentName} est absent(e) aujourd'hui ({date}). Merci de nous contacter si besoin. École {schoolName}.",
+      "Bonjour {parentName},\n\nNous vous informons que {studentName} est absent(e) aujourd'hui ({date}). Merci de nous contacter si besoin.\n\n{schoolName}",
     bodyAr:
-      "مرحبًا {parentName}، نعلمكم بأن {studentName} غائب(ة) اليوم ({date}). يرجى الاتصال بنا عند الحاجة. مدرسة {schoolName}.",
+      "مرحبًا {parentName}،\n\nنعلمكم بأن {studentName} غائب(ة) اليوم الموافق {date}. يرجى الاتصال بنا عند الحاجة.\n\n{schoolName}",
+  },
+  {
+    key: "LATE_ARRIVAL",
+    title: "Retard de l'élève",
+    body:
+      "Bonjour {parentName},\n\nNous vous informons que {studentName} est arrivé(e) en retard aujourd'hui ({date}). Merci de veiller à la ponctualité.\n\n{schoolName}",
+    bodyAr:
+      "مرحبًا {parentName}،\n\nنعلمكم بأن {studentName} وصل(ت) متأخرًا اليوم الموافق {date}. يرجى الحرص على الالتزام بالوقت.\n\n{schoolName}",
+  },
+  {
+    key: "PAYMENT_REMINDER",
+    title: "Rappel de paiement",
+    body:
+      "Bonjour {parentName},\n\nNous vous rappelons que des frais de scolarité de {amount} MRU concernant {studentName} sont en attente de paiement, avec échéance au {date}. Merci de bien vouloir régulariser votre situation.\n\n{schoolName}",
+    bodyAr:
+      "مرحبًا {parentName}،\n\nنذكركم بأن مبلغ {amount} أوقية موريتانية الخاص بالرسوم الدراسية لـ {studentName} لا يزال معلقًا، وتاريخ الاستحقاق هو {date}. يرجى التكرم بتسوية وضعيتكم.\n\n{schoolName}",
+  },
+  {
+    key: "PAYMENT_CONFIRMATION",
+    title: "Confirmation de paiement",
+    body:
+      "Bonjour {parentName},\n\nNous confirmons la réception d'un paiement de {amount} MRU pour {studentName}, effectué le {date}. Merci pour votre règlement.\n\n{schoolName}",
+    bodyAr:
+      "مرحبًا {parentName}،\n\nنؤكد استلام دفعة بمبلغ {amount} أوقية موريتانية لـ {studentName}، بتاريخ {date}. شكرًا لتسديدكم.\n\n{schoolName}",
   },
   {
     key: "GRADES_AVAILABLE",
     title: "Notes disponibles",
     body:
-      "Bonjour {parentName}, les notes de {studentName} sont désormais disponibles. N'hésitez pas à nous contacter pour en discuter. École {schoolName}.",
+      "Bonjour {parentName},\n\nLes notes de {studentName} sont désormais disponibles (moyenne générale : {average}/20). N'hésitez pas à nous contacter pour en discuter.\n\n{schoolName}",
     bodyAr:
-      "مرحبًا {parentName}، أصبحت نتائج {studentName} متوفرة الآن. لا تترددوا في الاتصال بنا لمناقشتها. مدرسة {schoolName}.",
+      "مرحبًا {parentName}،\n\nأصبح كشف نقاط {studentName} متوفرًا الآن (المعدل العام: {average}/20). لا تترددوا في الاتصال بنا لمناقشته.\n\n{schoolName}",
+  },
+  {
+    key: "DOCUMENT_PICKUP",
+    title: "Bulletin à récupérer",
+    body:
+      "Bonjour {parentName},\n\nLe bulletin de {studentName} est prêt et peut être retiré à l'école dès que possible.\n\n{schoolName}",
+    bodyAr:
+      "مرحبًا {parentName}،\n\nكشف نقاط {studentName} جاهز، ويمكنكم استلامه من المدرسة في أقرب وقت ممكن.\n\n{schoolName}",
   },
   {
     key: "MEETING_INVITE",
     title: "Invitation réunion",
     body:
-      "Bonjour {parentName}, vous êtes invité(e) à une réunion concernant {studentName} le {date}. Votre présence est importante. École {schoolName}.",
+      "Bonjour {parentName},\n\nVous êtes invité(e) à une réunion concernant {studentName} le {date} à [heure]. Votre présence est importante.\n\n{schoolName}",
     bodyAr:
-      "مرحبًا {parentName}، أنتم مدعوون لحضور اجتماع بخصوص {studentName} يوم {date}. حضوركم مهم. مدرسة {schoolName}.",
+      "مرحبًا {parentName}،\n\nأنتم مدعوون لحضور اجتماع بخصوص {studentName} يوم {date} الساعة [التوقيت]. حضوركم مهم.\n\n{schoolName}",
+  },
+  {
+    key: "GENERAL_ANNOUNCEMENT",
+    title: "Annonce générale",
+    body:
+      "Bonjour {parentName},\n\n[Votre annonce ici — événement, jour férié, changement d'horaire, etc.]\n\n{schoolName}",
+    bodyAr:
+      "مرحبًا {parentName}،\n\n[أدخلوا إعلانكم هنا — مناسبة، عطلة، تغيير في التوقيت، إلخ.]\n\n{schoolName}",
   },
 ];
 
