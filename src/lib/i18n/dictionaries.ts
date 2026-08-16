@@ -210,6 +210,10 @@ export const dictionaries = {
     "bulletin.rankOrdinalFirst": "er",
     "bulletin.rankOrdinalOther": "ème",
     "bulletin.print": "Imprimer le bulletin",
+    "bulletin.sendPdf": "Envoyer le PDF au parent",
+    "bulletin.pdfSentInstructions":
+      "Le PDF a été téléchargé et la conversation WhatsApp du parent vient de s'ouvrir — joignez-y le fichier téléchargé.",
+    "bulletin.pdfGenerationFailed": "La génération du PDF a échoué. Réessayez.",
     "bulletin.reportCardTitle": "Bulletin scolaire",
     "bulletin.year": "Année",
     "bulletin.attendance": "Assiduité",
@@ -481,6 +485,10 @@ export const dictionaries = {
     "bulletin.rankOrdinalFirst": "st",
     "bulletin.rankOrdinalOther": "th",
     "bulletin.print": "Print the report card",
+    "bulletin.sendPdf": "Send PDF to parent",
+    "bulletin.pdfSentInstructions":
+      "The PDF has been downloaded and the parent's WhatsApp conversation just opened — attach the downloaded file there.",
+    "bulletin.pdfGenerationFailed": "PDF generation failed. Try again.",
     "bulletin.reportCardTitle": "Report card",
     "bulletin.year": "Year",
     "bulletin.attendance": "Attendance",
@@ -752,6 +760,10 @@ export const dictionaries = {
     "bulletin.rankOrdinalFirst": "",
     "bulletin.rankOrdinalOther": "",
     "bulletin.print": "طباعة كشف النقاط",
+    "bulletin.sendPdf": "إرسال PDF إلى ولي الأمر",
+    "bulletin.pdfSentInstructions":
+      "تم تحميل ملف PDF وفُتحت محادثة واتساب مع ولي الأمر — أرفق فيها الملف الذي تم تحميله.",
+    "bulletin.pdfGenerationFailed": "فشل إنشاء ملف PDF. حاول مرة أخرى.",
     "bulletin.reportCardTitle": "كشف النقاط",
     "bulletin.year": "السنة",
     "bulletin.attendance": "المواظبة",

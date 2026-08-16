@@ -9,8 +9,14 @@ import { PrintButton } from "@/components/ui/print-button";
 import { GraduationCap } from "lucide-react";
 import { isAiEnabled } from "@/lib/ai";
 import { CommentEditor } from "./comment-editor";
+import { SendPdfButton } from "./send-pdf-button";
 import { getTranslations } from "@/lib/i18n/server";
 import type { TranslationKey } from "@/lib/i18n/dictionaries";
+import { FEATURES, planHasFeature } from "@/lib/plans";
+import { DEFAULT_TEMPLATES } from "@/lib/school-setup";
+import { fillTemplate, withArabic, schoolSignatureFr, schoolSignatureAr } from "@/lib/whatsapp";
+
+const DEFAULT_GRADES_TEMPLATE = DEFAULT_TEMPLATES.find((t) => t.key === "GRADES_AVAILABLE")!;
 
 export default async function ReportCardPage({
   params,
@@ -34,7 +40,7 @@ export default async function ReportCardPage({
       ? termParam
       : TERMS[0];
 
-  const [cards, school, academicYear, comment] = await Promise.all([
+  const [cards, school, academicYear, comment, parentLink, template] = await Promise.all([
     buildReportCards(user.schoolId, student.classId, term),
     prisma.school.findUnique({ where: { id: user.schoolId } }),
     prisma.academicYear.findFirst({
@@ -45,6 +51,14 @@ export default async function ReportCardPage({
       where: { studentId_term: { studentId, term } },
       select: { body: true, bodyAr: true, isAiGenerated: true },
     }),
+    prisma.studentParent.findFirst({
+      where: { studentId, isPrimary: true },
+      include: { parent: { select: { firstName: true, lastName: true, phone: true } } },
+    }),
+    prisma.messageTemplate.findFirst({
+      where: { schoolId: user.schoolId, key: "GRADES_AVAILABLE" },
+      select: { body: true, bodyAr: true },
+    }),
   ]);
 
   const card = cards.find((c) => c.student.id === studentId);
@@ -52,13 +66,45 @@ export default async function ReportCardPage({
 
   const { t } = await getTranslations();
 
+  const bilingual = planHasFeature(school?.plan, FEATURES.BILINGUAL_MESSAGES);
+  const parent = parentLink?.parent ?? null;
+  const studentName = `${card.student.firstName} ${card.student.lastName}`;
+  const averageLabel = card.average != null ? card.average.toFixed(2) : "—";
+  const pdfMessage = parent
+    ? withArabic(
+        fillTemplate(template?.body ?? DEFAULT_GRADES_TEMPLATE.body, {
+          parentName: `${parent.firstName} ${parent.lastName}`,
+          studentName,
+          average: averageLabel,
+          schoolName: schoolSignatureFr(school?.name ?? "Madrasati"),
+        }),
+        bilingual
+          ? fillTemplate(template?.bodyAr ?? DEFAULT_GRADES_TEMPLATE.bodyAr, {
+              parentName: `${parent.firstName} ${parent.lastName}`,
+              studentName,
+              average: averageLabel,
+              schoolName: schoolSignatureAr(school?.name ?? "Madrasati"),
+            })
+          : undefined,
+      )
+    : "";
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
-      <div className="no-print mb-6 flex justify-end">
+      <div className="no-print mb-6 flex justify-end gap-2">
+        <SendPdfButton
+          elementId="bulletin-card"
+          fileName={`Bulletin-${studentName}-${term}.pdf`}
+          parentPhone={parent?.phone ?? null}
+          message={pdfMessage}
+        />
         <PrintButton label={t("bulletin.print")} />
       </div>
 
-      <div className="rounded-xl border border-border bg-surface p-8 shadow-sm print:border-0 print:p-0 print:shadow-none">
+      <div
+        id="bulletin-card"
+        className="rounded-xl border border-border bg-surface p-8 shadow-sm print:border-0 print:p-0 print:shadow-none"
+      >
         <div className="flex items-start justify-between border-b border-border pb-6">
           <div className="flex items-center gap-3 text-primary-800">
             {school?.logoUrl ? (
