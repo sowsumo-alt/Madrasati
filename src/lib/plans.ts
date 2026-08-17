@@ -124,6 +124,45 @@ export const SUBSCRIPTION_STATUS_LABELS: Record<SubscriptionStatus, string> = {
   suspended: "Suspendu",
 };
 
+/** Statuts pour lesquels l'école doit de l'argent : ils appellent une relance,
+ *  et c'est pour eux que le retard d'échéance est pertinent. */
+export const OWING_STATUSES: readonly SubscriptionStatus[] = [
+  "past_due",
+  "restricted",
+  "suspended",
+];
+
+export function isOwingStatus(status: SubscriptionStatus): boolean {
+  return OWING_STATUSES.includes(status);
+}
+
+/** Durée d'un cycle de facturation, en jours — la prochaine échéance est
+ *  fixée à cette distance après chaque paiement encaissé (voir markAsPaid). */
+export const BILLING_CYCLE_DAYS = 30;
+
+/** Durée de la période d'essai offerte à une nouvelle école, en jours. Faute
+ *  de date de fin stockée en base, l'essai est compté depuis la création de
+ *  l'école (voir trialEndsAt). */
+export const TRIAL_DAYS = 30;
+
+/** Fin de la période d'essai : l'échéance déjà fixée si elle existe, sinon
+ *  TRIAL_DAYS après la création de l'école. */
+export function trialEndsAt(school: { createdAt: Date; nextDueAt: Date | null }): Date {
+  if (school.nextDueAt) return school.nextDueAt;
+  const end = new Date(school.createdAt);
+  end.setDate(end.getDate() + TRIAL_DAYS);
+  return end;
+}
+
+/** Nombre de jours entiers écoulés entre deux dates (négatif si `to` précède
+ *  `from`). Calculé sur les dates civiles, pas à l'heure près : « 3 jours de
+ *  retard » doit vouloir dire la même chose quelle que soit l'heure de la
+ *  consultation. */
+export function daysBetween(from: Date, to: Date): number {
+  const startOfDay = (d: Date) => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+  return Math.round((startOfDay(to) - startOfDay(from)) / 86_400_000);
+}
+
 /**
  * Plan réellement accordé compte tenu du statut de facturation : un compte
  * "restricted" retombe sur les fonctionnalités Standard (ses fonctionnalités

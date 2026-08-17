@@ -17,6 +17,29 @@ const GRID = "#dfe4e0";
 const INK_MUTED = "#6b7772";
 
 /**
+ * Les couleurs ci-dessus sont calibrées pour une surface blanche (toute
+ * l'application école). Le tableau de bord Super Admin est au contraire sur
+ * fond sombre (neutral-950) : le vert foncé et l'encre grise y deviennent
+ * illisibles. La variante "dark" éclaircit la série et inverse l'anneau des
+ * points, sans toucher à la géométrie des graphiques.
+ */
+export type ChartTheme = "light" | "dark";
+
+const THEME_COLORS: Record<
+  ChartTheme,
+  { grid: string; ink: string; label: string; serie: string; ring: string }
+> = {
+  light: { grid: GRID, ink: INK_MUTED, label: "#1a2420", serie: SERIE, ring: "#ffffff" },
+  dark: {
+    grid: "rgba(255,255,255,0.10)",
+    ink: "rgba(255,255,255,0.45)",
+    label: "#ffffff",
+    serie: "#34d399",
+    ring: "#0a0a0a",
+  },
+};
+
+/**
  * Palette catégorielle (identité, pas grandeur) — assignée dans cet ordre fixe,
  * jamais recyclée : au-delà de 5 catégories, les suivantes sont regroupées.
  * Validée sur surface blanche : pire paire adjacente ΔE 15.4 en protanopie,
@@ -57,12 +80,15 @@ export function LineChart({
   data,
   unit = "",
   maxOverride,
+  theme = "light",
 }: {
   data: Point[];
   unit?: string;
   maxOverride?: number;
+  theme?: ChartTheme;
 }) {
-  if (data.length === 0) return <EmptyPlot />;
+  const c = THEME_COLORS[theme];
+  if (data.length === 0) return <EmptyPlot theme={theme} />;
 
   const W = 520;
   const H = 200;
@@ -97,7 +123,7 @@ export function LineChart({
             x2={W - PAD.right}
             y1={y(t)}
             y2={y(t)}
-            stroke={GRID}
+            stroke={c.grid}
             strokeWidth={1}
           />
           <text
@@ -105,7 +131,7 @@ export function LineChart({
             y={y(t) + 4}
             textAnchor="end"
             fontSize={11}
-            fill={INK_MUTED}
+            fill={c.ink}
             style={{ fontVariantNumeric: "tabular-nums" }}
           >
             {fmt(t)}
@@ -113,11 +139,11 @@ export function LineChart({
         </g>
       ))}
 
-      <path d={areaPath} fill={SERIE} opacity={0.1} />
+      <path d={areaPath} fill={c.serie} opacity={0.1} />
       <path
         d={path}
         fill="none"
-        stroke={SERIE}
+        stroke={c.serie}
         strokeWidth={2}
         strokeLinejoin="round"
         strokeLinecap="round"
@@ -125,15 +151,15 @@ export function LineChart({
 
       {data.map((d, i) => (
         <g key={d.label}>
-          {/* Anneau blanc de 2px : le point reste lisible s'il croise la courbe. */}
-          <circle cx={x(i)} cy={y(d.value)} r={4} fill={SERIE} stroke="#ffffff" strokeWidth={2} />
+          {/* Anneau de 2px couleur du fond : le point reste lisible s'il croise la courbe. */}
+          <circle cx={x(i)} cy={y(d.value)} r={4} fill={c.serie} stroke={c.ring} strokeWidth={2} />
           <title>{`${d.label} : ${fmt(d.value)}${unit}`}</title>
           <text
             x={x(i)}
             y={H - 8}
             textAnchor="middle"
             fontSize={11}
-            fill={INK_MUTED}
+            fill={c.ink}
           >
             {d.label}
           </text>
@@ -146,7 +172,7 @@ export function LineChart({
         y={y(last.value) + 4}
         fontSize={12}
         fontWeight={600}
-        fill="#1a2420"
+        fill={c.label}
         style={{ fontVariantNumeric: "tabular-nums" }}
       >
         {fmt(last.value)}
@@ -424,9 +450,13 @@ export function DonutChart({
 
 // ---------------------------------------------------------------------------
 
-function EmptyPlot() {
+function EmptyPlot({ theme = "light" }: { theme?: ChartTheme }) {
   return (
-    <p className="py-10 text-center text-xs text-foreground/40">
+    <p
+      className={`py-10 text-center text-xs ${
+        theme === "dark" ? "text-white/40" : "text-foreground/40"
+      }`}
+    >
       Pas encore de données à afficher.
     </p>
   );

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireSuperAdmin } from "@/lib/super-admin-session";
-import { isPlan, isSubscriptionStatus } from "@/lib/plans";
+import { isPlan, isSubscriptionStatus, BILLING_CYCLE_DAYS } from "@/lib/plans";
 
 /** Change la formule d'une école — n'active jamais rien de plus : c'est le
  *  statut d'abonnement (voir changeSubscriptionStatus/markAsPaid) qui décide
@@ -32,14 +32,14 @@ const markPaidSchema = z.object({
 export type MarkPaidValues = z.infer<typeof markPaidSchema>;
 
 /** Enregistre un paiement reçu et réactive l'école (restreinte ou suspendue)
- *  automatiquement — la prochaine échéance est fixée à 30 jours. */
+ *  automatiquement — la prochaine échéance est fixée à un cycle de plus. */
 export async function markAsPaid(schoolId: string, values: MarkPaidValues) {
   await requireSuperAdmin();
   const data = markPaidSchema.parse(values);
 
   const now = new Date();
   const nextDue = new Date(now);
-  nextDue.setDate(nextDue.getDate() + 30);
+  nextDue.setDate(nextDue.getDate() + BILLING_CYCLE_DAYS);
 
   await prisma.$transaction([
     prisma.subscriptionPayment.create({
