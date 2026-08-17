@@ -3,18 +3,19 @@
  * d'avoir ses classes dès la première connexion, sans que le directeur ait à
  * les saisir une par une.
  *
- * Les noms suivent la nomenclature en usage dans les établissements privés
- * mauritaniens (CI…CM2 au fondamental, puis 6ème…Terminale), la même que
- * l'école de démonstration.
+ * La nomenclature est celle utilisée en Mauritanie : Année Fondamentale (AF)
+ * pour le fondamental, Année Secondaire (AS) ensuite, jusqu'à la 5AS qui est
+ * l'année du baccalauréat. Le découpage français (CI, CP, CM2, 6ème,
+ * Terminale) n'a pas cours ici et ne doit pas réapparaître.
  */
 
 export const CYCLES = ["primaire", "college", "lycee"] as const;
 export type Cycle = (typeof CYCLES)[number];
 
 const LEVELS_BY_CYCLE: Record<Cycle, string[]> = {
-  primaire: ["CI", "CP", "CE1", "CE2", "CM1", "CM2"],
-  college: ["6ème", "5ème", "4ème", "3ème"],
-  lycee: ["2nde", "1ère", "Terminale"],
+  primaire: ["1AF", "2AF", "3AF", "4AF", "5AF", "6AF"],
+  college: ["1AS", "2AS", "3AS", "4AS"],
+  lycee: ["5AS"],
 };
 
 export const SCHOOL_TYPES = ["primaire", "college_lycee", "complet"] as const;
@@ -31,15 +32,15 @@ const CYCLES_BY_SCHOOL_TYPE: Record<SchoolType, Cycle[]> = {
 };
 
 export const SCHOOL_TYPE_LABELS: Record<SchoolType, string> = {
-  primaire: "École primaire",
+  primaire: "Fondamental",
   college_lycee: "Collège / Lycée",
   complet: "Les deux",
 };
 
 export const SCHOOL_TYPE_HINTS: Record<SchoolType, string> = {
-  primaire: "CI à CM2",
-  college_lycee: "6ème à Terminale",
-  complet: "CI à Terminale",
+  primaire: "1AF à 6AF",
+  college_lycee: "1AS à 5AS",
+  complet: "1AF à 5AS",
 };
 
 /**
@@ -90,14 +91,14 @@ export interface StandardClass {
 }
 
 /**
- * Classes livrées avec une école de ce type, une par niveau. Le suffixe « A »
- * laisse la place à une deuxième section (« 6ème B ») que le directeur ajoute
- * lui-même s'il en a besoin.
+ * Classes livrées avec une école de ce type, une par niveau. La classe porte
+ * simplement le nom du niveau (« 6AF ») ; un directeur qui a plusieurs
+ * sections d'un même niveau les nomme lui-même (« 6AF A », « 6AF B »).
  */
 export function standardClassesFor(type: SchoolType): StandardClass[] {
   return CYCLES_BY_SCHOOL_TYPE[type].flatMap((cycle) =>
     LEVELS_BY_CYCLE[cycle].map((level) => ({
-      name: `${level} A`,
+      name: level,
       level,
       cycle,
     })),
@@ -108,7 +109,7 @@ export function subjectNamesForCycle(cycle: Cycle): string[] {
   return SUBJECTS_BY_CYCLE[cycle];
 }
 
-/** Résumé affiché avant création, ex. « 13 classes, de CI à Terminale ». */
+/** Résumé affiché avant création, ex. « 11 classes, de 1AF à 5AS ». */
 export function describeSchoolType(type: SchoolType): string {
   const classes = standardClassesFor(type);
   return `${classes.length} classes, de ${classes[0].level} à ${classes[classes.length - 1].level}`;

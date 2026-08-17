@@ -118,14 +118,14 @@ export function ClassFormDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="name">Nom de la classe</Label>
-              <Input id="name" placeholder="6ème A" {...register("name")} />
+              <Input id="name" placeholder="6AF" {...register("name")} />
               {errors.name && (
                 <p className="text-xs text-danger">{errors.name.message}</p>
               )}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="level">Niveau</Label>
-              <Input id="level" placeholder="6ème" {...register("level")} />
+              <Input id="level" placeholder="6AF" {...register("level")} />
               {errors.level && (
                 <p className="text-xs text-danger">{errors.level.message}</p>
               )}

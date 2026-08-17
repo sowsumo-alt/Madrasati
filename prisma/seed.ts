@@ -178,9 +178,9 @@ async function ensureDemoAccounts(schoolId: string) {
     });
   }
 
-  // Elle est professeure principale de la 6ème A et y enseigne les maths.
+  // Elle est professeure principale de la 1AS et y enseigne les maths.
   const mainClass = await prisma.classRoom.findFirst({
-    where: { schoolId, name: "6ème A" },
+    where: { schoolId, name: "1AS" },
   });
   const maths = await prisma.subject.findFirst({
     where: { schoolId, name: "Mathématiques" },
@@ -269,10 +269,10 @@ async function main() {
 
   const classes = await Promise.all(
     [
-      { name: "CI A", level: "CI" },
-      { name: "CM2 A", level: "CM2" },
-      { name: "6ème A", level: "6ème" },
-      { name: "Terminale A", level: "Terminale" },
+      { name: "1AF", level: "1AF" },
+      { name: "6AF", level: "6AF" },
+      { name: "1AS", level: "1AS" },
+      { name: "5AS", level: "5AS" },
     ].map((c) =>
       prisma.classRoom.create({
         data: {
