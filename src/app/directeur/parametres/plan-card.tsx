@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatMRU } from "@/lib/format";
 import { buildWhatsAppUrl } from "@/lib/whatsapp";
-import { CONTACT_PHONE } from "@/app/(marketing)/landing-config";
+import { CONTACT_PHONE } from "@/lib/contact";
 import {
   PLANS,
   PLAN_LABELS,

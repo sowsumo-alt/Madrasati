@@ -109,25 +109,6 @@ body {
   }
 }
 
-@keyframes float-y {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-0.75rem);
-  }
-}
-
-@keyframes grow-bar {
-  from {
-    transform: scaleY(0.05);
-  }
-  to {
-    transform: none;
-  }
-}
-
 @keyframes wave {
   0%,
   100% {
@@ -161,15 +142,6 @@ body {
   }
 }
 
-/* Apparition au défilement : l'élément reste invisible jusqu'à ce que le
-   composant Reveal ajoute .is-visible. */
-.reveal {
-  opacity: 0;
-}
-.reveal.is-visible {
-  animation: fade-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
 .animate-fade-up {
   opacity: 0;
   animation: fade-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -178,10 +150,6 @@ body {
 .animate-page-in {
   opacity: 0;
   animation: page-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-.animate-float {
-  animation: float-y 6s ease-in-out infinite;
 }
 
 .animate-wave {
@@ -193,11 +161,6 @@ body {
 
 .animate-word {
   animation: word-in 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.animate-bar {
-  transform-origin: bottom;
-  animation: grow-bar 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 /* ---------------------------------------------------------------------------
@@ -270,14 +233,10 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .reveal,
-  .reveal.is-visible,
   .animate-fade-up,
   .animate-page-in,
-  .animate-float,
   .animate-wave,
   .animate-word,
-  .animate-bar,
   .animate-check-pop,
   .animate-ring-pulse {
     animation: none !important;

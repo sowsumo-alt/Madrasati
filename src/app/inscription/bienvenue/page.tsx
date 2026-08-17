@@ -5,7 +5,7 @@ import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { Logo } from "@/components/brand/logo";
 import { buildWhatsAppUrl, fillTemplate } from "@/lib/whatsapp";
-import { CONTACT_PHONE } from "@/app/(marketing)/landing-config";
+import { CONTACT_PHONE } from "@/lib/contact";
 
 const WELCOME_MESSAGE_TEMPLATE =
   "Bonjour, je viens de créer mon école {schoolName} sur Madrasati ({city}). " +

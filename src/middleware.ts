@@ -11,8 +11,9 @@ export const config = {
   matcher: [
     /*
      * Protège toutes les routes sauf :
-     * - "/" (page de présentation publique ; elle redirige elle-même un
-     *   utilisateur déjà connecté vers son espace)
+     * - "/" (elle redirige elle-même : vers /login si personne n'est
+     *   connecté, vers son espace si quelqu'un l'est — la laisser publique
+     *   évite un aller-retour de redirections avec le middleware)
      * - /login (page de connexion) et /inscription (création d'une école)
      * - /super-admin/login (connexion séparée du propriétaire de la
      *   plateforme — le reste de /super-admin reste protégé normalement :

@@ -1,14 +1,14 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
-import { LandingPage } from "./(marketing)/landing-page";
 
 export default async function Home() {
   const user = await getCurrentUser();
 
-  // Visiteur non connecté : page de présentation.
+  // Visiteur non connecté : l'écran de connexion, qui porte lui-même la
+  // présentation de Madrasati sur son volet de gauche.
   // Utilisateur connecté : on l'envoie directement dans son espace.
-  if (!user) return <LandingPage />;
+  if (!user) redirect("/login");
 
   // Le rôle est vérifié avant tout : un Super Admin a lui aussi un schoolId
   // vide (voir jwt() dans src/lib/auth.ts) mais ne doit jamais atterrir sur

@@ -3,7 +3,7 @@ import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { Logo } from "@/components/brand/logo";
 import { buildWhatsAppUrl } from "@/lib/whatsapp";
-import { CONTACT_PHONE } from "@/app/(marketing)/landing-config";
+import { CONTACT_PHONE } from "@/lib/contact";
 import { buttonVariants } from "@/components/ui/button";
 import { SignOutButton } from "./sign-out-button";
 

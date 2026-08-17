@@ -4,7 +4,7 @@ import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { buildWhatsAppUrl } from "@/lib/whatsapp";
-import { CONTACT_PHONE } from "@/app/(marketing)/landing-config";
+import { CONTACT_PHONE } from "@/lib/contact";
 import { buttonVariants } from "@/components/ui/button";
 import {
   FEATURES,
