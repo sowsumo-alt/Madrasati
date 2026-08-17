@@ -9,18 +9,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
-import {
-  Eye,
-  EyeOff,
-  GraduationCap,
-  Loader2,
-  Lock,
-  LogIn,
-  Mail,
-  UserRound,
-  Users,
-} from "lucide-react";
+import { Eye, EyeOff, Loader2, Lock, LogIn, Mail } from "lucide-react";
 
 const schema = z.object({
   email: z.string().min(1, "L'email est requis").email("Email invalide"),
@@ -31,34 +20,18 @@ type FormValues = z.infer<typeof schema>;
 
 const REMEMBER_KEY = "madrasati:email";
 
-// Comptes créés par `npm run db:seed` — ils permettent de visiter chaque
-// espace sans avoir à saisir d'identifiants.
-// Une couleur par rôle : le directeur en vert (la marque), l'enseignant en or,
-// le parent en bleu — la même distinction que dans le reste de l'application.
-const DEMO_PASSWORD = "Madrasati2026!";
-const DEMO_ACCOUNTS = [
-  {
-    label: "Directeur",
-    email: "directeur@ecole-demo.mr",
-    icon: UserRound,
-    badge: "bg-primary-100 text-primary-700",
-    hover: "hover:border-primary-300 hover:bg-primary-50 hover:text-primary-800",
-  },
-  {
-    label: "Enseignant",
-    email: "enseignant@ecole-demo.mr",
-    icon: GraduationCap,
-    badge: "bg-accent-100 text-accent-700",
-    hover: "hover:border-accent-300 hover:bg-accent-50 hover:text-accent-700",
-  },
-  {
-    label: "Parent",
-    email: "parent@ecole-demo.mr",
-    icon: Users,
-    badge: "bg-sky-100 text-sky-700",
-    hover: "hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700",
-  },
-];
+/*
+ * Les raccourcis « Se connecter en mode démonstration » ont été retirés de
+ * cette page. Sur le site en production ils ouvraient l'école de démonstration
+ * à n'importe quel visiteur en un clic, encombraient l'écran du directeur
+ * d'une vraie école venu simplement se connecter, et surtout : le mot de passe
+ * de démonstration, écrit en dur ici, partait dans le JavaScript envoyé au
+ * navigateur, donc lisible par tout le monde.
+ *
+ * Les comptes de démonstration existent toujours en base (`npm run db:seed`) :
+ * il suffit de saisir leur email et leur mot de passe dans le formulaire
+ * ci-dessus pour y accéder.
+ */
 
 export function LoginForm() {
   const router = useRouter();
@@ -66,7 +39,6 @@ export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
-  const [demoPending, setDemoPending] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
@@ -102,20 +74,6 @@ export function LoginForm() {
     const ok = await login(values.email, values.password);
     if (!ok) setServerError("Email ou mot de passe incorrect.");
   }
-
-  async function onDemo(email: string) {
-    setServerError(null);
-    setDemoPending(email);
-    const ok = await login(email, DEMO_PASSWORD);
-    if (!ok) {
-      setServerError(
-        "Ce compte de démonstration n'existe pas encore sur ce serveur.",
-      );
-      setDemoPending(null);
-    }
-  }
-
-  const busy = isSubmitting || demoPending !== null;
 
   return (
     <div className="space-y-6">
@@ -207,7 +165,7 @@ export function LoginForm() {
         <Button
           type="submit"
           className="h-12 w-full bg-primary-800 text-base hover:bg-primary-900"
-          disabled={busy}
+          disabled={isSubmitting}
         >
           {isSubmitting ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -228,46 +186,6 @@ export function LoginForm() {
         </p>
       </form>
 
-      <div className="flex items-center gap-3">
-        <span className="h-px flex-1 bg-border" />
-        <span className="text-xs font-medium text-foreground/40">OU</span>
-        <span className="h-px flex-1 bg-border" />
-      </div>
-
-      <div className="space-y-3">
-        <p className="text-center text-sm text-foreground/50">
-          Se connecter en mode démonstration
-        </p>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {DEMO_ACCOUNTS.map(({ label, email, icon: Icon, badge, hover }) => (
-            <button
-              key={email}
-              type="button"
-              onClick={() => onDemo(email)}
-              disabled={busy}
-              className={cn(
-                "flex flex-col items-center gap-2 rounded-xl border border-border px-2 py-4 text-xs font-medium text-foreground/70 transition-colors",
-                hover,
-                "disabled:pointer-events-none disabled:opacity-50",
-              )}
-            >
-              <span
-                className={cn(
-                  "flex h-10 w-10 items-center justify-center rounded-full",
-                  badge,
-                )}
-              >
-                {demoPending === email ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <Icon className="h-5 w-5" strokeWidth={2} />
-                )}
-              </span>
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }
