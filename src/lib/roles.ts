@@ -32,20 +32,6 @@ export const FEE_STATUS = {
   OVERDUE: "OVERDUE",
 } as const;
 
-export const PAYMENT_METHOD = {
-  CASH: "CASH",
-  BANK_TRANSFER: "BANK_TRANSFER",
-  MASRVI: "MASRVI",
-  SEDAD: "SEDAD",
-} as const;
-
-export const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  CASH: "Espèces",
-  BANK_TRANSFER: "Virement bancaire",
-  MASRVI: "Mobile Money Masrvi",
-  SEDAD: "Mobile Money Sedad",
-};
-
 export const MESSAGE_TEMPLATE_KEY = {
   PAYMENT_REMINDER: "PAYMENT_REMINDER",
   ABSENCE_ALERT: "ABSENCE_ALERT",

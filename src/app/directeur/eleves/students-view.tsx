@@ -241,9 +241,10 @@ export function StudentsView({
                       </td>
                       <td className="px-5 py-3 text-foreground/70">
                         {s.className ?? (
-                          <span className="text-foreground/40">
-                            {t("students.noClass")}
-                          </span>
+                          /* Signalé, pas grisé : sans classe, l'élève n'apparaît
+                             ni à l'appel ni sur un bulletin — il faut que ça se
+                             voie dans la liste, pas seulement en ouvrant sa fiche. */
+                          <Badge variant="warning">{t("students.noClass")}</Badge>
                         )}
                       </td>
                       <td className="px-5 py-3 text-foreground/70">

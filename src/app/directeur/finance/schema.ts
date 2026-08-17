@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PAYMENT_METHODS } from "@/lib/payment-methods";
 
 export const feeSchema = z.object({
   studentId: z.string().min(1, "Sélectionnez un élève"),
@@ -10,7 +11,7 @@ export type FeeFormValues = z.infer<typeof feeSchema>;
 
 export const paymentSchema = z.object({
   amount: z.coerce.number().int().positive("Le montant doit être positif"),
-  method: z.enum(["CASH", "BANK_TRANSFER", "MASRVI", "SEDAD", "BAKILY"]),
+  method: z.enum(PAYMENT_METHODS),
   note: z.string().trim().optional().or(z.literal("")),
 });
 export type PaymentFormValues = z.infer<typeof paymentSchema>;

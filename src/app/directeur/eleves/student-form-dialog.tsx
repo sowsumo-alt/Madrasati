@@ -28,7 +28,7 @@ import { ImagePicker } from "@/components/ui/image-picker";
 import { studentSchema, type StudentFormValues } from "./schema";
 import { createStudent, updateStudent } from "./actions";
 import { useLanguage } from "@/lib/i18n/language-provider";
-import { PAYMENT_METHOD_LABELS } from "@/lib/roles";
+import { PAYMENT_METHOD_LABELS } from "@/lib/payment-methods";
 
 export interface StudentClassOption {
   id: string;
@@ -203,15 +203,18 @@ export function StudentFormDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="student-class-select">{t("students.class")}</Label>
+              {/* Plus d'option « Sans classe » : elle était le choix par défaut,
+                  et un élève enregistré ainsi disparaissait des appels et des
+                  bulletins sans que rien ne l'indique au directeur. */}
               <Select
-                value={classId || "none"}
-                onValueChange={(v) => setValue("classId", v === "none" ? "" : v)}
+                value={classId || undefined}
+                onValueChange={(v) => setValue("classId", v, { shouldValidate: true })}
+                disabled={classes.length === 0}
               >
                 <SelectTrigger id="student-class-select">
-                  <SelectValue placeholder={t("students.noClass")} />
+                  <SelectValue placeholder={t("students.selectPlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">{t("students.noClass")}</SelectItem>
                   {classes.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.name}
@@ -219,6 +222,15 @@ export function StudentFormDialog({
                   ))}
                 </SelectContent>
               </Select>
+              {classes.length === 0 ? (
+                <p className="text-xs text-danger">
+                  Créez d&apos;abord une classe dans « Classes ».
+                </p>
+              ) : (
+                errors.classId && (
+                  <p className="text-xs text-danger">{errors.classId.message}</p>
+                )
+              )}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="student-status-select">{t("students.status")}</Label>

@@ -25,12 +25,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PAYMENT_METHODS } from "@/lib/payment-methods";
 import { paymentSchema, type PaymentFormValues } from "./schema";
 import { recordPayment } from "./actions";
 import { formatMRU } from "@/lib/format";
 import { useLanguage } from "@/lib/i18n/language-provider";
-
-const PAYMENT_METHODS = ["CASH", "BANK_TRANSFER", "MASRVI", "SEDAD", "BAKILY"] as const;
 
 interface PaymentDialogTarget {
   feeId: string;

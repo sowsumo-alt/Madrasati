@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useLanguage } from "@/lib/i18n/language-provider";
-import { PAYMENT_METHOD_LABELS } from "@/lib/roles";
+import { PAYMENT_METHOD_LABELS } from "@/lib/payment-methods";
 import { reenrollStudent, reenrollClass, markNotReenrolled } from "./actions";
 
 export interface ReenrollStudent {
