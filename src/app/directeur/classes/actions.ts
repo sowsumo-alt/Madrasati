@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
+import { createStandardClasses } from "@/lib/school-setup";
+import { isSchoolType } from "@/lib/school-levels";
 import { classSchema, subjectSchema, type ClassFormValues, type SubjectFormValues } from "./schema";
 
 async function getCurrentAcademicYear(schoolId: string) {
@@ -41,6 +43,26 @@ export async function createClass(values: ClassFormValues) {
 
   revalidatePath("/directeur/classes");
   revalidatePath("/directeur");
+}
+
+/**
+ * Crée d'un coup les classes standard du type d'école choisi, avec leurs
+ * matières — le même contenu que reçoit une école qui s'inscrit aujourd'hui.
+ * Destiné aux écoles créées avant cet automatisme, ou qui changent de cycle.
+ * Les niveaux déjà présents sont conservés tels quels.
+ */
+export async function generateStandardClasses(schoolType: string) {
+  const user = await requireRole(ROLES.DIRECTOR);
+  if (!isSchoolType(schoolType)) throw new Error("Type d'école invalide.");
+  const year = await getCurrentAcademicYear(user.schoolId);
+
+  const created = await prisma.$transaction((tx) =>
+    createStandardClasses(tx, user.schoolId, year.id, schoolType),
+  );
+
+  revalidatePath("/directeur/classes");
+  revalidatePath("/directeur");
+  return { created };
 }
 
 export async function updateClass(classId: string, values: ClassFormValues) {

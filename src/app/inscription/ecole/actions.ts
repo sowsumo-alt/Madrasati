@@ -53,6 +53,7 @@ export async function completeGoogleSignup(
       email,
       phone: parsed.data.phone,
       city: parsed.data.city,
+      schoolType: parsed.data.schoolType,
       passwordHash: await hashPassword(generateTempPassword()),
     });
     return { ok: true };

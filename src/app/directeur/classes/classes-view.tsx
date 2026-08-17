@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, BookOpen } from "lucide-react";
+import { Plus, Pencil, Trash2, BookOpen, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +20,7 @@ import {
   type ClassAssignmentsTarget,
 } from "./class-assignments-dialog";
 import { SubjectFormDialog, type SubjectEditTarget } from "./subject-form-dialog";
+import { StandardClassesDialog } from "./standard-classes-dialog";
 import { deleteClass, setSubjectActive } from "./actions";
 
 export interface ClassRow {
@@ -70,6 +71,7 @@ export function ClassesView({
 
   const [subjectFormOpen, setSubjectFormOpen] = useState(false);
   const [subjectEditTarget, setSubjectEditTarget] = useState<SubjectEditTarget | null>(null);
+  const [standardClassesOpen, setStandardClassesOpen] = useState(false);
 
   const assignmentSubjects: AssignmentSubject[] = subjects
     .filter((s) => s.isActive)
@@ -112,21 +114,43 @@ export function ClassesView({
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Classes</CardTitle>
-          <Button
-            size="sm"
-            onClick={() => {
-              setClassEditTarget(null);
-              setClassFormOpen(true);
-            }}
-          >
-            <Plus className="h-4 w-4" />
-            Nouvelle classe
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setStandardClassesOpen(true)}
+            >
+              <Sparkles className="h-4 w-4" />
+              Classes automatiques
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                setClassEditTarget(null);
+                setClassFormOpen(true);
+              }}
+            >
+              <Plus className="h-4 w-4" />
+              Nouvelle classe
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           {classes.length === 0 ? (
-            <div className="px-5 py-12 text-center text-sm text-foreground/50">
-              Aucune classe pour l&apos;instant.
+            <div className="px-5 py-12 text-center">
+              <p className="text-sm text-foreground/50">
+                Aucune classe pour l&apos;instant.
+              </p>
+              <p className="mt-1 text-sm text-foreground/50">
+                Créez toutes vos classes d&apos;un coup, sans les saisir une par une.
+              </p>
+              <Button
+                className="mt-4"
+                onClick={() => setStandardClassesOpen(true)}
+              >
+                <Sparkles className="h-4 w-4" />
+                Créer mes classes automatiquement
+              </Button>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -282,6 +306,10 @@ export function ClassesView({
         onOpenChange={setClassFormOpen}
         teachers={teachers}
         editTarget={classEditTarget}
+      />
+      <StandardClassesDialog
+        open={standardClassesOpen}
+        onOpenChange={setStandardClassesOpen}
       />
       <ClassAssignmentsDialog
         target={assignmentsTarget}

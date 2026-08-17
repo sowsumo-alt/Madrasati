@@ -18,6 +18,13 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
+import {
+  SCHOOL_TYPES,
+  SCHOOL_TYPE_LABELS,
+  SCHOOL_TYPE_HINTS,
+  describeSchoolType,
+} from "@/lib/school-levels";
 import { registerSchool } from "./actions";
 import { signupSchema, type SignupValues } from "./schema";
 
@@ -31,8 +38,14 @@ export function SignupForm() {
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors, isSubmitting },
-  } = useForm<SignupValues>({ resolver: zodResolver(signupSchema) });
+  } = useForm<SignupValues>({
+    resolver: zodResolver(signupSchema),
+    defaultValues: { schoolType: "complet" },
+  });
+  const schoolType = watch("schoolType");
 
   async function onSubmit(values: SignupValues) {
     setServerError(null);
@@ -76,6 +89,41 @@ export function SignupForm() {
         {errors.schoolName && (
           <p className="text-xs text-danger">{errors.schoolName.message}</p>
         )}
+      </div>
+
+      {/* Ce choix suffit à créer toutes les classes de l'école : le directeur
+          n'a rien à saisir, il retrouve ses niveaux dès sa première connexion. */}
+      <div className="space-y-1.5">
+        <Label>Niveaux enseignés</Label>
+        <div className="grid grid-cols-3 gap-2">
+          {SCHOOL_TYPES.map((type) => (
+            <button
+              key={type}
+              type="button"
+              onClick={() =>
+                setValue("schoolType", type, { shouldValidate: true })
+              }
+              aria-pressed={schoolType === type}
+              className={cn(
+                "rounded-lg border px-2 py-3 text-center transition-colors",
+                schoolType === type
+                  ? "border-primary-500 bg-primary-50 text-primary-800 ring-1 ring-primary-500"
+                  : "border-border text-foreground/70 hover:border-primary-300 hover:bg-surface-muted",
+              )}
+            >
+              <span className="block text-xs font-medium leading-tight">
+                {SCHOOL_TYPE_LABELS[type]}
+              </span>
+              <span className="mt-0.5 block text-[11px] text-foreground/45">
+                {SCHOOL_TYPE_HINTS[type]}
+              </span>
+            </button>
+          ))}
+        </div>
+        <p className="text-xs text-foreground/50">
+          {describeSchoolType(schoolType)} seront créées automatiquement, avec
+          leurs matières. Vous pourrez les modifier ensuite.
+        </p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">

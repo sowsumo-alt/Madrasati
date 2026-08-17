@@ -1,9 +1,12 @@
 import { z } from "zod";
 import { PASSWORD_MIN_LENGTH } from "@/lib/account";
+import { SCHOOL_TYPES } from "@/lib/school-levels";
 
 export const signupSchema = z
   .object({
     schoolName: z.string().trim().min(2, "Le nom de l'école est requis"),
+    // Détermine les classes créées automatiquement avec l'école.
+    schoolType: z.enum(SCHOOL_TYPES),
     directorName: z.string().trim().min(2, "Votre nom est requis"),
     email: z
       .string()

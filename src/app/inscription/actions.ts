@@ -34,6 +34,7 @@ export async function registerSchool(values: SignupValues): Promise<SignupResult
       directorName: parsed.data.directorName,
       email,
       phone: parsed.data.phone,
+      schoolType: parsed.data.schoolType,
       passwordHash: await hashPassword(parsed.data.password),
     });
     return { ok: true };

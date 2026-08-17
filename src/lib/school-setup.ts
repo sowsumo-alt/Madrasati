@@ -1,4 +1,10 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import {
+  standardClassesFor,
+  subjectNamesForCycle,
+  type SchoolType,
+} from "@/lib/school-levels";
 
 /**
  * Contenu livré avec chaque nouvelle école : le programme mauritanien et les
@@ -122,6 +128,72 @@ export function currentAcademicYear(today = new Date()) {
 }
 
 /**
+ * Crée les classes standard du type d'école choisi, et rattache à chacune les
+ * matières de son cycle. C'est ce qui évite au directeur de saisir treize
+ * classes à la main avant de pouvoir inscrire son premier élève.
+ *
+ * Les classes déjà présentes pour cette année (même niveau) sont ignorées :
+ * la fonction peut être rejouée depuis la page Classes sans créer de doublon.
+ * Renvoie le nombre de classes réellement créées.
+ */
+export async function createStandardClasses(
+  tx: Prisma.TransactionClient,
+  schoolId: string,
+  academicYearId: string,
+  type: SchoolType,
+) {
+  const [subjects, existing] = await Promise.all([
+    tx.subject.findMany({ where: { schoolId }, select: { id: true, name: true } }),
+    tx.classRoom.findMany({
+      where: { schoolId, academicYearId },
+      select: { level: true },
+    }),
+  ]);
+
+  const subjectIdByName = new Map(subjects.map((s) => [s.name, s.id]));
+  const existingLevels = new Set(existing.map((c) => c.level));
+
+  const toCreate = standardClassesFor(type).filter(
+    (c) => !existingLevels.has(c.level),
+  );
+  if (toCreate.length === 0) return 0;
+
+  // Écritures groupées plutôt qu'une création par classe : une école complète
+  // fait treize classes et plus de cent liens matière, ce qui dépassait le
+  // délai maximum d'une transaction Prisma sur une connexion lente et faisait
+  // échouer toute l'inscription.
+  await tx.classRoom.createMany({
+    data: toCreate.map((c) => ({
+      schoolId,
+      academicYearId,
+      name: c.name,
+      level: c.level,
+    })),
+  });
+
+  const created = await tx.classRoom.findMany({
+    where: { schoolId, academicYearId, level: { in: toCreate.map((c) => c.level) } },
+    select: { id: true, level: true },
+  });
+
+  const cycleByLevel = new Map(toCreate.map((c) => [c.level, c.cycle]));
+  const links = created.flatMap((classRoom) => {
+    const cycle = cycleByLevel.get(classRoom.level);
+    if (!cycle) return [];
+    return subjectNamesForCycle(cycle)
+      .map((name) => subjectIdByName.get(name))
+      .filter((subjectId): subjectId is string => Boolean(subjectId))
+      .map((subjectId) => ({ classId: classRoom.id, subjectId }));
+  });
+
+  if (links.length > 0) {
+    await tx.classSubject.createMany({ data: links, skipDuplicates: true });
+  }
+
+  return toCreate.length;
+}
+
+/**
  * Crée une école complète et son compte directeur, en une seule transaction :
  * si une étape échoue, aucune école à moitié créée ne reste en base.
  */
@@ -132,6 +204,7 @@ export async function createSchoolWithDirector(input: {
   phone: string;
   city?: string;
   passwordHash: string;
+  schoolType: SchoolType;
 }) {
   const year = currentAcademicYear();
 
@@ -146,7 +219,7 @@ export async function createSchoolWithDirector(input: {
       },
     });
 
-    await tx.academicYear.create({
+    const academicYear = await tx.academicYear.create({
       data: {
         schoolId: school.id,
         label: year.label,
@@ -164,6 +237,9 @@ export async function createSchoolWithDirector(input: {
       data: DEFAULT_TEMPLATES.map((t) => ({ ...t, schoolId: school.id })),
     });
 
+    // Les matières viennent d'être créées : les classes peuvent s'y rattacher.
+    await createStandardClasses(tx, school.id, academicYear.id, input.schoolType);
+
     return tx.user.create({
       data: {
         schoolId: school.id,
@@ -175,5 +251,11 @@ export async function createSchoolWithDirector(input: {
       },
       select: { id: true, email: true },
     });
-  });
+  },
+  // Marge au-delà des 5 s par défaut : l'inscription écrit l'école, l'année,
+  // les matières, les modèles de messages et jusqu'à treize classes avec
+  // leurs liens — sur une connexion mauritanienne lente, la valeur par défaut
+  // laissait peu de marge, et un dépassement annule toute l'inscription.
+  { timeout: 20_000 },
+  );
 }
