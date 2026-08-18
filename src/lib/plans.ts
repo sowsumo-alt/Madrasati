@@ -24,9 +24,16 @@ export const PLAN_LABELS: Record<Plan, string> = {
   network: "Réseau",
 };
 
+/**
+ * Tarifs officiels, à l'élève et au mois. Source unique : le tableau
+ * comparatif des formules, le montant dû par école et le revenu mensuel du
+ * tableau de bord Super Admin en découlent tous (voir computeMonthlyDue), et
+ * aucun montant n'est figé en base — changer un prix ici suffit à mettre
+ * l'application entière à jour, y compris pour les écoles déjà inscrites.
+ */
 export const PLAN_PRICE: Record<Plan, { amountPerStudent: number | null; label: string }> = {
-  standard: { amountPerStudent: 100, label: "100 MRU / élève / mois" },
-  advanced: { amountPerStudent: 150, label: "150 MRU / élève / mois" },
+  standard: { amountPerStudent: 25, label: "25 MRU / élève / mois" },
+  advanced: { amountPerStudent: 35, label: "35 MRU / élève / mois" },
   network: { amountPerStudent: null, label: "Sur devis" },
 };
 
