@@ -104,6 +104,7 @@ export function planHasFeature(plan: string | null | undefined, feature: Feature
 // ---------------------------------------------------------------------------
 
 export const SUBSCRIPTION_STATUSES = [
+  "pending",
   "trial",
   "active",
   "past_due",
@@ -117,12 +118,27 @@ export function isSubscriptionStatus(value: string): value is SubscriptionStatus
 }
 
 export const SUBSCRIPTION_STATUS_LABELS: Record<SubscriptionStatus, string> = {
+  pending: "En attente d'activation",
   trial: "En période d'essai",
   active: "Actif",
   past_due: "En retard",
   restricted: "Restreint",
   suspended: "Suspendu",
 };
+
+/**
+ * Statut d'une école qui vient de s'inscrire : le compte existe, mais aucun
+ * accès n'est ouvert tant que l'éditeur ne l'a pas activée depuis le tableau
+ * de bord Super Admin. Distinct de « suspended », qui désigne une école qui
+ * avait l'accès et l'a perdu faute de paiement — le message affiché n'a rien
+ * à voir.
+ */
+export const INITIAL_SUBSCRIPTION_STATUS: SubscriptionStatus = "pending";
+
+/** L'école n'a aucun accès à l'application tant qu'elle est dans cet état. */
+export function blocksAllAccess(status: string): boolean {
+  return status === "pending" || status === "suspended";
+}
 
 /** Statuts pour lesquels l'école doit de l'argent : ils appellent une relance,
  *  et c'est pour eux que le retard d'échéance est pertinent. */

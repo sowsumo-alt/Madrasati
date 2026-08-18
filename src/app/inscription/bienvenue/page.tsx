@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CheckCircle2, MessageCircle } from "lucide-react";
 import { requireUser } from "@/lib/session";
@@ -49,18 +48,22 @@ export default async function WelcomePage() {
             <CheckCircle2 className="h-7 w-7" strokeWidth={2} />
           </span>
           <h1 className="mt-4 text-2xl font-bold tracking-tight text-white sm:text-3xl">
-            Votre école est prête
+            Votre école est enregistrée
           </h1>
           <p className="mt-2 max-w-md text-sm text-white/70">
-            {account.school.name} a été créée avec le programme mauritanien et
-            les modèles de messages déjà en place.
+            {account.school.name} a été créée avec ses classes, le programme
+            mauritanien et les modèles de messages déjà en place.
           </p>
         </div>
 
         <div className="mt-8 rounded-2xl bg-surface p-6 shadow-2xl sm:p-8">
+          {/* Plus de lien vers le tableau de bord : l'accès n'est ouvert
+              qu'après activation (voir requireRole), il ne ferait que renvoyer
+              l'utilisateur vers l'écran d'attente. */}
           <p className="text-sm text-foreground/60">
-            Pour activer votre compte, écrivez-nous sur WhatsApp — le message
-            est déjà prêt avec les informations de votre école.
+            Dernière étape : écrivez-nous sur WhatsApp pour faire activer votre
+            compte — le message est déjà prêt avec les informations de votre
+            école. Votre espace s&apos;ouvre dès l&apos;activation.
           </p>
           <a
             href={whatsappUrl}
@@ -71,12 +74,6 @@ export default async function WelcomePage() {
             <MessageCircle className="h-4.5 w-4.5" />
             Nous écrire sur WhatsApp
           </a>
-          <Link
-            href="/"
-            className="mt-4 flex h-12 w-full items-center justify-center rounded-lg border border-border text-sm font-medium text-foreground/70 transition-colors hover:bg-surface-muted"
-          >
-            Aller à mon tableau de bord
-          </Link>
         </div>
       </div>
     </div>

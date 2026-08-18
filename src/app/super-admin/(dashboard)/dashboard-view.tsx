@@ -50,6 +50,7 @@ export interface SchoolRow {
 }
 
 const STATUS_STYLES: Record<SubscriptionStatus, string> = {
+  pending: "bg-violet-500/20 text-violet-200",
   trial: "bg-sky-500/15 text-sky-300",
   active: "bg-emerald-500/15 text-emerald-300",
   past_due: "bg-amber-500/15 text-amber-300",
@@ -116,8 +117,8 @@ export function SuperAdminDashboard({
       .filter((s) => s.subscriptionStatus === "active")
       .reduce((sum, s) => sum + (s.amountDue ?? 0), 0);
     const pastDue = schools.filter((s) => s.subscriptionStatus === "past_due").length;
-    const trial = schools.filter((s) => s.subscriptionStatus === "trial").length;
-    return { total: schools.length, monthlyRevenue, pastDue, trial };
+    const pending = schools.filter((s) => s.subscriptionStatus === "pending").length;
+    return { total: schools.length, monthlyRevenue, pastDue, pending };
   }, [schools]);
 
   async function handlePlanChange(schoolId: string, plan: string) {
@@ -208,7 +209,11 @@ export function SuperAdminDashboard({
         <StatCard icon={Sparkles} label="Nouvelles ce mois-ci" value={String(newThisMonth)} />
         <StatCard icon={Banknote} label="Revenu mensuel actif" value={formatMRU(stats.monthlyRevenue)} />
         <StatCard icon={Clock} label="En retard de paiement" value={String(stats.pastDue)} />
-        <StatCard icon={CheckCircle2} label="En période d'essai" value={String(stats.trial)} />
+        <StatCard
+          icon={CheckCircle2}
+          label="En attente d'activation"
+          value={String(stats.pending)}
+        />
       </div>
 
       <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">

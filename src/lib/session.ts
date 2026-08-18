@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import type { Role } from "@/lib/roles";
 import { ROLES } from "@/lib/roles";
-import { planHasFeature, effectivePlan, type Feature } from "@/lib/plans";
+import { planHasFeature, effectivePlan, blocksAllAccess, type Feature } from "@/lib/plans";
 
 export async function getCurrentUser() {
   const session = await getServerSession(authOptions);
@@ -36,10 +36,15 @@ export async function requireRole(...roles: Role[]) {
   });
   if (account?.mustChangePassword) redirect("/mon-compte");
 
-  // Un abonnement suspendu par le Super Admin coupe l'accès pour toute
-  // l'école (directeur, enseignants, parents) tant qu'il n'est pas réactivé
-  // via « Marquer comme payé ».
-  if (account?.school?.subscriptionStatus === "suspended") redirect("/compte-suspendu");
+  // Deux situations coupent l'accès à toute l'école — directeur, enseignants
+  // et parents compris. Le contrôle est ici, côté serveur : saisir l'URL du
+  // tableau de bord à la main ne permet pas de passer outre.
+  const status = account?.school?.subscriptionStatus;
+  if (status && blocksAllAccess(status)) {
+    // Une école fraîchement inscrite n'a jamais eu d'accès : on lui explique
+    // qu'elle attend son activation, pas qu'on lui a coupé le service.
+    redirect(status === "pending" ? "/activation-en-attente" : "/compte-suspendu");
+  }
 
   return user;
 }

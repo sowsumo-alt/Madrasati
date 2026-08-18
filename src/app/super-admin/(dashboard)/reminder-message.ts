@@ -32,6 +32,17 @@ export function buildReminderMessage(ctx: ReminderContext): string {
   const signature = "Bien à vous,\nMadrasati";
 
   switch (ctx.status) {
+    case "pending":
+      return [
+        greeting,
+        "",
+        `Merci d'avoir inscrit ${ctx.schoolName} sur Madrasati — j'ai bien reçu votre demande.`,
+        "",
+        "J'active votre compte et je reviens vers vous très vite. Dès l'activation, vous vous reconnectez et tout votre espace est prêt : vos classes, le programme mauritanien et les modèles de messages sont déjà en place.",
+        "",
+        signature,
+      ].join("\n");
+
     case "trial":
       return [greeting, "", trialBody(ctx), "", signature].join("\n");
 
@@ -111,6 +122,7 @@ function overdueBody(ctx: ReminderContext, amount: string | null): string {
 /** Libellé du bouton, pour que le Super Admin sache quel ton part avant de cliquer. */
 export function reminderButtonTitle(status: SubscriptionStatus): string {
   if (isOwingStatus(status)) return "Envoyer un rappel de paiement sur WhatsApp";
+  if (status === "pending") return "Confirmer la prise en compte de l'inscription sur WhatsApp";
   if (status === "trial") return "Envoyer un message de suivi d'essai sur WhatsApp";
   if (status === "active") return "Prendre des nouvelles sur WhatsApp";
   return `Contacter sur WhatsApp (${SUBSCRIPTION_STATUS_LABELS[status]})`;

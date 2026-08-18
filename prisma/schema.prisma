@@ -33,9 +33,11 @@ model School {
   // Formule d'abonnement — "standard" | "advanced" | "network" (voir src/lib/plans.ts).
   // String plutôt qu'enum Prisma, comme le reste des champs de statut du schéma.
   plan         String   @default("standard")
-  // Statut de facturation — "trial" | "active" | "past_due" | "restricted" | "suspended".
-  // Géré uniquement depuis le tableau de bord Super Admin (src/app/super-admin).
-  subscriptionStatus String   @default("trial")
+  // Statut de facturation — "pending" | "trial" | "active" | "past_due" |
+  // "restricted" | "suspended". Géré uniquement depuis le tableau de bord
+  // Super Admin (src/app/super-admin). Une école naît "pending" : elle n'a
+  // aucun accès tant que l'éditeur ne l'a pas activée.
+  subscriptionStatus String   @default("pending")
   lastPaymentAt      DateTime?
   nextDueAt          DateTime?
   createdAt    DateTime @default(now())

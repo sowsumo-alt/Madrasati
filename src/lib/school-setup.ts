@@ -5,6 +5,7 @@ import {
   subjectNamesForCycle,
   type SchoolType,
 } from "@/lib/school-levels";
+import { INITIAL_SUBSCRIPTION_STATUS } from "@/lib/plans";
 
 /**
  * Contenu livré avec chaque nouvelle école : le programme mauritanien et les
@@ -216,6 +217,9 @@ export async function createSchoolWithDirector(input: {
         email: input.email,
         city: input.city,
         currency: "MRU",
+        // Aucun accès tant que l'éditeur n'a pas activé l'école depuis le
+        // tableau de bord Super Admin.
+        subscriptionStatus: INITIAL_SUBSCRIPTION_STATUS,
       },
     });
 
