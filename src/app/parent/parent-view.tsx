@@ -150,14 +150,14 @@ export function ParentView({
                 className="inline-flex items-center gap-2 rounded-lg bg-primary-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-800"
               >
                 <MessageCircle className="h-4 w-4" />
-                Contacter l&apos;école
+                {t("portal.contactSchool")}
               </a>
               <a
                 href={buildTelUrl(schoolPhone)}
                 className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-surface-muted"
               >
                 <Phone className="h-4 w-4" />
-                Appeler
+                {t("portal.call")}
               </a>
             </>
           )}
@@ -316,7 +316,7 @@ export function ParentView({
               {(data.reportCard.comment || data.reportCard.commentAr) && (
                 <div className="border-t border-border px-5 py-4">
                   <p className="text-xs font-medium uppercase tracking-wide text-foreground/40">
-                    Appréciation / ملاحظة
+                    {t("portal.appreciation")}
                   </p>
                   <div className="mt-2 grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <p className="text-sm leading-relaxed text-foreground">
@@ -341,12 +341,12 @@ export function ParentView({
         {/* — Paiements */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Frais de scolarité</CardTitle>
+            <CardTitle className="text-sm">{t("portal.fees")}</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             {data.fees.length === 0 ? (
               <p className="px-5 py-10 text-center text-xs text-foreground/40">
-                Aucun frais enregistré.
+                {t("portal.noFees")}
               </p>
             ) : (
               <ul className="divide-y divide-border">
@@ -384,12 +384,12 @@ export function ParentView({
         {/* — Présences récentes */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Présences récentes</CardTitle>
+            <CardTitle className="text-sm">{t("portal.recentAttendance")}</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             {data.attendanceHistory.length === 0 ? (
               <p className="px-5 py-10 text-center text-xs text-foreground/40">
-                Aucun appel enregistré pour l&apos;instant.
+                {t("portal.noAttendance")}
               </p>
             ) : (
               <ul className="max-h-72 divide-y divide-border overflow-y-auto">
@@ -422,12 +422,12 @@ export function ParentView({
       {/* — Emploi du temps */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm">Emploi du temps</CardTitle>
+          <CardTitle className="text-sm">{t("portal.schedule")}</CardTitle>
         </CardHeader>
         <CardContent className="p-4 pt-0">
           {data.schedule.length === 0 ? (
             <p className="py-8 text-center text-xs text-foreground/40">
-              L&apos;emploi du temps n&apos;est pas encore publié.
+              {t("portal.noSchedule")}
             </p>
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">

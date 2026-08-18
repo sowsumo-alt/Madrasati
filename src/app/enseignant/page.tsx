@@ -7,6 +7,7 @@ import { getTeacherScope } from "@/lib/teacher-scope";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatTile } from "@/components/ui/stat-tile";
 import { formatDate } from "@/lib/format";
+import { getTranslations } from "@/lib/i18n/server";
 
 const DAY_LABELS = ["", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"];
 
@@ -19,13 +20,13 @@ function minutesToTime(minutes: number) {
 export default async function TeacherHome() {
   const user = await requireRole(ROLES.TEACHER);
   const scope = await getTeacherScope(user.id, user.schoolId);
+  const { t } = await getTranslations();
 
   if (!scope) {
     return (
       <div className="rounded-xl border border-border bg-surface px-5 py-16 text-center">
         <p className="text-sm text-foreground/60">
-          Votre compte n&apos;est pas encore rattaché à une fiche enseignant.
-          Demandez à la direction de faire le lien.
+          {t("teacherHome.notLinked")}
         </p>
       </div>
     );
@@ -78,9 +79,7 @@ export default async function TeacherHome() {
         <h1 className="text-xl font-semibold text-foreground">
           Bonjour {scope.teacher.firstName}
         </h1>
-        <p className="mt-1 text-sm text-foreground/60">
-          Voici vos classes et votre journée.
-        </p>
+        <p className="mt-1 text-sm text-foreground/60">{t("teacherHome.subtitle")}</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -107,14 +106,14 @@ export default async function TeacherHome() {
           className="flex items-center gap-3 rounded-xl border border-border bg-surface p-4 shadow-sm transition-colors hover:bg-surface-muted"
         >
           <GraduationCap className="h-5 w-5 text-primary-700" />
-          <span className="text-sm font-medium text-foreground">Saisir les notes</span>
+          <span className="text-sm font-medium text-foreground">{t("teacherHome.enterGrades")}</span>
         </Link>
         <Link
           href="/enseignant/emploi-du-temps"
           className="flex items-center gap-3 rounded-xl border border-border bg-surface p-4 shadow-sm transition-colors hover:bg-surface-muted"
         >
           <CalendarDays className="h-5 w-5 text-primary-700" />
-          <span className="text-sm font-medium text-foreground">Mon emploi du temps</span>
+          <span className="text-sm font-medium text-foreground">{t("teacherHome.mySchedule")}</span>
         </Link>
       </div>
 
@@ -128,7 +127,7 @@ export default async function TeacherHome() {
           <CardContent className="p-4 pt-0">
             {todaySlots.length === 0 ? (
               <p className="py-6 text-center text-xs text-foreground/40">
-                Aucun cours prévu aujourd&apos;hui.
+                {t("teacherHome.noClassToday")}
               </p>
             ) : (
               <ul className="space-y-2">
@@ -160,7 +159,7 @@ export default async function TeacherHome() {
           <CardContent className="p-4 pt-0">
             {upcomingExams.length === 0 ? (
               <p className="py-6 text-center text-xs text-foreground/40">
-                Aucun examen à venir.
+                {t("teacherHome.noUpcomingExam")}
               </p>
             ) : (
               <ul className="space-y-2">
@@ -191,7 +190,7 @@ export default async function TeacherHome() {
         <CardContent className="p-4 pt-0">
           {classes.length === 0 ? (
             <p className="py-6 text-center text-xs text-foreground/40">
-              Aucune classe ne vous est assignée pour le moment.
+              {t("teacherHome.noClassAssigned")}
             </p>
           ) : (
             <div className="flex flex-wrap gap-2">

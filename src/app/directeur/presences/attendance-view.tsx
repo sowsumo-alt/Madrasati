@@ -19,6 +19,7 @@ import { WhatsAppLink } from "@/components/ui/whatsapp-link";
 import { cn } from "@/lib/utils";
 import { formatLongDate, formatLongDateAr } from "@/lib/format";
 import { fillTemplate, withArabic, schoolSignatureFr, schoolSignatureAr } from "@/lib/whatsapp";
+import { useLanguage } from "@/lib/i18n/language-provider";
 import { saveAttendance } from "./actions";
 
 export interface AttendanceClassOption {
@@ -67,6 +68,7 @@ export function AttendanceView({
   basePath?: string;
 }) {
   const router = useRouter();
+  const { t } = useLanguage();
   const [marks, setMarks] = useState<Record<string, string>>(existingRecords);
   const [isSaving, setIsSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
@@ -93,12 +95,12 @@ export function AttendanceView({
         status,
       }));
       await saveAttendance(selectedClassId, selectedDate, entries);
-      toast.success("Appel enregistré.");
+      toast.success(t("attendance.saved"));
       setJustSaved(true);
       setTimeout(() => setJustSaved(false), 650);
       router.refresh();
     } catch {
-      toast.error("Une erreur est survenue.");
+      toast.error(t("common.error"));
     } finally {
       setIsSaving(false);
     }
@@ -116,10 +118,8 @@ export function AttendanceView({
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-semibold text-foreground">Présences</h1>
-        <p className="mt-1 text-sm text-foreground/60">
-          Faites l&apos;appel et alertez les parents des élèves absents.
-        </p>
+        <h1 className="text-xl font-semibold text-foreground">{t("attendance.title")}</h1>
+        <p className="mt-1 text-sm text-foreground/60">{t("attendance.subtitle")}</p>
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
@@ -130,7 +130,7 @@ export function AttendanceView({
             onValueChange={(v) => updateFilters(v, selectedDate)}
           >
             <SelectTrigger id="attendance-class-select">
-              <SelectValue placeholder="Choisir une classe" />
+              <SelectValue placeholder={t("attendance.chooseClass")} />
             </SelectTrigger>
             <SelectContent>
               {classes.map((c) => (
@@ -169,7 +169,7 @@ export function AttendanceView({
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="secondary" onClick={() => markAll("PRESENT")}>
               <CheckCheck className="h-4 w-4" />
-              Tous présents
+              {t("attendance.allPresent")}
             </Button>
             <Button
               onClick={handleSave}
@@ -186,10 +186,10 @@ export function AttendanceView({
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-surface-muted/60 text-left text-xs font-medium uppercase tracking-wide text-foreground/50">
-                    <th className="px-5 py-3">Élève</th>
-                    <th className="px-5 py-3">Taux de présence</th>
-                    <th className="px-5 py-3">Statut du jour</th>
-                    <th className="px-5 py-3 text-right">Alerter le parent</th>
+                    <th className="px-5 py-3">{t("attendance.student")}</th>
+                    <th className="px-5 py-3">{t("attendance.rate")}</th>
+                    <th className="px-5 py-3">{t("attendance.todayStatus")}</th>
+                    <th className="px-5 py-3 text-right">{t("attendance.alertParent")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -276,7 +276,7 @@ export function AttendanceView({
                                 }
                                 className="cursor-help text-xs text-foreground/30"
                               >
-                                {!s.parent ? "aucun parent" : "—"}
+                                {!s.parent ? t("attendance.noParentRecorded") : "—"}
                               </span>
                             )}
                           </div>
