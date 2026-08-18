@@ -28,6 +28,7 @@ import {
   setCurrentYear,
   type SchoolFormValues,
 } from "./actions";
+import { useLanguage } from "@/lib/i18n/language-provider";
 import { PlanCard } from "./plan-card";
 
 const schoolSchema = z.object({
@@ -67,6 +68,7 @@ export function SettingsView({
   trialDaysLeft: number | null;
 }) {
   const router = useRouter();
+  const { t } = useLanguage();
   const [yearDialogOpen, setYearDialogOpen] = useState(false);
   const [switchingId, setSwitchingId] = useState<string | null>(null);
 
@@ -84,22 +86,22 @@ export function SettingsView({
   async function onSaveSchool(values: SchoolFormValues) {
     try {
       await updateSchool(values);
-      toast.success("Informations de l'école enregistrées.");
+      toast.success(t("settings.saved"));
       router.refresh();
     } catch {
-      toast.error("Une erreur est survenue.");
+      toast.error(t("common.error"));
     }
   }
 
   async function onCreateYear(values: YearValues) {
     try {
       await createAcademicYear(values);
-      toast.success("Année scolaire ajoutée.");
+      toast.success(t("settings.yearAdded"));
       setYearDialogOpen(false);
       yearForm.reset({ label: "", startDate: "", endDate: "" });
       router.refresh();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Une erreur est survenue.");
+      toast.error(e instanceof Error ? e.message : t("common.error"));
     }
   }
 
@@ -107,10 +109,10 @@ export function SettingsView({
     setSwitchingId(yearId);
     try {
       await setCurrentYear(yearId);
-      toast.success("Année scolaire active mise à jour.");
+      toast.success(t("settings.activeYearUpdated"));
       router.refresh();
     } catch {
-      toast.error("Une erreur est survenue.");
+      toast.error(t("common.error"));
     } finally {
       setSwitchingId(null);
     }
@@ -119,15 +121,13 @@ export function SettingsView({
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-semibold text-foreground">Paramètres</h1>
-        <p className="mt-1 text-sm text-foreground/60">
-          Informations de votre école et années scolaires.
-        </p>
+        <h1 className="text-xl font-semibold text-foreground">{t("settings.title")}</h1>
+        <p className="mt-1 text-sm text-foreground/60">{t("settings.subtitle")}</p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm">Informations de l&apos;école</CardTitle>
+          <CardTitle className="text-sm">{t("settings.schoolInfo")}</CardTitle>
         </CardHeader>
         <CardContent className="p-4 pt-0">
           <form
@@ -136,7 +136,7 @@ export function SettingsView({
             noValidate
           >
             <div className="space-y-1.5">
-              <Label>Logo de l&apos;école</Label>
+              <Label>{t("settings.logo")}</Label>
               <ImagePicker
                 value={logoUrl}
                 onChange={(v) =>
@@ -145,14 +145,12 @@ export function SettingsView({
                 maxSize={320}
                 label="Choisir un logo"
               />
-              <p className="text-xs text-foreground/40">
-                Il apparaîtra en haut des bulletins et des reçus.
-              </p>
+              <p className="text-xs text-foreground/40">{t("settings.logoHint")}</p>
             </div>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="name">Nom de l&apos;école</Label>
+                <Label htmlFor="name">{t("settings.schoolName")}</Label>
                 <Input id="name" {...schoolForm.register("name")} />
                 {schoolForm.formState.errors.name && (
                   <p className="text-xs text-danger">
@@ -161,7 +159,7 @@ export function SettingsView({
                 )}
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="phone">Téléphone</Label>
+                <Label htmlFor="phone">{t("settings.phone")}</Label>
                 <Input
                   id="phone"
                   placeholder="+222 XX XX XX XX"
@@ -203,19 +201,17 @@ export function SettingsView({
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-sm">Années scolaires</CardTitle>
+          <CardTitle className="text-sm">{t("settings.years")}</CardTitle>
           <Button size="sm" variant="secondary" onClick={() => setYearDialogOpen(true)}>
-            <Plus className="h-4 w-4" />
-            Nouvelle année
-          </Button>
+            <Plus className="h-4 w-4" />{t("settings.newYear")}</Button>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-surface-muted/60 text-left text-xs font-medium uppercase tracking-wide text-foreground/50">
-                  <th className="px-5 py-3">Année</th>
-                  <th className="px-5 py-3">Début</th>
+                  <th className="px-5 py-3">{t("settings.year")}</th>
+                  <th className="px-5 py-3">{t("settings.start")}</th>
                   <th className="px-5 py-3">Fin</th>
                   <th className="px-5 py-3 text-right">Statut</th>
                 </tr>
@@ -233,9 +229,7 @@ export function SettingsView({
                     <td className="px-5 py-3 text-right">
                       {y.isCurrent ? (
                         <Badge variant="success">
-                          <Check className="mr-1 inline h-3 w-3" />
-                          Année active
-                        </Badge>
+                          <Check className="mr-1 inline h-3 w-3" />{t("settings.activeYear")}</Badge>
                       ) : (
                         <Button
                           variant="secondary"
@@ -260,13 +254,13 @@ export function SettingsView({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm">Votre école en chiffres</CardTitle>
+          <CardTitle className="text-sm">{t("settings.schoolInNumbers")}</CardTitle>
         </CardHeader>
         <CardContent className="p-4 pt-0">
           <div className="grid grid-cols-3 gap-2 text-center sm:gap-4">
             <div>
               <p className="text-2xl font-semibold text-foreground">{counts.students}</p>
-              <p className="text-xs text-foreground/50">Élèves</p>
+              <p className="text-xs text-foreground/50">{t("settings.students")}</p>
             </div>
             <div>
               <p className="text-2xl font-semibold text-foreground">{counts.teachers}</p>
@@ -286,7 +280,7 @@ export function SettingsView({
       <Dialog open={yearDialogOpen} onOpenChange={setYearDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Nouvelle année scolaire</DialogTitle>
+            <DialogTitle>{t("settings.newYearTitle")}</DialogTitle>
           </DialogHeader>
           <form
             onSubmit={yearForm.handleSubmit(onCreateYear)}
@@ -294,7 +288,7 @@ export function SettingsView({
             noValidate
           >
             <div className="space-y-1.5">
-              <Label htmlFor="label">Libellé</Label>
+              <Label htmlFor="label">{t("settings.yearLabel")}</Label>
               <Input id="label" placeholder="2026-2027" {...yearForm.register("label")} />
               {yearForm.formState.errors.label && (
                 <p className="text-xs text-danger">
@@ -304,7 +298,7 @@ export function SettingsView({
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="startDate">Début</Label>
+                <Label htmlFor="startDate">{t("settings.start")}</Label>
                 <Input id="startDate" type="date" {...yearForm.register("startDate")} />
               </div>
               <div className="space-y-1.5">

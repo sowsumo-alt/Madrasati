@@ -21,6 +21,7 @@ import {
 import { formatLongDate, formatLongDateAr } from "@/lib/format";
 import { TemplateDialog, type TemplateEditTarget } from "./template-dialog";
 import { deleteTemplate } from "./actions";
+import { useLanguage } from "@/lib/i18n/language-provider";
 
 export interface RecipientChild {
   name: string;
@@ -55,6 +56,7 @@ export function CommunicationView({
   schoolName: string;
 }) {
   const router = useRouter();
+  const { t } = useLanguage();
   const [query, setQuery] = useState("");
   const [kindFilter, setKindFilter] = useState<"ALL" | "PARENT" | "TEACHER">("ALL");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -140,12 +142,12 @@ export function CommunicationView({
     setDeleting(true);
     try {
       await deleteTemplate(deleteTarget.id);
-      toast.success("Modèle supprimé.");
+      toast.success(t("comm.templateDeleted"));
       setDeleteTarget(null);
       if (templateId === deleteTarget.id) setTemplateId(null);
       router.refresh();
     } catch {
-      toast.error("Une erreur est survenue.");
+      toast.error(t("common.error"));
     } finally {
       setDeleting(false);
     }
@@ -166,10 +168,7 @@ export function CommunicationView({
     <div className="space-y-5">
       <div>
         <h1 className="text-xl font-semibold text-foreground">Communication</h1>
-        <p className="mt-1 text-sm text-foreground/60">
-          Choisissez un destinataire, un modèle de message, et envoyez sur WhatsApp
-          en un clic.
-        </p>
+        <p className="mt-1 text-sm text-foreground/60">{t("comm.subtitle")}</p>
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,320px)_1fr]">
@@ -210,9 +209,7 @@ export function CommunicationView({
 
             <div className="max-h-96 flex-1 overflow-y-auto rounded-lg border border-border">
               {filtered.length === 0 ? (
-                <p className="px-3 py-8 text-center text-xs text-foreground/40">
-                  Aucun destinataire.
-                </p>
+                <p className="px-3 py-8 text-center text-xs text-foreground/40">{t("comm.noRecipient")}</p>
               ) : (
                 filtered.map((r) => (
                   <button
@@ -244,7 +241,7 @@ export function CommunicationView({
         <div className="space-y-5">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-sm">Modèles de message</CardTitle>
+              <CardTitle className="text-sm">{t("comm.templates")}</CardTitle>
               <Button
                 size="sm"
                 variant="secondary"
@@ -259,34 +256,34 @@ export function CommunicationView({
             </CardHeader>
             <CardContent className="p-4 pt-0">
               <div className="flex flex-wrap gap-2">
-                {templates.map((t) => (
+                {templates.map((tpl) => (
                   <div
-                    key={t.id}
+                    key={tpl.id}
                     className={`group flex items-center gap-1 rounded-lg border px-1 py-1 transition-colors ${
-                      templateId === t.id
+                      templateId === tpl.id
                         ? "border-primary-500 bg-primary-50"
                         : "border-border hover:bg-surface-muted"
                     }`}
                   >
                     <button
-                      onClick={() => handlePickTemplate(t)}
+                      onClick={() => handlePickTemplate(tpl)}
                       className="px-2 py-1 text-sm text-foreground"
                     >
-                      {t.title}
+                      {tpl.title}
                     </button>
                     <button
                       onClick={() => {
-                        setEditTarget({ id: t.id, title: t.title, body: t.body, bodyAr: t.bodyAr });
+                        setEditTarget({ id: tpl.id, title: tpl.title, body: tpl.body, bodyAr: tpl.bodyAr });
                         setDialogOpen(true);
                       }}
-                      title="Modifier ce modèle"
+                      title={t("comm.editTemplate")}
                       className="flex h-6 w-6 items-center justify-center rounded text-foreground/40 hover:bg-surface-muted hover:text-foreground"
                     >
                       <Pencil className="h-3 w-3" />
                     </button>
                     <button
-                      onClick={() => setDeleteTarget(t)}
-                      title="Supprimer ce modèle"
+                      onClick={() => setDeleteTarget(tpl)}
+                      title={t("comm.deleteTemplate")}
                       className="flex h-6 w-6 items-center justify-center rounded text-foreground/40 hover:bg-red-50 hover:text-danger"
                     >
                       <Trash2 className="h-3 w-3" />
@@ -313,14 +310,12 @@ export function CommunicationView({
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 rows={7}
-                placeholder="Choisissez un modèle ci-dessus, ou écrivez votre message ici."
+                placeholder={t("comm.messagePlaceholder")}
                 className="w-full rounded-lg border border-border bg-surface p-3 text-sm leading-relaxed text-foreground placeholder:text-foreground/40 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
 
               {!selected && (
-                <p className="text-xs text-foreground/50">
-                  Sélectionnez d&apos;abord un destinataire à gauche.
-                </p>
+                <p className="text-xs text-foreground/50">{t("comm.pickRecipientFirst")}</p>
               )}
 
               {blocked && (
@@ -372,7 +367,7 @@ export function CommunicationView({
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
-        title="Supprimer ce modèle ?"
+        title={t("comm.deleteTemplateTitle")}
         description="Le modèle sera retiré de la liste. Vos messages déjà envoyés ne sont pas affectés."
         confirmLabel="Supprimer"
         variant="danger"

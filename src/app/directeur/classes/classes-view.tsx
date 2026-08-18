@@ -19,6 +19,7 @@ import {
   type AssignmentTeacher,
   type ClassAssignmentsTarget,
 } from "./class-assignments-dialog";
+import { useLanguage } from "@/lib/i18n/language-provider";
 import { SubjectFormDialog, type SubjectEditTarget } from "./subject-form-dialog";
 import { StandardClassesDialog } from "./standard-classes-dialog";
 import { deleteClass, setSubjectActive } from "./actions";
@@ -51,6 +52,7 @@ export function ClassesView({
   teachers: ClassTeacherOption[];
 }) {
   const router = useRouter();
+  const { t } = useLanguage();
 
   const [classFormOpen, setClassFormOpen] = useState(false);
   const [classEditTarget, setClassEditTarget] = useState<ClassEditTarget | null>(null);
@@ -83,11 +85,11 @@ export function ClassesView({
     setDeleteLoading(true);
     try {
       await deleteClass(deleteTarget.id);
-      toast.success("Classe supprimée.");
+      toast.success(t("classes.deleted"));
       setDeleteTarget(null);
       router.refresh();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Une erreur est survenue.");
+      toast.error(e instanceof Error ? e.message : t("common.error"));
     } finally {
       setDeleteLoading(false);
     }
@@ -98,17 +100,15 @@ export function ClassesView({
       await setSubjectActive(subject.id, !subject.isActive);
       router.refresh();
     } catch {
-      toast.error("Une erreur est survenue.");
+      toast.error(t("common.error"));
     }
   }
 
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-xl font-semibold text-foreground">Classes & Matières</h1>
-        <p className="mt-1 text-sm text-foreground/60">
-          Organisez les classes de l&apos;école et les matières enseignées.
-        </p>
+        <h1 className="text-xl font-semibold text-foreground">{t("classes.title")}</h1>
+        <p className="mt-1 text-sm text-foreground/60">{t("classes.subtitle")}</p>
       </div>
 
       <Card>
@@ -138,19 +138,13 @@ export function ClassesView({
         <CardContent className="p-0">
           {classes.length === 0 ? (
             <div className="px-5 py-12 text-center">
-              <p className="text-sm text-foreground/50">
-                Aucune classe pour l&apos;instant.
-              </p>
-              <p className="mt-1 text-sm text-foreground/50">
-                Créez toutes vos classes d&apos;un coup, sans les saisir une par une.
-              </p>
+              <p className="text-sm text-foreground/50">{t("classes.empty")}</p>
+              <p className="mt-1 text-sm text-foreground/50">{t("classes.emptyHint")}</p>
               <Button
                 className="mt-4"
                 onClick={() => setStandardClassesOpen(true)}
               >
-                <Sparkles className="h-4 w-4" />
-                Créer mes classes automatiquement
-              </Button>
+                <Sparkles className="h-4 w-4" />{t("classes.autoCreate")}</Button>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -159,9 +153,9 @@ export function ClassesView({
                   <tr className="border-b border-border bg-surface-muted/60 text-left text-xs font-medium uppercase tracking-wide text-foreground/50">
                     <th className="px-5 py-3">Classe</th>
                     <th className="px-5 py-3">Niveau</th>
-                    <th className="px-5 py-3">Élèves</th>
+                    <th className="px-5 py-3">{t("classes.students")}</th>
                     <th className="px-5 py-3">Prof. principal</th>
-                    <th className="px-5 py-3">Matières</th>
+                    <th className="px-5 py-3">{t("classes.subjects")}</th>
                     <th className="px-5 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -185,9 +179,7 @@ export function ClassesView({
                             title={`Configuration incomplète : ${missing.join(", ")}.`}
                             className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 align-middle text-[11px] font-medium text-amber-800"
                           >
-                            <AlertTriangle className="h-3 w-3" />
-                            Incomplète
-                          </span>
+                            <AlertTriangle className="h-3 w-3" />{t("classes.incomplete")}</span>
                         )}
                       </td>
                       <td className="px-5 py-3 text-foreground/70">{c.level}</td>
@@ -198,7 +190,7 @@ export function ClassesView({
                         {c.mainTeacher ? (
                           `${c.mainTeacher.firstName} ${c.mainTeacher.lastName}`
                         ) : (
-                          <span className="text-foreground/40">Aucun</span>
+                          <span className="text-foreground/40">{t("classes.none")}</span>
                         )}
                       </td>
                       <td className="px-5 py-3 text-foreground/70">
@@ -207,7 +199,7 @@ export function ClassesView({
                       <td className="px-5 py-3">
                         <div className="flex items-center justify-end gap-1">
                           <button
-                            title="Matières & enseignants"
+                            title={t("classes.subjectsAndTeachers")}
                             onClick={() => setAssignmentsClassId(c.id)}
                             className="flex h-8 w-8 items-center justify-center rounded-lg text-primary-700 transition-colors hover:bg-primary-50"
                           >
@@ -250,7 +242,7 @@ export function ClassesView({
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Matières</CardTitle>
+          <CardTitle>{t("classes.subjects")}</CardTitle>
           <Button
             size="sm"
             onClick={() => {
@@ -258,16 +250,14 @@ export function ClassesView({
               setSubjectFormOpen(true);
             }}
           >
-            <Plus className="h-4 w-4" />
-            Nouvelle matière
-          </Button>
+            <Plus className="h-4 w-4" />{t("classes.newSubject")}</Button>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-surface-muted/60 text-left text-xs font-medium uppercase tracking-wide text-foreground/50">
-                  <th className="px-5 py-3">Matière</th>
+                  <th className="px-5 py-3">{t("classes.subject")}</th>
                   <th className="px-5 py-3">Coefficient</th>
                   <th className="px-5 py-3">Statut</th>
                   <th className="px-5 py-3 text-right">Actions</th>
@@ -347,7 +337,7 @@ export function ClassesView({
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
-        title="Supprimer cette classe ?"
+        title={t("classes.deleteTitle")}
         description="Cette action est irréversible. Impossible si des élèves y sont encore inscrits."
         confirmLabel="Supprimer"
         variant="danger"

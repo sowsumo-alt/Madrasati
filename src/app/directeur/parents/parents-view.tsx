@@ -28,6 +28,7 @@ import {
   type ParentStudentOption,
 } from "./parent-form-dialog";
 import { buildTelUrl } from "@/lib/whatsapp";
+import { useLanguage } from "@/lib/i18n/language-provider";
 
 export interface ParentRow {
   id: string;
@@ -55,6 +56,7 @@ export function ParentsView({
   parentPortalEnabled: boolean;
 }) {
   const router = useRouter();
+  const { t } = useLanguage();
   const [query, setQuery] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<ParentEditTarget | null>(null);
@@ -71,7 +73,7 @@ export function ParentsView({
       );
       router.refresh();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Une erreur est survenue.");
+      toast.error(e instanceof Error ? e.message : t("common.error"));
     } finally {
       setAccountBusyId(null);
     }
@@ -111,9 +113,7 @@ export function ParentsView({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold text-foreground">Parents</h1>
-          <p className="mt-1 text-sm text-foreground/60">
-            Gérez les parents et leurs enfants inscrits.
-          </p>
+          <p className="mt-1 text-sm text-foreground/60">{t("parents.subtitle")}</p>
         </div>
         <Button onClick={openCreate}>
           <Plus className="h-4 w-4" />
@@ -126,7 +126,7 @@ export function ParentsView({
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Rechercher un parent ou un enfant…"
+          placeholder={t("parents.searchPlaceholder")}
           className="pl-9"
         />
       </div>
@@ -144,9 +144,9 @@ export function ParentsView({
               <thead>
                 <tr className="border-b border-border bg-surface-muted/60 text-left text-xs font-medium uppercase tracking-wide text-foreground/50">
                   <th className="px-5 py-3">Nom</th>
-                  <th className="px-5 py-3">Téléphone</th>
+                  <th className="px-5 py-3">{t("parents.phone")}</th>
                   <th className="px-5 py-3">Enfant(s)</th>
-                  <th className="px-5 py-3">Accès</th>
+                  <th className="px-5 py-3">{t("parents.access")}</th>
                   <th className="px-5 py-3 text-right">Actions</th>
                 </tr>
               </thead>
@@ -166,7 +166,7 @@ export function ParentsView({
                       <td className="px-5 py-3 text-foreground/70">{p.phone}</td>
                       <td className="px-5 py-3 text-foreground/70">
                         {p.children.length === 0 ? (
-                          <span className="text-foreground/40">Aucun enfant lié</span>
+                          <span className="text-foreground/40">{t("parents.noChild")}</span>
                         ) : (
                           p.children.map((c) => c.name).join(", ")
                         )}
@@ -195,9 +195,7 @@ export function ParentsView({
                             href="/directeur/fonctionnalite-verrouillee?feature=parentPortal"
                             className="inline-flex items-center gap-1.5 rounded-lg bg-surface-muted px-2.5 py-1.5 text-xs font-medium text-foreground/50 hover:text-foreground"
                           >
-                            <Lock className="h-3 w-3" />
-                            Plan Avancé
-                          </Link>
+                            <Lock className="h-3 w-3" />{t("parents.advancedPlan")}</Link>
                         )}
                       </td>
                       <td className="px-5 py-3">
@@ -205,7 +203,7 @@ export function ParentsView({
                           <WhatsAppLink
                             phone={p.phone}
                             message={waMessage}
-                            title="Contacter sur WhatsApp"
+                            title={t("parents.contactWhatsapp")}
                           />
                           <a
                             href={buildTelUrl(p.phone)}
@@ -218,7 +216,7 @@ export function ParentsView({
                             <button
                               onClick={() => handleAccount(p)}
                               disabled={accountBusyId === p.id}
-                              title="Réinitialiser le mot de passe"
+                              title={t("parents.resetPassword")}
                               className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground/60 transition-colors hover:bg-surface-muted disabled:opacity-50"
                             >
                               {accountBusyId === p.id ? (

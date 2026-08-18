@@ -38,6 +38,7 @@ import {
 import { CredentialsDialog } from "@/app/directeur/comptes/credentials-dialog";
 import { buildTelUrl } from "@/lib/whatsapp";
 import { formatMRU, formatDate } from "@/lib/format";
+import { useLanguage } from "@/lib/i18n/language-provider";
 
 export interface TeacherRow {
   id: string;
@@ -65,6 +66,7 @@ export function TeachersView({
   schoolName: string;
 }) {
   const router = useRouter();
+  const { t } = useLanguage();
   const [query, setQuery] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<TeacherEditTarget | null>(null);
@@ -73,26 +75,26 @@ export function TeachersView({
   const [credentials, setCredentials] = useState<AccountResult | null>(null);
   const [accountBusyId, setAccountBusyId] = useState<string | null>(null);
 
-  async function handleCreateAccount(t: TeacherRow) {
-    setAccountBusyId(t.id);
+  async function handleCreateAccount(teacher: TeacherRow) {
+    setAccountBusyId(teacher.id);
     try {
-      setCredentials(await createTeacherAccount(t.id));
+      setCredentials(await createTeacherAccount(teacher.id));
       router.refresh();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Une erreur est survenue.");
+      toast.error(e instanceof Error ? e.message : t("common.error"));
     } finally {
       setAccountBusyId(null);
     }
   }
 
-  async function handleResetPassword(t: TeacherRow) {
-    if (!t.userId) return;
-    setAccountBusyId(t.id);
+  async function handleResetPassword(teacher: TeacherRow) {
+    if (!teacher.userId) return;
+    setAccountBusyId(teacher.id);
     try {
-      setCredentials(await resetUserPassword(t.userId));
+      setCredentials(await resetUserPassword(teacher.userId));
       router.refresh();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Une erreur est survenue.");
+      toast.error(e instanceof Error ? e.message : t("common.error"));
     } finally {
       setAccountBusyId(null);
     }
@@ -102,9 +104,9 @@ export function TeachersView({
     const q = query.trim().toLowerCase();
     if (!q) return teachers;
     return teachers.filter(
-      (t) =>
-        `${t.firstName} ${t.lastName}`.toLowerCase().includes(q) ||
-        (t.subjectSpecialty ?? "").toLowerCase().includes(q),
+      (teacher) =>
+        `${teacher.firstName} ${teacher.lastName}`.toLowerCase().includes(q) ||
+        (teacher.subjectSpecialty ?? "").toLowerCase().includes(q),
     );
   }, [teachers, query]);
 
@@ -113,18 +115,18 @@ export function TeachersView({
     setFormOpen(true);
   }
 
-  function openEdit(t: TeacherRow) {
+  function openEdit(teacher: TeacherRow) {
     setEditTarget({
-      id: t.id,
-      firstName: t.firstName,
-      lastName: t.lastName,
-      phone: t.phone,
-      email: t.email,
-      diploma: t.diploma,
-      subjectSpecialty: t.subjectSpecialty,
-      monthlySalary: t.monthlySalary,
-      hireDate: t.hireDate ? t.hireDate.slice(0, 10) : null,
-      status: t.status,
+      id: teacher.id,
+      firstName: teacher.firstName,
+      lastName: teacher.lastName,
+      phone: teacher.phone,
+      email: teacher.email,
+      diploma: teacher.diploma,
+      subjectSpecialty: teacher.subjectSpecialty,
+      monthlySalary: teacher.monthlySalary,
+      hireDate: teacher.hireDate ? teacher.hireDate.slice(0, 10) : null,
+      status: teacher.status,
     });
     setFormOpen(true);
   }
@@ -141,7 +143,7 @@ export function TeachersView({
       setConfirmTarget(null);
       router.refresh();
     } catch {
-      toast.error("Une erreur est survenue.");
+      toast.error(t("common.error"));
     } finally {
       setConfirmLoading(false);
     }
@@ -152,9 +154,7 @@ export function TeachersView({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold text-foreground">Enseignants</h1>
-          <p className="mt-1 text-sm text-foreground/60">
-            Gérez le personnel enseignant de l&apos;école.
-          </p>
+          <p className="mt-1 text-sm text-foreground/60">{t("teachers.subtitle")}</p>
         </div>
         <Button onClick={openCreate}>
           <Plus className="h-4 w-4" />
@@ -167,7 +167,7 @@ export function TeachersView({
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Rechercher un enseignant…"
+          placeholder={t("teachers.searchPlaceholder")}
           className="pl-9"
         />
       </div>
@@ -185,62 +185,62 @@ export function TeachersView({
               <thead>
                 <tr className="border-b border-border bg-surface-muted/60 text-left text-xs font-medium uppercase tracking-wide text-foreground/50">
                   <th className="px-5 py-3">Nom</th>
-                  <th className="px-5 py-3">Matière</th>
+                  <th className="px-5 py-3">{t("teachers.subject")}</th>
                   <th className="px-5 py-3">Salaire</th>
-                  <th className="px-5 py-3">Embauché le</th>
+                  <th className="px-5 py-3">{t("teachers.hiredOn")}</th>
                   <th className="px-5 py-3">Statut</th>
-                  <th className="px-5 py-3">Accès</th>
+                  <th className="px-5 py-3">{t("teachers.access")}</th>
                   <th className="px-5 py-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {filtered.map((t) => {
-                  const waMessage = `Bonjour ${t.firstName}, ici ${schoolName}.`;
+                {filtered.map((teacher) => {
+                  const waMessage = `Bonjour ${teacher.firstName}, ici ${schoolName}.`;
                   return (
-                    <tr key={t.id} className="hover:bg-surface-muted/40">
+                    <tr key={teacher.id} className="hover:bg-surface-muted/40">
                       <td className="px-5 py-3 font-medium text-foreground">
-                        {t.firstName} {t.lastName}
+                        {teacher.firstName} {teacher.lastName}
                       </td>
                       <td className="px-5 py-3 text-foreground/70">
-                        {t.subjectSpecialty ?? (
+                        {teacher.subjectSpecialty ?? (
                           <span className="text-foreground/40">—</span>
                         )}
                       </td>
                       <td className="px-5 py-3 text-foreground/70">
-                        {t.monthlySalary != null ? (
-                          formatMRU(t.monthlySalary)
+                        {teacher.monthlySalary != null ? (
+                          formatMRU(teacher.monthlySalary)
                         ) : (
                           <span className="text-foreground/40">—</span>
                         )}
                       </td>
                       <td className="px-5 py-3 text-foreground/70">
-                        {t.hireDate ? (
-                          formatDate(t.hireDate)
+                        {teacher.hireDate ? (
+                          formatDate(teacher.hireDate)
                         ) : (
                           <span className="text-foreground/40">—</span>
                         )}
                       </td>
                       <td className="px-5 py-3">
-                        <Badge variant={t.status === "ACTIVE" ? "success" : "neutral"}>
-                          {t.status === "ACTIVE" ? "Actif" : "Inactif"}
+                        <Badge variant={teacher.status === "ACTIVE" ? "success" : "neutral"}>
+                          {teacher.status === "ACTIVE" ? "Actif" : "Inactif"}
                         </Badge>
                       </td>
                       <td className="px-5 py-3">
-                        {t.userId ? (
+                        {teacher.userId ? (
                           <span
                             className="text-xs text-foreground/60"
-                            title={t.accountEmail ?? ""}
+                            title={teacher.accountEmail ?? ""}
                           >
-                            {t.accountEmail}
+                            {teacher.accountEmail}
                           </span>
                         ) : (
                           <Button
                             variant="secondary"
                             size="sm"
-                            disabled={accountBusyId === t.id}
-                            onClick={() => handleCreateAccount(t)}
+                            disabled={accountBusyId === teacher.id}
+                            onClick={() => handleCreateAccount(teacher)}
                           >
-                            {accountBusyId === t.id ? (
+                            {accountBusyId === teacher.id ? (
                               <Loader2 className="h-3 w-3 animate-spin" />
                             ) : (
                               <KeyRound className="h-3 w-3" />
@@ -252,12 +252,12 @@ export function TeachersView({
                       <td className="px-5 py-3">
                         <div className="flex items-center justify-end gap-1">
                           <WhatsAppLink
-                            phone={t.phone}
+                            phone={teacher.phone}
                             message={waMessage}
-                            title="Contacter sur WhatsApp"
+                            title={t("teachers.contactWhatsapp")}
                           />
                           <a
-                            href={buildTelUrl(t.phone)}
+                            href={buildTelUrl(teacher.phone)}
                             title="Appeler"
                             className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground/60 transition-colors hover:bg-surface-muted"
                           >
@@ -273,32 +273,26 @@ export function TeachersView({
                               </button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => openEdit(t)}>
+                              <DropdownMenuItem onClick={() => openEdit(teacher)}>
                                 <Pencil className="h-4 w-4" />
                                 Modifier
                               </DropdownMenuItem>
-                              {t.userId && (
-                                <DropdownMenuItem onClick={() => handleResetPassword(t)}>
-                                  <KeyRound className="h-4 w-4" />
-                                  Réinitialiser le mot de passe
-                                </DropdownMenuItem>
+                              {teacher.userId && (
+                                <DropdownMenuItem onClick={() => handleResetPassword(teacher)}>
+                                  <KeyRound className="h-4 w-4" />{t("teachers.resetPassword")}</DropdownMenuItem>
                               )}
                               <DropdownMenuItem
-                                onClick={() => setConfirmTarget(t)}
+                                onClick={() => setConfirmTarget(teacher)}
                                 className={
-                                  t.status === "ACTIVE" ? "text-danger" : "text-primary-700"
+                                  teacher.status === "ACTIVE" ? "text-danger" : "text-primary-700"
                                 }
                               >
-                                {t.status === "ACTIVE" ? (
+                                {teacher.status === "ACTIVE" ? (
                                   <>
-                                    <UserX className="h-4 w-4" />
-                                    Désactiver
-                                  </>
+                                    <UserX className="h-4 w-4" />{t("teachers.deactivate")}</>
                                 ) : (
                                   <>
-                                    <UserCheck className="h-4 w-4" />
-                                    Réactiver
-                                  </>
+                                    <UserCheck className="h-4 w-4" />{t("teachers.reactivate")}</>
                                 )}
                               </DropdownMenuItem>
                             </DropdownMenuContent>

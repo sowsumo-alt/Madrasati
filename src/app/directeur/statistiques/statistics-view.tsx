@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatTile } from "@/components/ui/stat-tile";
 import { PrintButton } from "@/components/ui/print-button";
 import { formatMRU } from "@/lib/format";
+import { useLanguage } from "@/lib/i18n/language-provider";
 import {
   LineChart,
   ColumnChart,
@@ -29,6 +30,7 @@ export interface StatsData {
 }
 
 export function StatisticsView({ data }: { data: StatsData }) {
+  const { t } = useLanguage();
   const genderSegments = [
     { label: "Garçons", value: data.gender.boys, color: SERIE },
     { label: "Filles", value: data.gender.girls, color: SERIE_2 },
@@ -42,9 +44,7 @@ export function StatisticsView({ data }: { data: StatsData }) {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold text-foreground">Statistiques</h1>
-          <p className="mt-1 text-sm text-foreground/60">
-            Vue d&apos;ensemble de l&apos;école sur les six derniers mois.
-          </p>
+          <p className="mt-1 text-sm text-foreground/60">{t("stats.subtitle")}</p>
         </div>
         <PrintButton label="Imprimer" />
       </div>
@@ -74,7 +74,7 @@ export function StatisticsView({ data }: { data: StatsData }) {
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Présence par mois (%)</CardTitle>
+            <CardTitle className="text-sm">{t("stats.attendanceByMonth")}</CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <LineChart data={data.attendanceByMonth} unit=" %" maxOverride={100} />
@@ -83,7 +83,7 @@ export function StatisticsView({ data }: { data: StatsData }) {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Revenus encaissés par mois (MRU)</CardTitle>
+            <CardTitle className="text-sm">{t("stats.revenueByMonth")}</CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <ColumnChart data={data.revenueByMonth} />
@@ -92,7 +92,7 @@ export function StatisticsView({ data }: { data: StatsData }) {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Moyenne par matière (sur 20)</CardTitle>
+            <CardTitle className="text-sm">{t("stats.averageBySubject")}</CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <BarList data={data.subjectAverages} maxOverride={20} />
@@ -101,7 +101,7 @@ export function StatisticsView({ data }: { data: StatsData }) {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Élèves par niveau</CardTitle>
+            <CardTitle className="text-sm">{t("stats.studentsByLevel")}</CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <BarList data={data.levelDistribution} />
@@ -126,7 +126,7 @@ export function StatisticsView({ data }: { data: StatsData }) {
 
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle className="text-sm">Répartition par genre</CardTitle>
+            <CardTitle className="text-sm">{t("stats.byGender")}</CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <SplitBar segments={genderSegments} />
@@ -137,7 +137,7 @@ export function StatisticsView({ data }: { data: StatsData }) {
       {/* Vue tableau : toute valeur reste lisible sans dépendre de la couleur. */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm">Tableau des données</CardTitle>
+          <CardTitle className="text-sm">{t("stats.dataTable")}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -145,7 +145,7 @@ export function StatisticsView({ data }: { data: StatsData }) {
               <thead>
                 <tr className="border-b border-border bg-surface-muted/60 text-left text-xs font-medium uppercase tracking-wide text-foreground/50">
                   <th className="px-5 py-3">Mois</th>
-                  <th className="px-5 py-3">Présence</th>
+                  <th className="px-5 py-3">{t("stats.attendance")}</th>
                   <th className="px-5 py-3">Revenus</th>
                 </tr>
               </thead>
