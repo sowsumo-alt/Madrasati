@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertTriangle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -26,7 +26,12 @@ import {
 } from "@/components/ui/select";
 import { ImagePicker } from "@/components/ui/image-picker";
 import { studentSchema, type StudentFormValues } from "./schema";
-import { createStudent, updateStudent } from "./actions";
+import {
+  createStudent,
+  updateStudent,
+  findDuplicateStudents,
+  type DuplicateStudent,
+} from "./actions";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { PAYMENT_METHOD_LABELS } from "@/lib/payment-methods";
 
@@ -90,8 +95,13 @@ export function StudentFormDialog({
     defaultValues: emptyValues,
   });
 
+  const [duplicates, setDuplicates] = useState<DuplicateStudent[]>([]);
+  const [duplicateAck, setDuplicateAck] = useState(false);
+
   useEffect(() => {
     if (open) {
+      setDuplicates([]);
+      setDuplicateAck(false);
       reset(
         editTarget
           ? {
@@ -113,6 +123,16 @@ export function StudentFormDialog({
 
   async function onSubmit(values: StudentFormValues) {
     try {
+      // Avertissement de doublon avant la première création seulement : à la
+      // seconde tentative le directeur a vu le nom déjà inscrit et tranché.
+      if (!isEdit && !duplicateAck) {
+        const found = await findDuplicateStudents(values.firstName, values.lastName);
+        if (found.length > 0) {
+          setDuplicates(found);
+          return;
+        }
+      }
+
       if (isEdit && editTarget) {
         await updateStudent(editTarget.id, values);
         toast.success(t("students.updatedSuccess"));
@@ -327,6 +347,37 @@ export function StudentFormDialog({
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {duplicates.length > 0 && !duplicateAck && (
+            <div className="flex items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+              <div className="text-xs text-amber-900">
+                <p className="font-medium">
+                  Un élève portant ce nom est déjà inscrit.
+                </p>
+                <ul className="mt-1 space-y-0.5 text-amber-800/80">
+                  {duplicates.map((d) => (
+                    <li key={d.id}>
+                      {d.name}
+                      {d.className ? ` — ${d.className}` : " — sans classe"}
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-1.5 text-amber-800/80">
+                  S&apos;il s&apos;agit de la même personne, annulez et modifiez la fiche
+                  existante. S&apos;il s&apos;agit d&apos;un homonyme, confirmez pour créer
+                  quand même.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setDuplicateAck(true)}
+                  className="mt-2 rounded-md bg-amber-600 px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-700"
+                >
+                  C&apos;est un homonyme, créer quand même
+                </button>
               </div>
             </div>
           )}

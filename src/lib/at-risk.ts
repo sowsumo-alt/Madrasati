@@ -9,6 +9,19 @@ export interface AtRiskStudent {
   parent: { firstName: string; lastName: string; phone: string } | null;
 }
 
+/**
+ * Critères de déclenchement, énoncés en clair pour l'interface : un directeur
+ * qui voit un élève signalé doit pouvoir vérifier la règle appliquée, sinon
+ * l'alerte reste une boîte noire qu'il ne saura ni défendre auprès des parents
+ * ni contester.
+ */
+export const AT_RISK_CRITERIA = [
+  "Moyenne générale inférieure à 10/20",
+  "Baisse de plus de 3 points entre les deux derniers examens",
+  "Taux de présence inférieur à 80 % sur le mois (à partir de 5 appels)",
+  "Au moins 2 incidents disciplinaires dans le mois",
+];
+
 const LOW_AVERAGE_THRESHOLD = 10;
 const GRADE_DROP_THRESHOLD = 3;
 const ATTENDANCE_RATE_THRESHOLD = 80;

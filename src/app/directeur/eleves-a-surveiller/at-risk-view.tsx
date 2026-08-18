@@ -4,6 +4,7 @@ import Link from "next/link";
 import { UserSearch, FileText } from "lucide-react";
 import { WhatsAppLink } from "@/components/ui/whatsapp-link";
 import { Badge } from "@/components/ui/badge";
+import { AT_RISK_CRITERIA } from "@/lib/at-risk";
 
 export interface AtRiskRow {
   id: string;
@@ -33,6 +34,26 @@ export function AtRiskView({
             : "Élèves de vos classes détectés automatiquement à partir des notes, présences et incidents disciplinaires."}
         </p>
       </div>
+
+      {/* La règle appliquée, écrite noir sur blanc : sans elle, le motif chiffré
+          affiché sur chaque ligne ne dit pas pourquoi ce seuil-là a compté. */}
+      <details className="rounded-xl border border-border bg-surface-muted/50 px-4 py-3">
+        <summary className="cursor-pointer text-sm font-medium text-foreground/70">
+          Quand un élève est-il signalé ?
+        </summary>
+        <ul className="mt-2 space-y-1 text-sm text-foreground/60">
+          {AT_RISK_CRITERIA.map((c) => (
+            <li key={c} className="flex items-start gap-2">
+              <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-foreground/30" />
+              {c}
+            </li>
+          ))}
+        </ul>
+        <p className="mt-2 text-xs text-foreground/45">
+          Un seul critère suffit à signaler l&apos;élève. Le motif exact, avec ses
+          chiffres, est indiqué sur sa ligne.
+        </p>
+      </details>
 
       <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
         {students.length === 0 ? (

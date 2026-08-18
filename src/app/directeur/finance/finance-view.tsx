@@ -57,6 +57,22 @@ function displayStatus(fee: FeeRow) {
 
 const STATUS_FILTERS = ["ALL", "PENDING", "PARTIAL", "PAID", "OVERDUE"] as const;
 
+/**
+ * Ancienneté d'un impayé, en jours puis en mois. Calculée sur les dates
+ * civiles pour que le compte ne dépende pas de l'heure de consultation.
+ */
+function formatOverdue(dueDate: string) {
+  const startOfDay = (d: Date) => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+  const days = Math.round(
+    (startOfDay(new Date()) - startOfDay(new Date(dueDate))) / 86_400_000,
+  );
+  if (days <= 0) return "";
+  if (days === 1) return "— 1 jour de retard";
+  if (days < 31) return `— ${days} jours de retard`;
+  const months = Math.floor(days / 30);
+  return months === 1 ? "— 1 mois de retard" : `— ${months} mois de retard`;
+}
+
 export function FinanceView({
   fees,
   students,
@@ -222,6 +238,14 @@ export function FinanceView({
                         <Badge variant={STATUS_VARIANT[status]}>
                           {t(STATUS_KEYS[status])}
                         </Badge>
+                        {/* Une échéance d'octobre dernier et une d'avant-hier
+                            portaient le même badge : l'ancienneté du retard est
+                            ce qui dit laquelle relancer en premier. */}
+                        {status === "OVERDUE" && (
+                          <span className="ml-1.5 whitespace-nowrap text-xs text-danger">
+                            {formatOverdue(f.dueDate)}
+                          </span>
+                        )}
                       </td>
                       <td className="px-5 py-3">
                         <div className="flex items-center justify-end gap-1">

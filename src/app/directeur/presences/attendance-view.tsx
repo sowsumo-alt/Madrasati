@@ -189,7 +189,7 @@ export function AttendanceView({
                     <th className="px-5 py-3">Élève</th>
                     <th className="px-5 py-3">Taux de présence</th>
                     <th className="px-5 py-3">Statut du jour</th>
-                    <th className="px-5 py-3 text-right">Parent</th>
+                    <th className="px-5 py-3 text-right">Alerter le parent</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -262,10 +262,22 @@ export function AttendanceView({
                               <WhatsAppLink
                                 phone={s.parent.phone}
                                 message={message}
-                                title="Alerter le parent sur WhatsApp"
+                                title={`Alerter ${s.parent.firstName} ${s.parent.lastName} sur WhatsApp`}
                               />
                             ) : (
-                              <span className="text-xs text-foreground/30">—</span>
+                              /* Le tiret laissait croire qu'aucun parent n'existe.
+                                 On dit lequel des deux cas s'applique : pas de
+                                 parent enregistré, ou simplement rien à signaler. */
+                              <span
+                                title={
+                                  !s.parent
+                                    ? "Aucun parent enregistré pour cet élève. La direction peut en ajouter un depuis la fiche de l'élève."
+                                    : `${s.parent.firstName} ${s.parent.lastName} — l'alerte s'active si vous marquez l'élève absent ou en retard.`
+                                }
+                                className="cursor-help text-xs text-foreground/30"
+                              >
+                                {!s.parent ? "aucun parent" : "—"}
+                              </span>
                             )}
                           </div>
                         </td>

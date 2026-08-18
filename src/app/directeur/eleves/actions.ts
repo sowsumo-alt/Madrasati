@@ -7,6 +7,55 @@ import { ROLES } from "@/lib/roles";
 import { generateReceiptNumber } from "@/lib/receipts";
 import { studentSchema, type StudentFormValues } from "./schema";
 
+/** Compare deux noms en ignorant casse, accents composés et espaces multiples. */
+function normalizeName(value: string) {
+  return value.trim().toLowerCase().normalize("NFC").replace(/\s+/g, " ");
+}
+
+export interface DuplicateStudent {
+  id: string;
+  name: string;
+  className: string | null;
+}
+
+/**
+ * Élèves déjà inscrits portant le même nom, à la casse près. Deux homonymes
+ * existent réellement dans une école, donc on avertit sans bloquer — mais
+ * « Ahmadou Sow » et « ahmadou sow » créés côte à côte sont une faute de
+ * saisie que personne ne remarque avant que les notes ne se dispersent entre
+ * deux fiches.
+ */
+export async function findDuplicateStudents(
+  firstName: string,
+  lastName: string,
+): Promise<DuplicateStudent[]> {
+  const user = await requireRole(ROLES.DIRECTOR);
+  const target = normalizeName(`${firstName} ${lastName}`);
+  if (!target.trim()) return [];
+
+  const candidates = await prisma.student.findMany({
+    where: {
+      schoolId: user.schoolId,
+      firstName: { equals: firstName.trim(), mode: "insensitive" },
+      lastName: { equals: lastName.trim(), mode: "insensitive" },
+    },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      classRoom: { select: { name: true } },
+    },
+  });
+
+  return candidates
+    .filter((c) => normalizeName(`${c.firstName} ${c.lastName}`) === target)
+    .map((c) => ({
+      id: c.id,
+      name: `${c.firstName} ${c.lastName}`,
+      className: c.classRoom?.name ?? null,
+    }));
+}
+
 export async function createStudent(values: StudentFormValues) {
   const user = await requireRole(ROLES.DIRECTOR);
   const data = studentSchema.parse(values);
@@ -36,17 +85,35 @@ export async function createStudent(values: StudentFormValues) {
     });
 
     if (data.parentFirstName && data.parentLastName && data.parentPhone) {
-      const parent = await tx.parent.create({
-        data: {
+      // Même nom et même téléphone : c'est le même tuteur, pas un homonyme.
+      // Le recréer dupliquait la fiche à chaque frère ou sœur inscrit — c'est
+      // ainsi que « Abou Sow » et « abou sow » ont coexisté.
+      const existing = await tx.parent.findFirst({
+        where: {
           schoolId: user.schoolId,
-          firstName: data.parentFirstName,
-          lastName: data.parentLastName,
           phone: data.parentPhone,
-          relationship: "tuteur",
+          firstName: { equals: data.parentFirstName, mode: "insensitive" },
+          lastName: { equals: data.parentLastName, mode: "insensitive" },
         },
+        select: { id: true },
       });
+
+      const parentId =
+        existing?.id ??
+        (
+          await tx.parent.create({
+            data: {
+              schoolId: user.schoolId,
+              firstName: data.parentFirstName,
+              lastName: data.parentLastName,
+              phone: data.parentPhone,
+              relationship: "tuteur",
+            },
+          })
+        ).id;
+
       await tx.studentParent.create({
-        data: { studentId: student.id, parentId: parent.id, isPrimary: true },
+        data: { studentId: student.id, parentId, isPrimary: true },
       });
     }
 
