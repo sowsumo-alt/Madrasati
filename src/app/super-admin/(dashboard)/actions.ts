@@ -4,7 +4,12 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireSuperAdmin } from "@/lib/super-admin-session";
-import { isPlan, isSubscriptionStatus, BILLING_CYCLE_DAYS } from "@/lib/plans";
+import {
+  isPlan,
+  isSubscriptionStatus,
+  BILLING_CYCLE_DAYS,
+  TRIAL_DAYS,
+} from "@/lib/plans";
 
 /** Change la formule d'une école — n'active jamais rien de plus : c'est le
  *  statut d'abonnement (voir changeSubscriptionStatus/markAsPaid) qui décide
@@ -21,7 +26,29 @@ export async function changeSubscriptionStatus(schoolId: string, status: string)
   await requireSuperAdmin();
   if (!isSubscriptionStatus(status)) throw new Error("Statut invalide.");
 
-  await prisma.school.update({ where: { id: schoolId }, data: { subscriptionStatus: status } });
+  // Activer l'essai, c'est là que le compte à rebours démarre : l'école n'avait
+  // aucun accès avant, la compter depuis son inscription lui volerait les jours
+  // pendant lesquels elle attendait. On ne réarme pas une échéance déjà posée,
+  // pour qu'un aller-retour de statut ne rallonge pas l'essai indéfiniment.
+  const school = await prisma.school.findUnique({
+    where: { id: schoolId },
+    select: { subscriptionStatus: true, nextDueAt: true },
+  });
+  if (!school) throw new Error("École introuvable.");
+
+  const startsTrial =
+    status === "trial" && school.subscriptionStatus !== "trial" && !school.nextDueAt;
+
+  const data: { subscriptionStatus: string; nextDueAt?: Date } = {
+    subscriptionStatus: status,
+  };
+  if (startsTrial) {
+    const end = new Date();
+    end.setDate(end.getDate() + TRIAL_DAYS);
+    data.nextDueAt = end;
+  }
+
+  await prisma.school.update({ where: { id: schoolId }, data });
   revalidatePath("/super-admin");
 }
 

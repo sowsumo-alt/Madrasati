@@ -1,5 +1,17 @@
 import { formatMRU, formatDate } from "@/lib/format";
-import { SUBSCRIPTION_STATUS_LABELS, isOwingStatus, type SubscriptionStatus } from "@/lib/plans";
+import {
+  SUBSCRIPTION_STATUS_LABELS,
+  isOwingStatus,
+  PLANS,
+  PLAN_LABELS,
+  PLAN_PRICE,
+  type SubscriptionStatus,
+} from "@/lib/plans";
+
+/** Rappel des trois formules et de leurs prix, joint aux messages de fin d'essai. */
+function planListing(): string {
+  return PLANS.map((p) => `• ${PLAN_LABELS[p]} : ${PLAN_PRICE[p].label}`).join("\n");
+}
 
 export interface ReminderContext {
   schoolName: string;
@@ -73,11 +85,15 @@ function trialBody(ctx: ReminderContext): string {
     return `${intro}\n\nDites-moi si vous souhaitez activer votre abonnement, je m'occupe de tout.`;
   }
 
+  // Essai terminé : le message porte le rappel complet des formules, c'est le
+  // moment où le directeur doit choisir.
   if (ctx.trialDaysLeft < 0) {
     return (
       `${intro}\n\n` +
-      `Votre période d'essai s'est terminée le ${formatDate(ctx.trialEndsAt)}. ` +
-      `Si vous souhaitez continuer, dites-moi simplement quelle formule vous convient et je m'occupe de l'activation.`
+      `Votre essai gratuit s'est terminé le ${formatDate(ctx.trialEndsAt)}. ` +
+      `Vos données sont bien conservées — rien n'a été supprimé — mais les fonctionnalités avancées sont en pause en attendant votre choix.\n\n` +
+      `Voici les trois formules :\n${planListing()}\n\n` +
+      `Dites-moi celle qui vous convient et je réactive tout immédiatement.`
     );
   }
 
@@ -90,8 +106,8 @@ function trialBody(ctx: ReminderContext): string {
 
   return (
     `${intro}\n\n` +
-    `Votre période d'essai ${when}. Si vous souhaitez continuer, dites-moi simplement quelle formule vous convient et je m'occupe de l'activation.\n\n` +
-    `Je reste disponible pour toute question.`
+    `Votre essai gratuit ${when}. Pour continuer sans interruption, il suffit de choisir votre formule :\n${planListing()}\n\n` +
+    `Dites-moi laquelle vous convient et je m'occupe de l'activation. Je reste disponible pour toute question.`
   );
 }
 

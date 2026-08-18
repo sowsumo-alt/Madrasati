@@ -10,6 +10,7 @@ import {
   Clock,
   Download,
   History,
+  Hourglass,
   Loader2,
   MessageCircle,
   Sparkles,
@@ -21,6 +22,7 @@ import {
   SUBSCRIPTION_STATUSES,
   SUBSCRIPTION_STATUS_LABELS,
   isOwingStatus,
+  TRIAL_REMINDER_DAYS,
   type Plan,
   type SubscriptionStatus,
 } from "@/lib/plans";
@@ -121,6 +123,24 @@ export function SuperAdminDashboard({
     return { total: schools.length, monthlyRevenue, pastDue, pending };
   }, [schools]);
 
+  /**
+   * Essais à relancer : l'application n'envoie aucun message toute seule, donc
+   * cette liste est le rappel — les écoles dont l'essai se termine bientôt, ou
+   * vient de se terminer, avec le message WhatsApp déjà rédigé à envoyer.
+   */
+  const trialsEnding = useMemo(
+    () =>
+      schools
+        .filter(
+          (s) =>
+            s.subscriptionStatus === "trial" &&
+            s.trialDaysLeft != null &&
+            s.trialDaysLeft <= TRIAL_REMINDER_DAYS,
+        )
+        .sort((a, b) => (a.trialDaysLeft ?? 0) - (b.trialDaysLeft ?? 0)),
+    [schools],
+  );
+
   async function handlePlanChange(schoolId: string, plan: string) {
     setBusyId(schoolId);
     try {
@@ -215,6 +235,68 @@ export function SuperAdminDashboard({
           value={String(stats.pending)}
         />
       </div>
+
+      {trialsEnding.length > 0 && (
+        <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 p-4">
+          <p className="flex items-center gap-2 text-sm font-semibold text-amber-200">
+            <Hourglass className="h-4 w-4" />
+            {trialsEnding.length} essai{trialsEnding.length > 1 ? "s" : ""} à relancer
+          </p>
+          <p className="mt-1 text-xs text-amber-200/60">
+            Madrasati n&apos;envoie pas de message tout seul : cliquez pour ouvrir
+            la conversation, le texte est déjà rédigé avec les formules et leurs prix.
+          </p>
+          <ul className="mt-3 space-y-1.5">
+            {trialsEnding.map((s) => {
+              const left = s.trialDaysLeft ?? 0;
+              const when =
+                left > 1
+                  ? `dans ${left} jours`
+                  : left === 1
+                    ? "demain"
+                    : left === 0
+                      ? "aujourd'hui"
+                      : `terminé depuis ${-left} jour${-left > 1 ? "s" : ""}`;
+              return (
+                <li
+                  key={s.id}
+                  className="flex items-center justify-between gap-3 rounded-lg bg-white/5 px-3 py-2"
+                >
+                  <span className="min-w-0 truncate text-sm text-white">
+                    {s.name}
+                    <span className="ml-2 text-xs text-amber-200/70">{when}</span>
+                  </span>
+                  {s.directorPhone ? (
+                    <a
+                      href={buildWhatsAppUrl(
+                        s.directorPhone,
+                        buildReminderMessage({
+                          schoolName: s.name,
+                          directorName: s.directorName,
+                          status: s.subscriptionStatus,
+                          amountDue: s.amountDue,
+                          daysLate: s.daysLate,
+                          nextDueAt: s.nextDueAt,
+                          trialEndsAt: s.trialEndsAt,
+                          trialDaysLeft: s.trialDaysLeft,
+                        }),
+                      )}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-500/15 px-2.5 py-1.5 text-xs font-medium text-emerald-200 transition-colors hover:bg-emerald-500/25"
+                    >
+                      <MessageCircle className="h-3.5 w-3.5" />
+                      Relancer
+                    </a>
+                  ) : (
+                    <span className="shrink-0 text-xs text-white/30">Pas de numéro</span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
 
       <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
         <p className="text-xs font-medium uppercase tracking-wide text-white/50">

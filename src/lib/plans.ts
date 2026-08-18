@@ -142,6 +142,15 @@ export const SUBSCRIPTION_STATUS_LABELS: Record<SubscriptionStatus, string> = {
  */
 export const INITIAL_SUBSCRIPTION_STATUS: SubscriptionStatus = "pending";
 
+/**
+ * Formule attribuée à une école dès sa création : l'Avancé, pour qu'elle
+ * découvre toutes les fonctionnalités pendant son essai sans avoir rien à
+ * choisir ni configurer. Le plan reste inscrit tel quel après l'essai ; c'est
+ * le passage en « restricted » qui la ramène aux fonctionnalités Standard
+ * (voir effectivePlan) tant qu'aucune formule payante n'est confirmée.
+ */
+export const INITIAL_PLAN: Plan = "advanced";
+
 /** L'école n'a aucun accès à l'application tant qu'elle est dans cet état. */
 export function blocksAllAccess(status: string): boolean {
   return status === "pending" || status === "suspended";
@@ -163,13 +172,18 @@ export function isOwingStatus(status: SubscriptionStatus): boolean {
  *  fixée à cette distance après chaque paiement encaissé (voir markAsPaid). */
 export const BILLING_CYCLE_DAYS = 30;
 
-/** Durée de la période d'essai offerte à une nouvelle école, en jours. Faute
- *  de date de fin stockée en base, l'essai est compté depuis la création de
- *  l'école (voir trialEndsAt). */
-export const TRIAL_DAYS = 30;
+/** Durée de la période d'essai gratuite, en jours. Le compte à rebours démarre
+ *  au moment où l'éditeur active l'école (passage au statut « trial » depuis le
+ *  tableau de bord Super Admin), pas à son inscription : entre les deux, elle
+ *  n'a aucun accès et ne consommerait donc que des jours perdus. */
+export const TRIAL_DAYS = 15;
 
-/** Fin de la période d'essai : l'échéance déjà fixée si elle existe, sinon
- *  TRIAL_DAYS après la création de l'école. */
+/** Nombre de jours avant la fin de l'essai à partir duquel on relance l'école. */
+export const TRIAL_REMINDER_DAYS = 3;
+
+/** Fin de la période d'essai : l'échéance fixée à l'activation si elle existe,
+ *  sinon TRIAL_DAYS après la création de l'école (école activée avant que
+ *  l'échéance ne soit posée automatiquement). */
 export function trialEndsAt(school: { createdAt: Date; nextDueAt: Date | null }): Date {
   if (school.nextDueAt) return school.nextDueAt;
   const end = new Date(school.createdAt);

@@ -16,6 +16,7 @@ import {
   PLAN_FEATURE_LIST,
   STANDARD_FEATURES,
   IS_FEATURE_LIVE,
+  TRIAL_REMINDER_DAYS,
   type Plan,
 } from "@/lib/plans";
 import { requestPlanUpgrade } from "./actions";
@@ -24,10 +25,13 @@ export function PlanCard({
   currentPlan,
   schoolName,
   studentCount,
+  trialDaysLeft,
 }: {
   currentPlan: Plan;
   schoolName: string;
   studentCount: number;
+  /** Jours restants avant la fin de l'essai gratuit, `null` hors période d'essai. */
+  trialDaysLeft: number | null;
 }) {
   const [requestingPlan, setRequestingPlan] = useState<Plan | null>(null);
   const [requested, setRequested] = useState<Plan | null>(null);
@@ -58,6 +62,31 @@ export function PlanCard({
         <CardTitle className="text-sm">Votre formule</CardTitle>
       </CardHeader>
       <CardContent className="p-4 pt-0">
+        {trialDaysLeft != null && (
+          <div
+            className={cn(
+              "mb-4 rounded-xl border p-4",
+              trialDaysLeft <= TRIAL_REMINDER_DAYS
+                ? "border-amber-300 bg-amber-50"
+                : "border-primary-200 bg-primary-50/60",
+            )}
+          >
+            <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <Sparkles className="h-4 w-4 text-accent-500" />
+              {trialDaysLeft > 0
+                ? `Essai gratuit — ${trialDaysLeft} jour${trialDaysLeft > 1 ? "s" : ""} restant${trialDaysLeft > 1 ? "s" : ""}`
+                : trialDaysLeft === 0
+                  ? "Essai gratuit — dernier jour"
+                  : "Votre essai gratuit est terminé"}
+            </p>
+            <p className="mt-1 text-sm text-foreground/70">
+              {trialDaysLeft >= 0
+                ? "Vous testez actuellement toutes les fonctionnalités du plan Avancé gratuitement. Choisissez votre formule définitive avant la fin de votre essai pour continuer sans interruption."
+                : "Choisissez votre formule ci-dessous pour retrouver toutes les fonctionnalités. Vos données sont conservées, rien n'est supprimé."}
+            </p>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           {PLANS.map((plan) => {
             const isCurrent = plan === currentPlan;

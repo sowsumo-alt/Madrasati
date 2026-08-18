@@ -7,7 +7,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LineChart, DonutChart, type Point } from "@/components/charts/chart-primitives";
 import { formatMRU, formatLongDate, formatEventTime } from "@/lib/format";
 import { getTranslations } from "@/lib/i18n/server";
-import { FEATURES, planHasFeature } from "@/lib/plans";
+import {
+  FEATURES,
+  planHasFeature,
+  trialEndsAt,
+  daysBetween,
+  TRIAL_REMINDER_DAYS,
+} from "@/lib/plans";
 import { findAtRiskStudents } from "@/lib/at-risk";
 import {
   BookOpen,
@@ -189,11 +195,30 @@ export default async function DashboardPage() {
         classRoom: { select: { name: true } },
       },
     }),
-    prisma.school.findUnique({ where: { id: schoolId }, select: { name: true, plan: true } }),
+    prisma.school.findUnique({
+      where: { id: schoolId },
+      select: {
+        name: true,
+        plan: true,
+        subscriptionStatus: true,
+        createdAt: true,
+        nextDueAt: true,
+      },
+    }),
   ]);
 
   const atRiskEnabled = planHasFeature(school?.plan, FEATURES.AT_RISK_DETECTION);
   const atRiskCount = atRiskEnabled ? (await findAtRiskStudents(schoolId)).length : 0;
+
+  // Relance de fin d'essai : l'application n'envoie pas de message toute
+  // seule, c'est donc ici que le directeur est prévenu, à chaque visite de son
+  // tableau de bord, dès qu'il entre dans les derniers jours.
+  const trialDaysLeft =
+    school?.subscriptionStatus === "trial"
+      ? daysBetween(new Date(), trialEndsAt(school))
+      : null;
+  const showTrialWarning =
+    trialDaysLeft != null && trialDaysLeft <= TRIAL_REMINDER_DAYS;
 
   // — Présence du jour
   const presentToday = todayAttendance.filter(
@@ -350,6 +375,35 @@ export default async function DashboardPage() {
         </div>
         <div className="h-1 bg-accent-500" />
       </div>
+
+      {showTrialWarning && (
+        <Link
+          href="/directeur/parametres"
+          className="animate-page-in flex items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-5 py-4 text-sm shadow-sm transition-colors hover:bg-amber-100"
+        >
+          <span className="flex items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+              <Hourglass className="h-4.5 w-4.5" strokeWidth={2} />
+            </span>
+            <span>
+              <span className="block font-medium text-amber-900">
+                {trialDaysLeft! > 0
+                  ? `Votre essai gratuit se termine dans ${trialDaysLeft} jour${trialDaysLeft! > 1 ? "s" : ""}`
+                  : trialDaysLeft === 0
+                    ? "Votre essai gratuit se termine aujourd'hui"
+                    : "Votre essai gratuit est terminé"}
+              </span>
+              <span className="block text-xs text-amber-800/80">
+                Choisissez votre formule pour continuer sans interruption — vos
+                données sont conservées.
+              </span>
+            </span>
+          </span>
+          <span className="shrink-0 text-xs font-medium text-amber-700">
+            Voir les formules →
+          </span>
+        </Link>
+      )}
 
       {atRiskEnabled && atRiskCount > 0 && (
         <Link

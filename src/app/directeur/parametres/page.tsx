@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
-import { isPlan } from "@/lib/plans";
+import { isPlan, trialEndsAt, daysBetween } from "@/lib/plans";
 import { SettingsView, type YearRow } from "./settings-view";
 
 export default async function SettingsPage() {
@@ -41,6 +41,11 @@ export default async function SettingsPage() {
       years={yearRows}
       counts={{ students, teachers, classes }}
       plan={isPlan(school.plan) ? school.plan : "standard"}
+      trialDaysLeft={
+        school.subscriptionStatus === "trial"
+          ? daysBetween(new Date(), trialEndsAt(school))
+          : null
+      }
     />
   );
 }

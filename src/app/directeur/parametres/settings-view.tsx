@@ -58,11 +58,13 @@ export function SettingsView({
   years,
   counts,
   plan,
+  trialDaysLeft,
 }: {
   school: SchoolFormValues;
   years: YearRow[];
   counts: { students: number; teachers: number; classes: number };
   plan: Plan;
+  trialDaysLeft: number | null;
 }) {
   const router = useRouter();
   const [yearDialogOpen, setYearDialogOpen] = useState(false);
@@ -192,7 +194,12 @@ export function SettingsView({
         </CardContent>
       </Card>
 
-      <PlanCard currentPlan={plan} schoolName={school.name} studentCount={counts.students} />
+      <PlanCard
+        currentPlan={plan}
+        schoolName={school.name}
+        studentCount={counts.students}
+        trialDaysLeft={trialDaysLeft}
+      />
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
