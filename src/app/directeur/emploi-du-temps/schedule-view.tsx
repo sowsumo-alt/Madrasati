@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, X } from "lucide-react";
+import { Plus, X, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -64,6 +64,16 @@ export function ScheduleView({
     [slots, classId],
   );
 
+  /**
+   * Classes dont la semaine est entièrement vide. Le directeur ne consulte
+   * qu'une classe à la fois : sans ce récapitulatif, une classe oubliée ne se
+   * découvre que le jour de la rentrée.
+   */
+  const emptyClasses = useMemo(
+    () => classes.filter((c) => !slots.some((s) => s.classId === c.id)),
+    [classes, slots],
+  );
+
   async function handleDelete(slotId: string) {
     try {
       await deleteSlot(slotId);
@@ -91,6 +101,34 @@ export function ScheduleView({
           </Button>
         </div>
       </div>
+
+      {emptyClasses.length > 0 && (
+        <div className="no-print flex items-start gap-2.5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+          <div className="text-sm text-amber-900">
+            <p className="font-medium">
+              {emptyClasses.length} classe{emptyClasses.length > 1 ? "s" : ""} sans
+              aucun cours programmé
+            </p>
+            <p className="mt-1 text-xs text-amber-800/80">
+              Aucun créneau de toute la semaine pour :{" "}
+              {emptyClasses.map((c) => c.name).join(", ")}.
+            </p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {emptyClasses.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setClassId(c.id)}
+                  className="rounded-md bg-amber-100 px-2 py-1 text-xs font-medium text-amber-900 transition-colors hover:bg-amber-200"
+                >
+                  Remplir {c.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="no-print max-w-xs">
         <Select value={classId} onValueChange={setClassId}>

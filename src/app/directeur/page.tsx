@@ -15,6 +15,7 @@ import {
   TRIAL_REMINDER_DAYS,
 } from "@/lib/plans";
 import { findAtRiskStudents } from "@/lib/at-risk";
+import { YearEndedBanner } from "./year-ended-banner";
 import {
   BookOpen,
   CalendarCheck,
@@ -210,6 +211,14 @@ export default async function DashboardPage() {
   const atRiskEnabled = planHasFeature(school?.plan, FEATURES.AT_RISK_DETECTION);
   const atRiskCount = atRiskEnabled ? (await findAtRiskStudents(schoolId)).length : 0;
 
+  // Année scolaire échue : tant qu'elle n'est pas remplacée, présences, notes
+  // et frais continuent de s'enregistrer sur une année révolue.
+  const currentYear = await prisma.academicYear.findFirst({
+    where: { schoolId, isCurrent: true },
+    select: { label: true, endDate: true },
+  });
+  const yearEnded = currentYear ? currentYear.endDate < new Date() : false;
+
   // Relance de fin d'essai : l'application n'envoie pas de message toute
   // seule, c'est donc ici que le directeur est prévenu, à chaque visite de son
   // tableau de bord, dès qu'il entre dans les derniers jours.
@@ -375,6 +384,13 @@ export default async function DashboardPage() {
         </div>
         <div className="h-1 bg-accent-500" />
       </div>
+
+      {yearEnded && currentYear && (
+        <YearEndedBanner
+          label={currentYear.label}
+          endedOn={formatLongDate(currentYear.endDate)}
+        />
+      )}
 
       {showTrialWarning && (
         <Link

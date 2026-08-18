@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, BookOpen, Sparkles } from "lucide-react";
+import { Plus, Pencil, Trash2, BookOpen, Sparkles, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -166,9 +166,30 @@ export function ClassesView({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {classes.map((c) => (
+                  {classes.map((c) => {
+                    // Une classe sans matière ne peut recevoir ni note, ni
+                    // examen, ni bulletin ; sans professeur principal, personne
+                    // n'en est responsable. Le directeur doit voir lesquelles
+                    // ne sont pas prêtes avant la rentrée, pas le jour même.
+                    const missing = [
+                      c.assignments.length === 0 ? "aucune matière" : null,
+                      !c.mainTeacher ? "pas de prof. principal" : null,
+                    ].filter(Boolean) as string[];
+
+                    return (
                     <tr key={c.id} className="hover:bg-surface-muted/40">
-                      <td className="px-5 py-3 font-medium text-foreground">{c.name}</td>
+                      <td className="px-5 py-3 font-medium text-foreground">
+                        {c.name}
+                        {missing.length > 0 && (
+                          <span
+                            title={`Configuration incomplète : ${missing.join(", ")}.`}
+                            className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 align-middle text-[11px] font-medium text-amber-800"
+                          >
+                            <AlertTriangle className="h-3 w-3" />
+                            Incomplète
+                          </span>
+                        )}
+                      </td>
                       <td className="px-5 py-3 text-foreground/70">{c.level}</td>
                       <td className="px-5 py-3 text-foreground/70">
                         {c.studentCount} / {c.capacity}
@@ -218,7 +239,8 @@ export function ClassesView({
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
