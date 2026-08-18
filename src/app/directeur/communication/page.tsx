@@ -2,6 +2,7 @@ import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { FEATURES, planHasFeature } from "@/lib/plans";
+import { formatAmount } from "@/lib/format";
 import { CommunicationView, type Recipient, type TemplateRow } from "./communication-view";
 
 export default async function CommunicationPage() {
@@ -26,16 +27,50 @@ export default async function CommunicationPage() {
 
   const bilingual = planHasFeature(school?.plan, FEATURES.BILINGUAL_MESSAGES);
 
+  // Reste dû par élève : c'est la donnée qui manquait au modèle « Rappel de
+  // paiement », dont le montant partait vide. Calculé ici plutôt que côté
+  // navigateur, pour ne pas exposer toute la finance de l'école au client.
+  const [fees, payments] = await Promise.all([
+    prisma.fee.findMany({
+      where: { schoolId: user.schoolId, status: { not: "PAID" } },
+      select: { id: true, studentId: true, amount: true },
+    }),
+    prisma.payment.groupBy({
+      by: ["feeId"],
+      where: { schoolId: user.schoolId },
+      _sum: { amount: true },
+    }),
+  ]);
+  const paidByFee = new Map(payments.map((p) => [p.feeId, p._sum.amount ?? 0]));
+  const outstandingByStudent = new Map<string, number>();
+  for (const fee of fees) {
+    const remaining = fee.amount - (paidByFee.get(fee.id) ?? 0);
+    if (remaining > 0) {
+      outstandingByStudent.set(
+        fee.studentId,
+        (outstandingByStudent.get(fee.studentId) ?? 0) + remaining,
+      );
+    }
+  }
+
   const recipients: Recipient[] = [
-    ...parents.map((p) => ({
-      id: `parent-${p.id}`,
-      name: `${p.firstName} ${p.lastName}`,
-      phone: p.phone,
-      kind: "PARENT" as const,
-      children: p.studentLinks.map(
-        (l) => `${l.student.firstName} ${l.student.lastName}`,
-      ),
-    })),
+    ...parents.map((p) => {
+      const children = p.studentLinks.map((l) => ({
+        name: `${l.student.firstName} ${l.student.lastName}`,
+        // Le format ne porte pas « MRU » : les modèles écrivent déjà l'unité
+        // eux-mêmes (« {amount} MRU », « {amount} أوقية موريتانية »).
+        outstanding: outstandingByStudent.get(l.studentId)
+          ? formatAmount(outstandingByStudent.get(l.studentId)!)
+          : null,
+      }));
+      return {
+        id: `parent-${p.id}`,
+        name: `${p.firstName} ${p.lastName}`,
+        phone: p.phone,
+        kind: "PARENT" as const,
+        children,
+      };
+    }),
     ...teachers.map((t) => ({
       id: `teacher-${t.id}`,
       name: `${t.firstName} ${t.lastName}`,
@@ -43,6 +78,7 @@ export default async function CommunicationPage() {
       kind: "TEACHER" as const,
       children: [],
     })),
+
   ];
 
   const templateRows: TemplateRow[] = templates.map((t) => ({

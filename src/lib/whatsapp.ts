@@ -12,7 +12,63 @@ export function fillTemplate(
   template: string,
   values: Record<string, string>,
 ) {
-  return template.replace(/\{(\w+)\}/g, (_, key) => values[key] ?? "");
+  return tidySpacing(template.replace(/\{(\w+)\}/g, (_, key) => values[key] ?? ""));
+}
+
+/** Variables `{nom}` présentes dans un modèle, sans doublon et dans l'ordre. */
+export function extractVariables(template: string): string[] {
+  const found = template.match(/\{(\w+)\}/g) ?? [];
+  return [...new Set(found.map((v) => v.slice(1, -1)))];
+}
+
+/**
+ * Nettoie les traces laissées par une variable vide : « de {amount} MRU »
+ * devenait « de  MRU » avec un double espace, et une ligne réduite à un seul
+ * placeholder laissait une ligne blanche. Sans ce nettoyage, un message
+ * incomplet reste visuellement anormal même après correction du fond.
+ */
+function tidySpacing(text: string) {
+  return text
+    .split("\n")
+    .map((line) => line.replace(/[ \t]{2,}/g, " ").replace(/[ \t]+$/g, ""))
+    .join("\n");
+}
+
+/**
+ * Remplit un modèle en signalant les variables qu'on n'a pas pu renseigner.
+ *
+ * Un message parti avec « frais de scolarité de  MRU » est pire que pas de
+ * message du tout : l'appelant doit pouvoir bloquer l'envoi plutôt que de
+ * laisser un montant vide arriver chez un parent.
+ *
+ * `date` et `schoolName` sont toujours calculables ; les variables réellement
+ * à risque sont celles qui dépendent du destinataire ou de ses données
+ * (amount, studentName, average, reason…).
+ */
+export function fillTemplateChecked(
+  template: string,
+  values: Record<string, string>,
+): { text: string; missing: string[] } {
+  const missing = extractVariables(template).filter(
+    (name) => !values[name] || values[name].trim() === "",
+  );
+  return { text: fillTemplate(template, values), missing };
+}
+
+/** Libellés lisibles des variables, pour expliquer au directeur ce qui manque. */
+export const VARIABLE_LABELS: Record<string, string> = {
+  parentName: "nom du parent",
+  teacherName: "nom de l'enseignant",
+  studentName: "nom de l'élève",
+  schoolName: "nom de l'école",
+  amount: "montant dû",
+  date: "date",
+  average: "moyenne générale",
+  reason: "motif de l'alerte",
+};
+
+export function describeVariable(name: string) {
+  return VARIABLE_LABELS[name] ?? name;
 }
 
 /**

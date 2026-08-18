@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { MessageCircle, Search, Users2, Plus, Pencil, Trash2 } from "lucide-react";
+import { MessageCircle, Search, Users2, Plus, Pencil, Trash2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,7 +11,9 @@ import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   buildWhatsAppUrl,
-  fillTemplate,
+  fillTemplateChecked,
+  extractVariables,
+  describeVariable,
   withArabic,
   schoolSignatureFr,
   schoolSignatureAr,
@@ -20,13 +22,19 @@ import { formatLongDate, formatLongDateAr } from "@/lib/format";
 import { TemplateDialog, type TemplateEditTarget } from "./template-dialog";
 import { deleteTemplate } from "./actions";
 
+export interface RecipientChild {
+  name: string;
+  /** Reste dû, déjà formaté et sans unité, `null` si l'élève est à jour. */
+  outstanding: string | null;
+}
+
 export interface Recipient {
   id: string;
   name: string;
   phone: string;
   kind: "PARENT" | "TEACHER";
   /** Pour un parent : les enfants inscrits. */
-  children: string[];
+  children: RecipientChild[];
 }
 
 export interface TemplateRow {
@@ -52,6 +60,8 @@ export function CommunicationView({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [templateId, setTemplateId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  /** Variables du modèle choisi qu'on n'a pas pu renseigner : bloque l'envoi. */
+  const [missingVars, setMissingVars] = useState<string[]>([]);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<TemplateEditTarget | null>(null);
@@ -67,44 +77,62 @@ export function CommunicationView({
       const matchesQuery =
         !q ||
         r.name.toLowerCase().includes(q) ||
-        r.children.some((c) => c.toLowerCase().includes(q));
+        r.children.some((c) => c.name.toLowerCase().includes(q));
       return matchesKind && matchesQuery;
     });
   }, [recipients, query, kindFilter]);
 
-  /** Remplit les variables du modèle avec les données du destinataire choisi. */
+  /**
+   * Remplit les variables du modèle avec les données du destinataire choisi,
+   * et remonte celles qui restent vides. Un montant, une moyenne ou un motif
+   * manquant doit bloquer l'envoi : un parent qui reçoit « frais de scolarité
+   * de  MRU » comprend surtout que l'école ne maîtrise pas ses outils.
+   */
   function applyTemplate(tpl: TemplateRow, recipient: Recipient | null) {
     const today = new Date();
+    const child = recipient?.children[0] ?? null;
     const base = {
       parentName: recipient?.name ?? "",
       teacherName: recipient?.name ?? "",
-      studentName: recipient?.children[0] ?? "",
-      amount: "",
+      studentName: child?.name ?? "",
+      amount: child?.outstanding ?? "",
     };
-    return withArabic(
-      fillTemplate(tpl.body, {
-        ...base,
-        date: formatLongDate(today),
-        schoolName: schoolSignatureFr(schoolName),
-      }),
-      tpl.bodyAr &&
-        fillTemplate(tpl.bodyAr, {
+
+    const fr = fillTemplateChecked(tpl.body, {
+      ...base,
+      date: formatLongDate(today),
+      schoolName: schoolSignatureFr(schoolName),
+    });
+    const ar = tpl.bodyAr
+      ? fillTemplateChecked(tpl.bodyAr, {
           ...base,
           date: formatLongDateAr(today),
           schoolName: schoolSignatureAr(schoolName),
-        }),
-    );
+        })
+      : null;
+
+    return {
+      text: withArabic(fr.text, ar?.text),
+      // Les deux langues portent les mêmes variables : on cumule pour ne
+      // manquer aucun trou, même si un modèle arabe a été modifié à part.
+      missing: [...new Set([...fr.missing, ...(ar?.missing ?? [])])],
+    };
   }
 
   function handlePickTemplate(tpl: TemplateRow) {
     setTemplateId(tpl.id);
-    setMessage(applyTemplate(tpl, selected));
+    const { text, missing } = applyTemplate(tpl, selected);
+    setMessage(text);
+    setMissingVars(missing);
   }
 
   function handlePickRecipient(recipient: Recipient) {
     setSelectedId(recipient.id);
     const tpl = templates.find((t) => t.id === templateId);
-    if (tpl) setMessage(applyTemplate(tpl, recipient));
+    if (!tpl) return;
+    const { text, missing } = applyTemplate(tpl, recipient);
+    setMessage(text);
+    setMissingVars(missing);
   }
 
   async function handleDelete() {
@@ -123,7 +151,16 @@ export function CommunicationView({
     }
   }
 
-  const canSend = Boolean(selected && message.trim());
+  // Un modèle dont il manque une variable ne part pas, même si le texte
+  // paraît complet : c'est exactement ainsi qu'un montant vide se glissait
+  // jusque chez le parent.
+  const blocked = missingVars.length > 0;
+  const canSend = Boolean(selected && message.trim()) && !blocked;
+
+  const selectedTemplate = templates.find((t) => t.id === templateId) ?? null;
+  const usesAmount = selectedTemplate
+    ? extractVariables(selectedTemplate.body).includes("amount")
+    : false;
 
   return (
     <div className="space-y-5">
@@ -192,7 +229,9 @@ export function CommunicationView({
                       </Badge>
                     </span>
                     <span className="text-xs text-foreground/50">
-                      {r.children.length > 0 ? r.children.join(", ") : r.phone}
+                      {r.children.length > 0
+                        ? r.children.map((c) => c.name).join(", ")
+                        : r.phone}
                     </span>
                   </button>
                 ))
@@ -282,6 +321,24 @@ export function CommunicationView({
                 <p className="text-xs text-foreground/50">
                   Sélectionnez d&apos;abord un destinataire à gauche.
                 </p>
+              )}
+
+              {blocked && (
+                <div className="flex items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                  <div className="text-xs text-amber-900">
+                    <p className="font-medium">
+                      {usesAmount && missingVars.includes("amount")
+                        ? "Impossible d'envoyer ce rappel : aucun frais en attente trouvé pour cet élève."
+                        : "Impossible d'envoyer ce message : une information manque."}
+                    </p>
+                    <p className="mt-1 text-amber-800/80">
+                      Non renseigné :{" "}
+                      {missingVars.map((v) => describeVariable(v)).join(", ")}. Complétez
+                      la donnée manquante, ou modifiez le texte à la main ci-dessus.
+                    </p>
+                  </div>
+                </div>
               )}
 
               <div className="flex justify-end">

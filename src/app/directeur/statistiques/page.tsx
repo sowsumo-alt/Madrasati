@@ -56,7 +56,13 @@ export default async function StatisticsPage() {
     }),
     prisma.classRoom.findMany({
       where: { schoolId: user.schoolId },
-      select: { level: true, _count: { select: { students: true } } },
+      // Même règle que partout ailleurs (tableau de bord, paramètres) :
+      // seuls les élèves actifs sont comptés, sinon la répartition par niveau
+      // annonçait un total différent des autres écrans.
+      select: {
+        level: true,
+        _count: { select: { students: { where: { status: "ACTIVE" } } } },
+      },
     }),
   ]);
 
@@ -108,6 +114,11 @@ export default async function StatisticsPage() {
     .filter((d) => d.value > 0)
     .sort((a, b) => b.value - a.value);
 
+  // Un élève sans classe n'apparaît dans aucun niveau : ce sous-total est donc
+  // légitimement inférieur à l'effectif de l'école, mais il faut le dire —
+  // sinon le chiffre isolé passe pour une incohérence.
+  const studentsInAClass = levelDistribution.reduce((sum, d) => sum + d.value, 0);
+
   // — Répartition par genre
   const boys = students.filter((s) => s.gender === "M").length;
   const girls = students.filter((s) => s.gender === "F").length;
@@ -132,6 +143,7 @@ export default async function StatisticsPage() {
     revenueByMonth,
     subjectAverages,
     levelDistribution,
+    studentsInAClass,
     gender: { boys, girls, unknown },
   };
 

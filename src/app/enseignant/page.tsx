@@ -38,7 +38,15 @@ export default async function TeacherHome() {
     prisma.classRoom.findMany({
       where: { id: { in: scope.classIds } },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, level: true, _count: { select: { students: true } } },
+      select: {
+        id: true,
+        name: true,
+        level: true,
+        // Même filtre que le KPI « Mes élèves » ci-dessous : sans lui, le
+        // détail par classe comptait aussi les élèves inactifs, transférés ou
+        // diplômés, et le total des classes dépassait le compteur du haut.
+        _count: { select: { students: { where: { status: "ACTIVE" } } } },
+      },
     }),
     prisma.student.count({
       where: { classId: { in: scope.classIds }, status: "ACTIVE" },

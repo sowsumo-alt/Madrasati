@@ -12,6 +12,7 @@ import {
   Phone,
   UserX,
   UserCheck,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -85,6 +86,7 @@ export function StudentsView({
   const [query, setQuery] = useState(initialQuery);
   const [statusFilter, setStatusFilter] =
     useState<(typeof STATUS_FILTERS)[number]>("ALL");
+  const [showUnassignedOnly, setShowUnassignedOnly] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<StudentEditTarget | null>(null);
@@ -108,9 +110,17 @@ export function StudentsView({
         `${s.firstName} ${s.lastName}`.toLowerCase().includes(q) ||
         (s.className ?? "").toLowerCase().includes(q);
       const matchesStatus = statusFilter === "ALL" || s.status === statusFilter;
-      return matchesQuery && matchesStatus;
+      const matchesUnassigned = !showUnassignedOnly || s.className == null;
+      return matchesQuery && matchesStatus && matchesUnassigned;
     });
-  }, [students, query, statusFilter]);
+  }, [students, query, statusFilter, showUnassignedOnly]);
+
+  // Seuls les élèves actifs comptent : un élève transféré ou diplômé n'a pas
+  // vocation à porter une classe, le signaler serait un faux positif.
+  const unassignedCount = useMemo(
+    () => students.filter((s) => s.className == null && s.status === "ACTIVE").length,
+    [students],
+  );
 
   function openCreate() {
     setEditTarget(null);
@@ -197,6 +207,35 @@ export function StudentsView({
           ))}
         </div>
       </div>
+
+      {/* Explique l'écart entre cette liste et les compteurs des autres écrans :
+          les élèves sans classe n'apparaissent ni à l'appel, ni sur un bulletin,
+          ni dans la répartition par niveau. */}
+      {unassignedCount > 0 && (
+        <button
+          type="button"
+          onClick={() => {
+            setStatusFilter("ALL");
+            setQuery("");
+            setShowUnassignedOnly((v) => !v);
+          }}
+          className={`flex w-full items-center gap-2.5 rounded-xl border px-4 py-3 text-left text-sm transition-colors ${
+            showUnassignedOnly
+              ? "border-amber-400 bg-amber-100"
+              : "border-amber-200 bg-amber-50 hover:bg-amber-100"
+          }`}
+        >
+          <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+          <span className="text-amber-900">
+            <span className="font-medium">
+              {unassignedCount} élève{unassignedCount > 1 ? "s" : ""} sans classe assignée
+            </span>
+            <span className="ml-1 text-amber-800/80">
+              — {showUnassignedOnly ? "cliquez pour revoir toute la liste" : "ils sont exclus de l'appel, des bulletins et des statistiques par niveau"}
+            </span>
+          </span>
+        </button>
+      )}
 
       <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
         {filtered.length === 0 ? (

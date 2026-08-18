@@ -23,6 +23,8 @@ export interface StatsData {
   revenueByMonth: { label: string; value: number }[];
   subjectAverages: { label: string; value: number }[];
   levelDistribution: { label: string; value: number }[];
+  /** Élèves actifs effectivement rattachés à une classe (≤ totalStudents). */
+  studentsInAClass: number;
   gender: { boys: number; girls: number; unknown: number };
 }
 
@@ -103,6 +105,22 @@ export function StatisticsView({ data }: { data: StatsData }) {
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <BarList data={data.levelDistribution} />
+            {/* Le total par niveau exclut forcément les élèves sans classe :
+                on l'écrit, plutôt que de laisser un chiffre qui semble faux. */}
+            <p className="mt-3 text-xs text-foreground/50">
+              {data.studentsInAClass} élève{data.studentsInAClass > 1 ? "s" : ""} affecté
+              {data.studentsInAClass > 1 ? "s" : ""} à une classe sur {data.totalStudents}{" "}
+              au total
+              {data.totalStudents - data.studentsInAClass > 0 && (
+                <>
+                  {" "}
+                  — {data.totalStudents - data.studentsInAClass} sans classe, non
+                  comptabilisé
+                  {data.totalStudents - data.studentsInAClass > 1 ? "s" : ""} ici
+                </>
+              )}
+              .
+            </p>
           </CardContent>
         </Card>
 
