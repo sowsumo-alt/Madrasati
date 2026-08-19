@@ -1,11 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
-import { generateReceiptNumber } from "@/lib/receipts";
+import { generateReceiptNumber, runWithReceipt } from "@/lib/receipts";
 import { feeSchema, paymentSchema, type FeeFormValues, type PaymentFormValues } from "./schema";
 
 export async function createFee(values: FeeFormValues) {
@@ -42,8 +41,6 @@ export async function createFee(values: FeeFormValues) {
   revalidatePath("/directeur");
 }
 
-const MAX_RECEIPT_ATTEMPTS = 5;
-
 export async function recordPayment(feeId: string, values: PaymentFormValues) {
   const user = await requireRole(ROLES.DIRECTOR);
   const data = paymentSchema.parse(values);
@@ -54,58 +51,39 @@ export async function recordPayment(feeId: string, values: PaymentFormValues) {
   if (!fee) throw new Error("Frais introuvable.");
 
   // La création du reçu et le recalcul du statut doivent réussir ou échouer
-  // ensemble (transaction), sinon deux paiements simultanés peuvent tous les
-  // deux lire "0 déjà payé" et poser un statut PARTIAL alors que le frais est
-  // en réalité soldé. Le numéro de reçu (contrainte @unique) peut malgré
-  // tout entrer en collision sous forte concurrence : on retente alors avec
-  // un nouveau numéro plutôt que de faire échouer l'enregistrement.
-  let lastError: unknown;
-  for (let attempt = 0; attempt < MAX_RECEIPT_ATTEMPTS; attempt++) {
-    try {
-      const paymentId = await prisma.$transaction(
-        async (tx) => {
-          const receiptNumber = await generateReceiptNumber(tx, user.schoolId);
+  // ensemble, sinon deux paiements simultanés peuvent tous les deux lire
+  // « 0 déjà payé » et poser un statut PARTIAL alors que le frais est en
+  // réalité soldé. Le réessai sur collision de numéro est mutualisé dans
+  // runWithReceipt, partagé avec l'inscription et la réinscription.
+  const paymentId = await runWithReceipt(async (tx, attempt) => {
+    const receiptNumber = await generateReceiptNumber(tx, user.schoolId, attempt);
 
-          const payment = await tx.payment.create({
-            data: {
-              schoolId: user.schoolId,
-              feeId: fee.id,
-              studentId: fee.studentId,
-              amount: data.amount,
-              method: data.method,
-              note: data.note || null,
-              receiptNumber,
-              recordedByUserId: user.id,
-            },
-          });
+    const payment = await tx.payment.create({
+      data: {
+        schoolId: user.schoolId,
+        feeId: fee.id,
+        studentId: fee.studentId,
+        amount: data.amount,
+        method: data.method,
+        note: data.note || null,
+        receiptNumber,
+        recordedByUserId: user.id,
+      },
+    });
 
-          const totalPaid = await tx.payment.aggregate({
-            where: { feeId: fee.id },
-            _sum: { amount: true },
-          });
-          const paid = totalPaid._sum.amount ?? 0;
-          const nextStatus = paid >= fee.amount ? "PAID" : paid > 0 ? "PARTIAL" : "PENDING";
+    const totalPaid = await tx.payment.aggregate({
+      where: { feeId: fee.id },
+      _sum: { amount: true },
+    });
+    const paid = totalPaid._sum.amount ?? 0;
+    const nextStatus = paid >= fee.amount ? "PAID" : paid > 0 ? "PARTIAL" : "PENDING";
 
-          await tx.fee.update({ where: { id: fee.id }, data: { status: nextStatus } });
+    await tx.fee.update({ where: { id: fee.id }, data: { status: nextStatus } });
 
-          return payment.id;
-        },
-        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-      );
+    return payment.id;
+  });
 
-      revalidatePath("/directeur/finance");
-      revalidatePath("/directeur");
-      return { paymentId };
-    } catch (e) {
-      lastError = e;
-      const retryable =
-        e instanceof Prisma.PrismaClientKnownRequestError &&
-        (e.code === "P2002" || e.code === "P2034");
-      if (!retryable) throw e;
-    }
-  }
-
-  throw lastError instanceof Error
-    ? lastError
-    : new Error("L'enregistrement du paiement a échoué, réessayez.");
+  revalidatePath("/directeur/finance");
+  revalidatePath("/directeur");
+  return { paymentId };
 }

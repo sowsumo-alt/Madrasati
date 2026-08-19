@@ -4,8 +4,9 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
-import { generateReceiptNumber } from "@/lib/receipts";
+import { generateReceiptNumber, runWithReceipt } from "@/lib/receipts";
 import { studentSchema, type StudentFormValues } from "./schema";
+import { CURRENT_YEAR } from "@/lib/school-year";
 
 /** Compare deux noms en ignorant casse, accents composés et espaces multiples. */
 function normalizeName(value: string) {
@@ -70,7 +71,12 @@ export async function createStudent(values: StudentFormValues) {
     if (!cls) throw new Error("Classe introuvable.");
   }
 
-  const result = await prisma.$transaction(async (tx) => {
+  // Passe par runWithReceipt même si les frais d'inscription sont optionnels :
+  // c'est ce circuit qui rejoue la transaction si le numéro de reçu vient
+  // d'être pris. Sans lui, une collision annulait l'inscription entière —
+  // l'élève, son parent et le paiement — et le directeur ne voyait qu'un
+  // « Une erreur est survenue » sans savoir ce qui avait été enregistré.
+  const result = await runWithReceipt(async (tx, attempt) => {
     const student = await tx.student.create({
       data: {
         schoolId: user.schoolId,
@@ -139,7 +145,7 @@ export async function createStudent(values: StudentFormValues) {
         },
       });
 
-      const receiptNumber = await generateReceiptNumber(tx, user.schoolId);
+      const receiptNumber = await generateReceiptNumber(tx, user.schoolId, attempt);
       const payment = await tx.payment.create({
         data: {
           schoolId: user.schoolId,
@@ -287,14 +293,22 @@ export async function importStudents(rows: ImportRow[]) {
   const user = await requireRole(ROLES.DIRECTOR);
 
   const classes = await prisma.classRoom.findMany({
-    where: { schoolId: user.schoolId },
+    where: { schoolId: user.schoolId, ...CURRENT_YEAR },
     select: { id: true, name: true },
   });
   const classByName = new Map(
     classes.map((c) => [normalizeClassName(c.name), c.id]),
   );
 
-  let created = 0;
+  const toCreate: {
+    schoolId: string;
+    firstName: string;
+    lastName: string;
+    gender: string | null;
+    dateOfBirth: Date | null;
+    classId: string | null;
+    status: string;
+  }[] = [];
   const skipped: { row: number; reason: string }[] = [];
   const unmatchedClassNames = new Set<string>();
   let missingDateCount = 0;
@@ -326,19 +340,25 @@ export async function importStudents(rows: ImportRow[]) {
       if (!classId) unmatchedClassNames.add(row.className.trim());
     }
 
-    await prisma.student.create({
-      data: {
-        schoolId: user.schoolId,
-        firstName,
-        lastName,
-        gender,
-        dateOfBirth,
-        classId,
-        status: "ACTIVE",
-      },
+    toCreate.push({
+      schoolId: user.schoolId,
+      firstName,
+      lastName,
+      gender,
+      dateOfBirth,
+      classId,
+      status: "ACTIVE",
     });
-    created++;
   }
+
+  // Une seule écriture groupée, et non un `create` par ligne : un fichier de
+  // 200 élèves déclenchait 200 allers-retours vers la base, et une coupure au
+  // milieu laissait la moitié de la classe importée sans que le directeur
+  // sache lesquels — il ne pouvait ni reprendre ni recommencer proprement.
+  // Ici, soit tout le fichier entre, soit rien.
+  const created = toCreate.length
+    ? (await prisma.student.createMany({ data: toCreate })).count
+    : 0;
 
   revalidatePath("/directeur/eleves");
   revalidatePath("/directeur");

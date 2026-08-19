@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
-import { generateReceiptNumber } from "@/lib/receipts";
+import { generateReceiptNumber, runWithReceipt } from "@/lib/receipts";
 
 async function getCurrentAcademicYear(schoolId: string) {
   const year = await prisma.academicYear.findFirst({
@@ -32,7 +32,9 @@ export async function reenrollStudent(
   const user = await requireRole(ROLES.DIRECTOR);
   const targetClass = await getTargetClass(user.schoolId, targetClassId);
 
-  const paymentId = await prisma.$transaction(async (tx) => {
+  // Même circuit que Finance et l inscription : si le numéro de reçu vient
+  // d être pris, la transaction est rejouée au lieu d échouer.
+  const paymentId = await runWithReceipt(async (tx, attempt) => {
     const updated = await tx.student.updateMany({
       where: { id: studentId, schoolId: user.schoolId },
       data: { classId: targetClass.id, status: "ACTIVE" },
@@ -61,7 +63,7 @@ export async function reenrollStudent(
       },
     });
 
-    const receiptNumber = await generateReceiptNumber(tx, user.schoolId);
+    const receiptNumber = await generateReceiptNumber(tx, user.schoolId, attempt);
     const payment = await tx.payment.create({
       data: {
         schoolId: user.schoolId,
