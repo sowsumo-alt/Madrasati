@@ -10,6 +10,7 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff, Loader2, Lock, LogIn, Mail } from "lucide-react";
+import { useLanguage } from "@/lib/i18n/language-provider";
 
 const schema = z.object({
   email: z.string().min(1, "L'email est requis").email("Email invalide"),
@@ -34,6 +35,7 @@ const REMEMBER_KEY = "madrasati:email";
  */
 
 export function LoginForm() {
+  const { t } = useLanguage();
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -72,7 +74,7 @@ export function LoginForm() {
     else window.localStorage.removeItem(REMEMBER_KEY);
 
     const ok = await login(values.email, values.password);
-    if (!ok) setServerError("Email ou mot de passe incorrect.");
+    if (!ok) setServerError(t("login.invalidCredentials"));
   }
 
   return (
@@ -86,7 +88,7 @@ export function LoginForm() {
               id="email"
               type="email"
               autoComplete="email"
-              placeholder="votre@email.com"
+              placeholder={t("login.emailPlaceholder")}
               className="h-12 w-full rounded-lg border border-border bg-surface pl-10 pr-3 text-sm text-foreground transition-colors placeholder:text-foreground/35 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
               {...register("email")}
             />
@@ -144,16 +146,11 @@ export function LoginForm() {
             type="button"
             onClick={() => setShowHelp((v) => !v)}
             className="text-sm font-medium text-primary-600 hover:underline"
-          >
-            Mot de passe oublié ?
-          </button>
+          >{t("login.forgotPassword")}</button>
         </div>
 
         {showHelp && (
-          <p className="rounded-lg bg-primary-50 px-3 py-2 text-xs text-primary-800">
-            Contactez la direction de votre école : elle peut réinitialiser
-            votre mot de passe depuis son espace.
-          </p>
+          <p className="rounded-lg bg-primary-50 px-3 py-2 text-xs text-primary-800">{t("login.forgotHelp")}</p>
         )}
 
         {serverError && (
@@ -180,9 +177,7 @@ export function LoginForm() {
           <Link
             href="/inscription"
             className="font-semibold text-primary-600 hover:underline"
-          >
-            Créer mon école
-          </Link>
+          >{t("login.createSchool")}</Link>
         </p>
       </form>
 

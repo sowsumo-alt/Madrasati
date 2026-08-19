@@ -442,6 +442,33 @@ export const dictionaries = {
     "exams.alertParentWhatsapp": "Alerter le parent sur WhatsApp",
     "exams.savedHint":
       "Notes enregistrées — cliquez sur l'icône WhatsApp pour prévenir un parent.",
+
+    "hr.subtitle": "Contrats, congés et bulletins de salaire des enseignants.",
+    "hr.noTeacher": "Aucun enseignant actif pour l'instant.",
+    "hr.leaveBalance": "Solde de congés",
+    "hr.noContract": "Aucun contrat",
+    "hr.leaves": "Congés",
+    "hr.generatePayslip": "Générer le bulletin de salaire",
+    "hr.leaveDaysPerYear": "Jours de congé / an",
+    "hr.startDate": "Date de début",
+    "hr.recurringBonuses": "Primes récurrentes",
+    "hr.noRecurringBonus": "Aucune prime récurrente.",
+    "hr.removeBonus": "Retirer cette prime",
+    "hr.contractSaved": "Contrat enregistré.",
+
+    "signup.schoolName": "Nom de l'école",
+    "signup.schoolNamePlaceholder": "École Al Amal",
+    "signup.levels": "Niveaux enseignés",
+    "signup.yourName": "Votre nom",
+    "signup.phone": "Téléphone",
+    "signup.reassurance": "Essai libre, sans carte bancaire. Vos données restent les vôtres.",
+
+    "login.forgotPassword": "Mot de passe oublié ?",
+    "login.forgotHelp":
+      "Contactez la direction de votre école : elle peut réinitialiser votre mot de passe depuis son espace.",
+    "login.createSchool": "Créer mon école",
+    "login.emailPlaceholder": "votre@email.com",
+    "login.invalidCredentials": "Email ou mot de passe incorrect.",
   },
   en: {
     "nav.dashboard": "Dashboard",
@@ -885,6 +912,33 @@ export const dictionaries = {
     "exams.gradesSaved": "Grades saved.",
     "exams.alertParentWhatsapp": "Alert the parent on WhatsApp",
     "exams.savedHint": "Grades saved — click the WhatsApp icon to notify a parent.",
+
+    "hr.subtitle": "Teacher contracts, leave and payslips.",
+    "hr.noTeacher": "No active teacher yet.",
+    "hr.leaveBalance": "Leave balance",
+    "hr.noContract": "No contract",
+    "hr.leaves": "Leave",
+    "hr.generatePayslip": "Generate the payslip",
+    "hr.leaveDaysPerYear": "Leave days / year",
+    "hr.startDate": "Start date",
+    "hr.recurringBonuses": "Recurring bonuses",
+    "hr.noRecurringBonus": "No recurring bonus.",
+    "hr.removeBonus": "Remove this bonus",
+    "hr.contractSaved": "Contract saved.",
+
+    "signup.schoolName": "School name",
+    "signup.schoolNamePlaceholder": "Al Amal School",
+    "signup.levels": "Levels taught",
+    "signup.yourName": "Your name",
+    "signup.phone": "Phone",
+    "signup.reassurance": "Free trial, no bank card. Your data stays yours.",
+
+    "login.forgotPassword": "Forgot your password?",
+    "login.forgotHelp":
+      "Contact your school office: they can reset your password from their own space.",
+    "login.createSchool": "Create my school",
+    "login.emailPlaceholder": "you@email.com",
+    "login.invalidCredentials": "Incorrect email or password.",
   },
   ar: {
     "nav.dashboard": "لوحة القيادة",
@@ -1325,6 +1379,33 @@ export const dictionaries = {
     "exams.gradesSaved": "تم حفظ النقاط.",
     "exams.alertParentWhatsapp": "إشعار ولي الأمر عبر واتساب",
     "exams.savedHint": "تم حفظ النقاط — انقر على أيقونة واتساب لإشعار ولي الأمر.",
+
+    "hr.subtitle": "عقود المدرّسين وعطلهم وكشوف رواتبهم.",
+    "hr.noTeacher": "لا يوجد مدرّس نشط بعد.",
+    "hr.leaveBalance": "رصيد العطل",
+    "hr.noContract": "لا يوجد عقد",
+    "hr.leaves": "العطل",
+    "hr.generatePayslip": "إصدار كشف الراتب",
+    "hr.leaveDaysPerYear": "أيام العطلة / السنة",
+    "hr.startDate": "تاريخ البداية",
+    "hr.recurringBonuses": "العلاوات الدورية",
+    "hr.noRecurringBonus": "لا توجد علاوة دورية.",
+    "hr.removeBonus": "حذف هذه العلاوة",
+    "hr.contractSaved": "تم حفظ العقد.",
+
+    "signup.schoolName": "اسم المدرسة",
+    "signup.schoolNamePlaceholder": "مدرسة الأمل",
+    "signup.levels": "المستويات المدرَّسة",
+    "signup.yourName": "اسمك",
+    "signup.phone": "الهاتف",
+    "signup.reassurance": "تجربة مجانية، دون بطاقة بنكية. بياناتك تبقى ملكك.",
+
+    "login.forgotPassword": "هل نسيت كلمة المرور؟",
+    "login.forgotHelp":
+      "اتصل بإدارة مدرستك: يمكنها إعادة تعيين كلمة مرورك من فضائها الخاص.",
+    "login.createSchool": "إنشاء مدرستي",
+    "login.emailPlaceholder": "you@email.com",
+    "login.invalidCredentials": "البريد الإلكتروني أو كلمة المرور غير صحيحة.",
   },
 } as const;
 

@@ -26,6 +26,7 @@ import {
 import { contractSchema, type ContractFormValues, CONTRACT_TYPES } from "./schema";
 import { upsertContract } from "./actions";
 import type { TeacherHrRow } from "./rh-view";
+import { useLanguage } from "@/lib/i18n/language-provider";
 
 const CONTRACT_LABELS: Record<(typeof CONTRACT_TYPES)[number], string> = {
   CDI: "CDI",
@@ -42,6 +43,7 @@ export function ContractDialog({
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
 }) {
+  const { t } = useLanguage();
   const {
     register,
     control,
@@ -80,7 +82,7 @@ export function ContractDialog({
   async function onSubmit(values: ContractFormValues) {
     try {
       await upsertContract(values);
-      toast.success("Contrat enregistré.");
+      toast.success(t("hr.contractSaved"));
       onOpenChange(false);
       onSaved();
     } catch (e) {
@@ -118,7 +120,7 @@ export function ContractDialog({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="leaveDaysPerYear">Jours de congé / an</Label>
+              <Label htmlFor="leaveDaysPerYear">{t("hr.leaveDaysPerYear")}</Label>
               <Input
                 id="leaveDaysPerYear"
                 type="number"
@@ -127,7 +129,7 @@ export function ContractDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="startDate">Date de début</Label>
+              <Label htmlFor="startDate">{t("hr.startDate")}</Label>
               <Input id="startDate" type="date" {...register("startDate")} />
               {errors.startDate && (
                 <p className="text-xs text-danger">{errors.startDate.message}</p>
@@ -146,7 +148,7 @@ export function ContractDialog({
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label>Primes récurrentes</Label>
+              <Label>{t("hr.recurringBonuses")}</Label>
               <Button
                 type="button"
                 size="sm"
@@ -158,7 +160,7 @@ export function ContractDialog({
               </Button>
             </div>
             {fields.length === 0 ? (
-              <p className="text-xs text-foreground/40">Aucune prime récurrente.</p>
+              <p className="text-xs text-foreground/40">{t("hr.noRecurringBonus")}</p>
             ) : (
               <div className="space-y-2">
                 {fields.map((field, index) => (
@@ -178,7 +180,7 @@ export function ContractDialog({
                     <button
                       type="button"
                       onClick={() => remove(index)}
-                      title="Retirer cette prime"
+                      title={t("hr.removeBonus")}
                       className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-foreground/50 hover:bg-red-50 hover:text-danger"
                     >
                       <Trash2 className="h-4 w-4" />

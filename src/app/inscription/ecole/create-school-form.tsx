@@ -17,11 +17,13 @@ import {
 } from "@/lib/school-levels";
 import { completeGoogleSignup } from "./actions";
 import { createSchoolSchema, type CreateSchoolValues } from "./schema";
+import { useLanguage } from "@/lib/i18n/language-provider";
 
 const FIELD_CLASS =
   "h-12 w-full rounded-lg border border-border bg-surface pl-10 pr-3 text-sm text-foreground transition-colors placeholder:text-foreground/35 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500";
 
 export function CreateSchoolForm({ initialDirectorName }: { initialDirectorName: string }) {
+  const { t } = useLanguage();
   const router = useRouter();
   const { update } = useSession();
   const [serverError, setServerError] = useState<string | null>(null);
@@ -56,12 +58,12 @@ export function CreateSchoolForm({ initialDirectorName }: { initialDirectorName:
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
       <div className="space-y-1.5">
-        <Label htmlFor="schoolName">Nom de l&apos;école</Label>
+        <Label htmlFor="schoolName">{t("signup.schoolName")}</Label>
         <div className="relative">
           <Building2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/35" />
           <input
             id="schoolName"
-            placeholder="École Al Amal"
+            placeholder={t("signup.schoolNamePlaceholder")}
             className={FIELD_CLASS}
             {...register("schoolName")}
           />
@@ -74,7 +76,7 @@ export function CreateSchoolForm({ initialDirectorName }: { initialDirectorName:
       {/* Ce choix suffit à créer toutes les classes de l'école : le directeur
           n'a rien à saisir, il retrouve ses niveaux dès sa première connexion. */}
       <div className="space-y-1.5">
-        <Label>Niveaux enseignés</Label>
+        <Label>{t("signup.levels")}</Label>
         <div className="grid grid-cols-3 gap-2">
           {SCHOOL_TYPES.map((type) => (
             <button
@@ -105,7 +107,7 @@ export function CreateSchoolForm({ initialDirectorName }: { initialDirectorName:
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="directorName">Votre nom</Label>
+        <Label htmlFor="directorName">{t("signup.yourName")}</Label>
         <div className="relative">
           <UserRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/35" />
           <input
@@ -136,7 +138,7 @@ export function CreateSchoolForm({ initialDirectorName }: { initialDirectorName:
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="phone">Téléphone</Label>
+          <Label htmlFor="phone">{t("signup.phone")}</Label>
           <div className="relative">
             <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/35" />
             <input

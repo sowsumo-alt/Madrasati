@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { Logo } from "@/components/brand/logo";
+import { LanguageToggle } from "@/components/layout/language-toggle";
 import { SignupForm } from "./signup-form";
 
 export default async function SignupPage() {
@@ -25,6 +26,12 @@ export default async function SignupPage() {
             "radial-gradient(circle at 85% 15%, white 0, transparent 35%), radial-gradient(circle at 15% 85%, white 0, transparent 40%)",
         }}
       />
+
+      {/* Même raison que sur l'écran de connexion : sans ce sélecteur, un
+          directeur arabophone ne peut pas lire le formulaire d'inscription. */}
+      <div className="absolute right-4 top-4">
+        <LanguageToggle />
+      </div>
 
       <div className="animate-fade-up relative w-full max-w-md">
         <div className="flex flex-col items-center text-center">

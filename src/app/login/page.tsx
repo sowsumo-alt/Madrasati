@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { Clock, Languages, MessageCircle, ShieldCheck, Wifi } from "lucide-react";
 import { getCurrentUser } from "@/lib/session";
 import { Logo } from "@/components/brand/logo";
+import { LanguageToggle } from "@/components/layout/language-toggle";
 import { RotatingWords } from "@/components/ui/rotating-words";
 import { buildWhatsAppUrl } from "@/lib/whatsapp";
 import { CONTACT_PHONE, DEMO_MESSAGE } from "@/lib/contact";
@@ -93,7 +94,14 @@ export default async function LoginPage() {
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col items-center justify-center bg-background px-6 py-12">
+      <div className="relative flex flex-1 flex-col items-center justify-center bg-background px-6 py-12">
+        {/* Le sélecteur de langue n'existait que dans l'espace connecté : un
+            enseignant arabophone arrivait donc sur un écran de connexion qu'il
+            ne pouvait ni lire ni changer. */}
+        <div className="absolute right-4 top-4">
+          <LanguageToggle />
+        </div>
+
         <div className="w-full max-w-sm">
           {/* Le volet de gauche disparaît sous lg : la marque doit alors
               réapparaître ici, sinon l'écran de connexion n'est plus identifié. */}

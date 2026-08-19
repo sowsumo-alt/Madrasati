@@ -9,6 +9,7 @@ import { formatMRU, formatDate } from "@/lib/format";
 import { ContractDialog } from "./contract-dialog";
 import { LeaveDialog } from "./leave-dialog";
 import { PayslipDialog } from "./payslip-dialog";
+import { useLanguage } from "@/lib/i18n/language-provider";
 
 export interface TeacherHrRow {
   id: string;
@@ -55,6 +56,7 @@ export function RhView({
   schoolName: string;
   totalPayroll: number;
 }) {
+  const { t } = useLanguage();
   const router = useRouter();
   const [contractTarget, setContractTarget] = useState<TeacherHrRow | null>(null);
   const [leaveTarget, setLeaveTarget] = useState<TeacherHrRow | null>(null);
@@ -68,9 +70,7 @@ export function RhView({
     <div className="space-y-5">
       <div>
         <h1 className="text-xl font-semibold text-foreground">RH &amp; Paie</h1>
-        <p className="mt-1 text-sm text-foreground/60">
-          Contrats, congés et bulletins de salaire des enseignants.
-        </p>
+        <p className="mt-1 text-sm text-foreground/60">{t("hr.subtitle")}</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -85,9 +85,7 @@ export function RhView({
 
       <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
         {teachers.length === 0 ? (
-          <div className="px-5 py-16 text-center text-sm text-foreground/50">
-            Aucun enseignant actif pour l&apos;instant.
-          </div>
+          <div className="px-5 py-16 text-center text-sm text-foreground/50">{t("hr.noTeacher")}</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -97,36 +95,36 @@ export function RhView({
                   <th className="px-5 py-3">Contrat</th>
                   <th className="px-5 py-3">Salaire de base</th>
                   <th className="px-5 py-3">Primes</th>
-                  <th className="px-5 py-3">Solde de congés</th>
+                  <th className="px-5 py-3">{t("hr.leaveBalance")}</th>
                   <th className="px-5 py-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {teachers.map((t) => {
-                  const bonusTotal = t.contract?.bonuses.reduce((s, b) => s + b.amount, 0) ?? 0;
+                {teachers.map((teacher) => {
+                  const bonusTotal = teacher.contract?.bonuses.reduce((s, b) => s + b.amount, 0) ?? 0;
                   return (
-                    <tr key={t.id} className="hover:bg-surface-muted/40">
+                    <tr key={teacher.id} className="hover:bg-surface-muted/40">
                       <td className="px-5 py-3 font-medium text-foreground">
-                        {t.firstName} {t.lastName}
+                        {teacher.firstName} {teacher.lastName}
                       </td>
                       <td className="px-5 py-3">
-                        {t.contract ? (
+                        {teacher.contract ? (
                           <div>
-                            <Badge variant={CONTRACT_VARIANT[t.contract.type]}>
-                              {CONTRACT_LABELS[t.contract.type]}
+                            <Badge variant={CONTRACT_VARIANT[teacher.contract.type]}>
+                              {CONTRACT_LABELS[teacher.contract.type]}
                             </Badge>
                             <p className="mt-1 text-xs text-foreground/40">
-                              Depuis le {formatDate(t.contract.startDate)}
-                              {t.contract.endDate && ` · jusqu'au ${formatDate(t.contract.endDate)}`}
+                              Depuis le {formatDate(teacher.contract.startDate)}
+                              {teacher.contract.endDate && ` · jusqu'au ${formatDate(teacher.contract.endDate)}`}
                             </p>
                           </div>
                         ) : (
-                          <span className="text-xs text-foreground/40">Aucun contrat</span>
+                          <span className="text-xs text-foreground/40">{t("hr.noContract")}</span>
                         )}
                       </td>
                       <td className="px-5 py-3 text-foreground/70">
-                        {t.monthlySalary != null ? (
-                          formatMRU(t.monthlySalary)
+                        {teacher.monthlySalary != null ? (
+                          formatMRU(teacher.monthlySalary)
                         ) : (
                           <span className="text-foreground/40">—</span>
                         )}
@@ -141,33 +139,33 @@ export function RhView({
                       <td className="px-5 py-3">
                         <span
                           className={
-                            t.leaveBalance < 0
+                            teacher.leaveBalance < 0
                               ? "font-medium text-danger"
                               : "text-foreground/70"
                           }
                         >
-                          {t.leaveBalance} / {t.leaveDaysPerYear} j
+                          {teacher.leaveBalance} / {teacher.leaveDaysPerYear} j
                         </span>
                       </td>
                       <td className="px-5 py-3">
                         <div className="flex items-center justify-end gap-1">
                           <button
                             title="Contrat & primes"
-                            onClick={() => setContractTarget(t)}
+                            onClick={() => setContractTarget(teacher)}
                             className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground/60 transition-colors hover:bg-surface-muted"
                           >
                             <FileSignature className="h-4 w-4" />
                           </button>
                           <button
-                            title="Congés"
-                            onClick={() => setLeaveTarget(t)}
+                            title={t("hr.leaves")}
+                            onClick={() => setLeaveTarget(teacher)}
                             className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground/60 transition-colors hover:bg-surface-muted"
                           >
                             <CalendarOff className="h-4 w-4" />
                           </button>
                           <button
-                            title="Générer le bulletin de salaire"
-                            onClick={() => setPayslipTarget(t)}
+                            title={t("hr.generatePayslip")}
+                            onClick={() => setPayslipTarget(teacher)}
                             className="flex h-8 w-8 items-center justify-center rounded-lg text-primary-700 transition-colors hover:bg-primary-50"
                           >
                             <Receipt className="h-4 w-4" />
