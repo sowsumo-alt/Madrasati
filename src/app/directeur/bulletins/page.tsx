@@ -1,7 +1,7 @@
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
-import { FEATURES, planHasFeature } from "@/lib/plans";
+import { FEATURES, schoolHasFeature } from "@/lib/plans";
 import { buildReportCards } from "@/lib/report-card-data";
 import { TERMS } from "@/app/directeur/examens/schema";
 import { BulletinsView, type BulletinRow } from "./bulletins-view";
@@ -42,14 +42,14 @@ export default async function BulletinsPage({
       where: { isPrimary: true, student: { schoolId: user.schoolId } },
       include: { parent: true },
     }),
-    prisma.school.findUnique({ where: { id: user.schoolId }, select: { name: true, plan: true } }),
+    prisma.school.findUnique({ where: { id: user.schoolId }, select: { name: true, plan: true, subscriptionStatus: true } }),
     prisma.messageTemplate.findFirst({
       where: { schoolId: user.schoolId, key: "GRADES_AVAILABLE" },
       select: { body: true, bodyAr: true },
     }),
   ]);
 
-  const bilingual = planHasFeature(school?.plan, FEATURES.BILINGUAL_MESSAGES);
+  const bilingual = schoolHasFeature(school, FEATURES.BILINGUAL_MESSAGES);
 
   const parentByStudent = new Map(parents.map((p) => [p.studentId, p.parent]));
 

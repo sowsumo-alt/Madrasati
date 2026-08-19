@@ -3,7 +3,7 @@ import { requireFeature } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { AppShell } from "@/components/layout/app-shell";
-import { isPlan, FEATURES } from "@/lib/plans";
+import { effectivePlan, FEATURES } from "@/lib/plans";
 
 export default async function ParentLayout({ children }: { children: ReactNode }) {
   // Filet de sécurité : si l'école a été rétrogradée en Standard après avoir
@@ -12,7 +12,7 @@ export default async function ParentLayout({ children }: { children: ReactNode }
   const user = await requireFeature(FEATURES.PARENT_PORTAL, ROLES.PARENT);
   const school = await prisma.school.findUnique({
     where: { id: user.schoolId },
-    select: { name: true, plan: true },
+    select: { name: true, plan: true, subscriptionStatus: true },
   });
 
   return (
@@ -21,7 +21,7 @@ export default async function ParentLayout({ children }: { children: ReactNode }
       schoolName={school?.name ?? "Madrasati"}
       userName={user.name ?? ""}
       roleLabel="Parent"
-      plan={school?.plan && isPlan(school.plan) ? school.plan : "standard"}
+      plan={school ? effectivePlan(school) : "standard"}
     >
       {children}
     </AppShell>

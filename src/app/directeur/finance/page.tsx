@@ -1,7 +1,7 @@
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
-import { FEATURES, planHasFeature } from "@/lib/plans";
+import { FEATURES, schoolHasFeature } from "@/lib/plans";
 import { FinanceView, type FeeRow } from "./finance-view";
 
 const DEFAULT_REMINDER =
@@ -34,14 +34,14 @@ export default async function FinancePage() {
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
       include: { classRoom: { select: { name: true } } },
     }),
-    prisma.school.findUnique({ where: { id: user.schoolId }, select: { name: true, plan: true } }),
+    prisma.school.findUnique({ where: { id: user.schoolId }, select: { name: true, plan: true, subscriptionStatus: true } }),
     prisma.messageTemplate.findFirst({
       where: { schoolId: user.schoolId, key: "PAYMENT_REMINDER" },
       select: { body: true, bodyAr: true },
     }),
   ]);
 
-  const bilingual = planHasFeature(school?.plan, FEATURES.BILINGUAL_MESSAGES);
+  const bilingual = schoolHasFeature(school, FEATURES.BILINGUAL_MESSAGES);
 
   const rows: FeeRow[] = fees.map((f) => ({
     id: f.id,

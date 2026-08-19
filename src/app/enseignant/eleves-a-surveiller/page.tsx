@@ -1,6 +1,6 @@
 import { requireFeature } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
-import { FEATURES, planHasFeature } from "@/lib/plans";
+import { FEATURES, schoolHasFeature } from "@/lib/plans";
 import { prisma } from "@/lib/prisma";
 import { getTeacherScope } from "@/lib/teacher-scope";
 import { findAtRiskStudents } from "@/lib/at-risk";
@@ -19,7 +19,7 @@ export default async function TeacherAtRiskPage() {
 
   const [students, school, template] = await Promise.all([
     classIds.length > 0 ? findAtRiskStudents(user.schoolId, classIds) : Promise.resolve([]),
-    prisma.school.findUnique({ where: { id: user.schoolId }, select: { name: true, plan: true } }),
+    prisma.school.findUnique({ where: { id: user.schoolId }, select: { name: true, plan: true, subscriptionStatus: true } }),
     prisma.messageTemplate.findFirst({
       where: { schoolId: user.schoolId, key: "AT_RISK_ALERT" },
       select: { body: true, bodyAr: true },
@@ -27,7 +27,7 @@ export default async function TeacherAtRiskPage() {
   ]);
 
   const schoolName = school?.name ?? "Madrasati";
-  const bilingual = planHasFeature(school?.plan, FEATURES.BILINGUAL_MESSAGES);
+  const bilingual = schoolHasFeature(school, FEATURES.BILINGUAL_MESSAGES);
 
   const rows: AtRiskRow[] = students.map((s) => {
     const reasonText = s.reasons.join(" · ");

@@ -9,7 +9,7 @@ import { formatMRU, formatLongDate, formatEventTime } from "@/lib/format";
 import { getTranslations } from "@/lib/i18n/server";
 import {
   FEATURES,
-  planHasFeature,
+  schoolHasFeature,
   trialEndsAt,
   daysBetween,
   TRIAL_REMINDER_DAYS,
@@ -208,7 +208,7 @@ export default async function DashboardPage() {
     }),
   ]);
 
-  const atRiskEnabled = planHasFeature(school?.plan, FEATURES.AT_RISK_DETECTION);
+  const atRiskEnabled = schoolHasFeature(school, FEATURES.AT_RISK_DETECTION);
   const atRiskCount = atRiskEnabled ? (await findAtRiskStudents(schoolId)).length : 0;
 
   // Année scolaire échue : tant qu'elle n'est pas remplacée, présences, notes

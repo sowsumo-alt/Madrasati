@@ -10,7 +10,7 @@ import {
   schoolSlug,
 } from "@/lib/account";
 import { generateTempPassword } from "@/lib/account-server";
-import { planHasFeature, FEATURES } from "@/lib/plans";
+import { schoolHasFeature, FEATURES } from "@/lib/plans";
 
 export interface AccountResult {
   email: string;
@@ -99,9 +99,9 @@ export async function createParentAccount(parentId: string): Promise<AccountResu
 
   const school = await prisma.school.findUnique({
     where: { id: user.schoolId },
-    select: { name: true, plan: true },
+    select: { name: true, plan: true, subscriptionStatus: true },
   });
-  if (!planHasFeature(school?.plan, FEATURES.PARENT_PORTAL)) {
+  if (!schoolHasFeature(school, FEATURES.PARENT_PORTAL)) {
     throw new Error(
       "Le portail parents fait partie du plan Avancé. Mettez à niveau votre abonnement dans Paramètres pour l'activer.",
     );

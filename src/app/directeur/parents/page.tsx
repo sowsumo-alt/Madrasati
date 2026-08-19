@@ -1,7 +1,7 @@
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
-import { planHasFeature, FEATURES } from "@/lib/plans";
+import { schoolHasFeature, FEATURES } from "@/lib/plans";
 import { ParentsView, type ParentRow } from "./parents-view";
 
 export default async function ParentsPage() {
@@ -21,10 +21,10 @@ export default async function ParentsPage() {
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
       include: { classRoom: { select: { name: true } } },
     }),
-    prisma.school.findUnique({ where: { id: user.schoolId }, select: { name: true, plan: true } }),
+    prisma.school.findUnique({ where: { id: user.schoolId }, select: { name: true, plan: true, subscriptionStatus: true } }),
   ]);
 
-  const parentPortalEnabled = planHasFeature(school?.plan, FEATURES.PARENT_PORTAL);
+  const parentPortalEnabled = schoolHasFeature(school, FEATURES.PARENT_PORTAL);
 
   const rows: ParentRow[] = parents.map((p) => ({
     id: p.id,

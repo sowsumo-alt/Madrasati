@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
-import { FEATURES, planHasFeature } from "@/lib/plans";
+import { FEATURES, schoolHasFeature } from "@/lib/plans";
 import { formatMRU, formatDate, formatLongDate, formatLongDateAr, formatAmount } from "@/lib/format";
 import { PrintButton } from "@/components/ui/print-button";
 import { buttonVariants } from "@/components/ui/button";
@@ -56,7 +56,7 @@ export default async function ReceiptPage({
     select: { body: true, bodyAr: true },
   });
 
-  const bilingual = planHasFeature(payment.school.plan, FEATURES.BILINGUAL_MESSAGES);
+  const bilingual = schoolHasFeature(payment.school, FEATURES.BILINGUAL_MESSAGES);
 
   const confirmationMessage = parent
     ? withArabic(

@@ -1,7 +1,7 @@
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
-import { FEATURES, planHasFeature } from "@/lib/plans";
+import { FEATURES, schoolHasFeature } from "@/lib/plans";
 import { formatAmount } from "@/lib/format";
 import { CommunicationView, type Recipient, type TemplateRow } from "./communication-view";
 
@@ -22,10 +22,10 @@ export default async function CommunicationPage() {
       where: { schoolId: user.schoolId },
       orderBy: { title: "asc" },
     }),
-    prisma.school.findUnique({ where: { id: user.schoolId }, select: { name: true, plan: true } }),
+    prisma.school.findUnique({ where: { id: user.schoolId }, select: { name: true, plan: true, subscriptionStatus: true } }),
   ]);
 
-  const bilingual = planHasFeature(school?.plan, FEATURES.BILINGUAL_MESSAGES);
+  const bilingual = schoolHasFeature(school, FEATURES.BILINGUAL_MESSAGES);
 
   // Reste dû par élève : c'est la donnée qui manquait au modèle « Rappel de
   // paiement », dont le montant partait vide. Calculé ici plutôt que côté

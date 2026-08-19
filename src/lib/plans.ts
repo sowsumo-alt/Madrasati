@@ -212,6 +212,25 @@ export function effectivePlan(school: { plan: string; subscriptionStatus: string
   return isPlan(school.plan) ? school.plan : "standard";
 }
 
+/**
+ * Cette école a-t-elle droit à cette fonctionnalité, statut de facturation
+ * compris ?
+ *
+ * À préférer systématiquement à `planHasFeature(school.plan, …)` : partir du
+ * plan brut ignore le statut « restricted », et une école dont l'essai est
+ * terminé continuait alors de voir ses bandeaux, ses entrées de menu et ses
+ * messages bilingues — jusqu'à ce qu'un clic la renvoie sur l'écran
+ * « fonctionnalité verrouillée », seul endroit qui appliquait vraiment la
+ * règle. La restriction n'a de sens que si elle est visible partout.
+ */
+export function schoolHasFeature(
+  school: { plan: string; subscriptionStatus: string } | null | undefined,
+  feature: Feature,
+): boolean {
+  if (!school) return false;
+  return planHasFeature(effectivePlan(school), feature);
+}
+
 /** Montant dû ce mois-ci pour une école, arrondi à l'unité. `null` pour le
  *  plan Réseau (sur devis, pas de formule fixe). */
 export function computeMonthlyDue(plan: string, activeStudentCount: number): number | null {

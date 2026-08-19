@@ -12,7 +12,7 @@ import { CommentEditor } from "./comment-editor";
 import { SendPdfButton } from "./send-pdf-button";
 import { getTranslations } from "@/lib/i18n/server";
 import type { TranslationKey } from "@/lib/i18n/dictionaries";
-import { FEATURES, planHasFeature } from "@/lib/plans";
+import { FEATURES, schoolHasFeature } from "@/lib/plans";
 import { DEFAULT_TEMPLATES } from "@/lib/school-setup";
 import { fillTemplate, withArabic, schoolSignatureFr, schoolSignatureAr } from "@/lib/whatsapp";
 
@@ -66,7 +66,7 @@ export default async function ReportCardPage({
 
   const { t } = await getTranslations();
 
-  const bilingual = planHasFeature(school?.plan, FEATURES.BILINGUAL_MESSAGES);
+  const bilingual = schoolHasFeature(school, FEATURES.BILINGUAL_MESSAGES);
   const parent = parentLink?.parent ?? null;
   const studentName = `${card.student.firstName} ${card.student.lastName}`;
   const averageLabel = card.average != null ? card.average.toFixed(2) : "—";

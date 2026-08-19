@@ -3,13 +3,13 @@ import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { AppShell } from "@/components/layout/app-shell";
-import { isPlan } from "@/lib/plans";
+import { effectivePlan } from "@/lib/plans";
 
 export default async function TeacherLayout({ children }: { children: ReactNode }) {
   const user = await requireRole(ROLES.TEACHER);
   const school = await prisma.school.findUnique({
     where: { id: user.schoolId },
-    select: { name: true, plan: true },
+    select: { name: true, plan: true, subscriptionStatus: true },
   });
 
   return (
@@ -18,7 +18,7 @@ export default async function TeacherLayout({ children }: { children: ReactNode 
       schoolName={school?.name ?? "Madrasati"}
       userName={user.name ?? ""}
       roleLabel="Enseignant"
-      plan={school?.plan && isPlan(school.plan) ? school.plan : "standard"}
+      plan={school ? effectivePlan(school) : "standard"}
     >
       {children}
     </AppShell>

@@ -1,7 +1,7 @@
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
-import { FEATURES, planHasFeature } from "@/lib/plans";
+import { FEATURES, schoolHasFeature } from "@/lib/plans";
 import { AttendanceView, type AttendanceStudent } from "./attendance-view";
 
 const DEFAULT_ABSENCE_TEMPLATE =
@@ -61,7 +61,7 @@ export default async function AttendancePage({
           select: { studentId: true, status: true },
         })
       : Promise.resolve([]),
-    prisma.school.findUnique({ where: { id: user.schoolId }, select: { name: true, plan: true } }),
+    prisma.school.findUnique({ where: { id: user.schoolId }, select: { name: true, plan: true, subscriptionStatus: true } }),
     prisma.messageTemplate.findFirst({
       where: { schoolId: user.schoolId, key: "ABSENCE_ALERT" },
       select: { body: true, bodyAr: true },
@@ -72,7 +72,7 @@ export default async function AttendancePage({
     }),
   ]);
 
-  const bilingual = planHasFeature(school?.plan, FEATURES.BILINGUAL_MESSAGES);
+  const bilingual = schoolHasFeature(school, FEATURES.BILINGUAL_MESSAGES);
 
   const totalsByStudent = new Map<string, { present: number; total: number }>();
   for (const r of records) {

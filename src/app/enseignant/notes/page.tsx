@@ -2,7 +2,7 @@ import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { getTeacherScope } from "@/lib/teacher-scope";
-import { FEATURES, planHasFeature } from "@/lib/plans";
+import { FEATURES, schoolHasFeature } from "@/lib/plans";
 import { ExamsView, type ExamRow } from "@/app/directeur/examens/exams-view";
 import type { ExamClassOption } from "@/app/directeur/examens/exam-form-dialog";
 
@@ -43,10 +43,10 @@ export default async function TeacherGradesPage() {
         },
       },
     }),
-    prisma.school.findUnique({ where: { id: user.schoolId }, select: { name: true, plan: true } }),
+    prisma.school.findUnique({ where: { id: user.schoolId }, select: { name: true, plan: true, subscriptionStatus: true } }),
   ]);
 
-  const bilingual = planHasFeature(school?.plan, FEATURES.BILINGUAL_MESSAGES);
+  const bilingual = schoolHasFeature(school, FEATURES.BILINGUAL_MESSAGES);
 
   const examRows: ExamRow[] = exams.map((e) => {
     const classStudents = students.filter((s) => s.classId === e.classId);
