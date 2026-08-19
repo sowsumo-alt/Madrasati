@@ -6,10 +6,22 @@ export const ROLES = {
 
 export type Role = (typeof ROLES)[keyof typeof ROLES];
 
+/** Libellés français fixes — réservés au tableau de bord Super Admin et aux
+ *  messages que l'éditeur écrit lui-même, qui ne suivent pas la langue de
+ *  l'utilisateur. Les écrans d'une école utilisent ROLE_LABEL_KEYS. */
 export const ROLE_LABELS: Record<string, string> = {
   DIRECTOR: "Directeur",
   TEACHER: "Enseignant",
   PARENT: "Parent",
+};
+
+/** Clés de traduction du rôle, affichées sous le nom de l'utilisateur dans le
+ *  menu latéral : « Directeur » restait en français même en anglais et en
+ *  arabe, sur tous les écrans de l'application. */
+export const ROLE_LABEL_KEYS: Record<string, string> = {
+  DIRECTOR: "role.DIRECTOR",
+  TEACHER: "role.TEACHER",
+  PARENT: "role.PARENT",
 };
 
 export const STUDENT_STATUS = {

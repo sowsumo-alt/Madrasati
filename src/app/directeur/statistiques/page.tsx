@@ -3,6 +3,7 @@ import { ROLES } from "@/lib/roles";
 import { FEATURES } from "@/lib/plans";
 import { prisma } from "@/lib/prisma";
 import { StatisticsView, type StatsData } from "./statistics-view";
+import { CURRENT_YEAR } from "@/lib/school-year";
 
 const MONTH_LABELS = [
   "Jan", "Fév", "Mar", "Avr", "Mai", "Juin",
@@ -55,7 +56,7 @@ export default async function StatisticsPage() {
       },
     }),
     prisma.classRoom.findMany({
-      where: { schoolId: user.schoolId },
+      where: { schoolId: user.schoolId, ...CURRENT_YEAR },
       // Même règle que partout ailleurs (tableau de bord, paramètres) :
       // seuls les élèves actifs sont comptés, sinon la répartition par niveau
       // annonçait un total différent des autres écrans.

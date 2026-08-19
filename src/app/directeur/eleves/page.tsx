@@ -2,6 +2,7 @@ import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { StudentsView, type StudentRow } from "./students-view";
+import { CURRENT_YEAR } from "@/lib/school-year";
 
 export default async function StudentsPage({
   searchParams,
@@ -25,7 +26,7 @@ export default async function StudentsPage({
       },
     }),
     prisma.classRoom.findMany({
-      where: { schoolId: user.schoolId },
+      where: { schoolId: user.schoolId, ...CURRENT_YEAR },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),

@@ -1,3 +1,4 @@
+import { CURRENT_YEAR } from "@/lib/school-year";
 import { prisma } from "@/lib/prisma";
 import { ROLES } from "@/lib/roles";
 
@@ -17,7 +18,7 @@ export async function getTeacherScope(userId: string, schoolId: string) {
   });
   if (!teacher) return null;
 
-  const [mainOf, teaches] = await Promise.all([
+  const [mainOf, teaches, currentYearClasses] = await Promise.all([
     prisma.classRoom.findMany({
       where: { schoolId, mainTeacherId: teacher.id },
       select: { id: true },
@@ -26,13 +27,30 @@ export async function getTeacherScope(userId: string, schoolId: string) {
       where: { teacherId: teacher.id, classRoom: { schoolId } },
       select: { classId: true },
     }),
+    prisma.classRoom.findMany({
+      where: { schoolId, ...CURRENT_YEAR },
+      select: { id: true },
+    }),
   ]);
 
   const classIds = [
     ...new Set([...mainOf.map((c) => c.id), ...teaches.map((cs) => cs.classId)]),
   ];
 
-  return { teacher, classIds };
+  // Deux périmètres volontairement distincts.
+  //
+  // `classIds` couvre toutes les années : c'est lui qui sert d'autorisation
+  // (assertClassAccess), pour qu'un enseignant garde l'accès aux notes et aux
+  // appels de l'année écoulée, par exemple depuis un bulletin archivé.
+  //
+  // `currentClassIds` ne garde que l'année en cours : c'est lui qu'affichent
+  // les listes. Sans cette séparation, l'ouverture d'une nouvelle année
+  // scolaire faisait apparaître chaque classe en double sous le même nom, et
+  // l'enseignant tombait une fois sur deux sur la copie encore vide.
+  const currentIds = new Set(currentYearClasses.map((c) => c.id));
+  const currentClassIds = classIds.filter((id) => currentIds.has(id));
+
+  return { teacher, classIds, currentClassIds };
 }
 
 /**

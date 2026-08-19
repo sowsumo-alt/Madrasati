@@ -131,7 +131,7 @@ export function ClassesView({
               }}
             >
               <Plus className="h-4 w-4" />
-              Nouvelle classe
+              {t("classes.newClass")}
             </Button>
           </div>
         </CardHeader>

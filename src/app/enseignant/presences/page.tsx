@@ -34,7 +34,7 @@ export default async function TeacherAttendancePage({
   // peut donc jamais pointer vers la classe d'un collègue.
   const classes = scope
     ? await prisma.classRoom.findMany({
-        where: { id: { in: scope.classIds } },
+        where: { id: { in: scope.currentClassIds } },
         orderBy: { name: "asc" },
         select: { id: true, name: true },
       })

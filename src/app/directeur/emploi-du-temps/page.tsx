@@ -2,13 +2,14 @@ import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { ScheduleView, type ScheduleClassOption, type SlotRow } from "./schedule-view";
+import { CURRENT_YEAR } from "@/lib/school-year";
 
 export default async function SchedulePage() {
   const user = await requireRole(ROLES.DIRECTOR);
 
   const [classes, slots, school] = await Promise.all([
     prisma.classRoom.findMany({
-      where: { schoolId: user.schoolId },
+      where: { schoolId: user.schoolId, ...CURRENT_YEAR },
       orderBy: { name: "asc" },
       include: {
         classSubjects: {
@@ -20,7 +21,7 @@ export default async function SchedulePage() {
       },
     }),
     prisma.scheduleSlot.findMany({
-      where: { classRoom: { schoolId: user.schoolId } },
+      where: { classRoom: { schoolId: user.schoolId, ...CURRENT_YEAR } },
       include: {
         classSubject: {
           include: {

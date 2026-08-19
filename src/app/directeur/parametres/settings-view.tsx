@@ -143,7 +143,7 @@ export function SettingsView({
                   schoolForm.setValue("logoUrl", v, { shouldDirty: true })
                 }
                 maxSize={320}
-                label="Choisir un logo"
+                label={t("settings.chooseLogo")}
               />
               <p className="text-xs text-foreground/40">{t("settings.logoHint")}</p>
             </div>

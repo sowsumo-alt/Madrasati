@@ -113,7 +113,9 @@ export function ClassFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Modifier la classe" : "Nouvelle classe"}</DialogTitle>
+          <DialogTitle>
+            {isEdit ? t("classes.editClass") : t("classes.newClass")}
+          </DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>

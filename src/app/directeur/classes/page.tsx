@@ -2,17 +2,18 @@ import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { ClassesView, type ClassRow, type SubjectRow } from "./classes-view";
+import { CURRENT_YEAR } from "@/lib/school-year";
 
 export default async function ClassesPage() {
   const user = await requireRole(ROLES.DIRECTOR);
 
   const [classes, subjects, teachers] = await Promise.all([
     prisma.classRoom.findMany({
-      where: { schoolId: user.schoolId },
+      where: { schoolId: user.schoolId, ...CURRENT_YEAR },
       orderBy: { name: "asc" },
       include: {
         mainTeacher: { select: { id: true, firstName: true, lastName: true } },
-        _count: { select: { students: true } },
+        _count: { select: { students: { where: { status: "ACTIVE" } } } },
         classSubjects: {
           include: {
             subject: { select: { name: true } },

@@ -71,6 +71,14 @@ export async function requireFeature(feature: Feature, ...roles: Role[]) {
     if (user.role === ROLES.DIRECTOR) {
       redirect(`/directeur/fonctionnalite-verrouillee?feature=${feature}`);
     }
+    // Un parent ne peut pas être renvoyé vers « / » : cette page le redirige
+    // aussitôt vers /parent, qui est justement la page verrouillée. Le
+    // navigateur bouclait jusqu'à ERR_TOO_MANY_REDIRECTS et aucun parent
+    // d'école Standard ne pouvait se connecter. Un rôle dont la page
+    // d'accueil est elle-même verrouillée a besoin d'une autre sortie.
+    if (user.role === ROLES.PARENT) {
+      redirect("/portail-indisponible");
+    }
     redirect("/");
   }
 

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { CalendarClock, Loader2, ArrowRight } from "lucide-react";
 import { createNextAcademicYear } from "./parametres/actions";
+import { useLanguage } from "@/lib/i18n/language-provider";
 
 /**
  * Avertit le directeur que l'année scolaire active est terminée, et lui permet
@@ -23,6 +24,7 @@ export function YearEndedBanner({
   endedOn: string;
 }) {
   const router = useRouter();
+  const { t } = useLanguage();
   const [isCreating, setIsCreating] = useState(false);
   const [done, setDone] = useState<{ label: string; classCount: number } | null>(null);
 
@@ -32,12 +34,14 @@ export function YearEndedBanner({
       const result = await createNextAcademicYear();
       setDone(result);
       toast.success(
-        `Année ${result.label} ouverte — ${result.classCount} classe(s) reprises.`,
+        t("yearEnded.done")
+          .replace("{label}", result.label)
+          .replace("{count}", String(result.classCount)),
         { duration: 8000 },
       );
       router.refresh();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Une erreur est survenue.");
+      toast.error(e instanceof Error ? e.message : t("common.error"));
     } finally {
       setIsCreating(false);
     }
@@ -47,16 +51,16 @@ export function YearEndedBanner({
     return (
       <div className="animate-page-in rounded-xl border border-primary-200 bg-primary-50 px-5 py-4 text-sm shadow-sm">
         <p className="font-medium text-primary-900">
-          Année {done.label} ouverte, avec {done.classCount} classe(s) reprises.
+          {t("yearEnded.done")
+            .replace("{label}", done.label)
+            .replace("{count}", String(done.classCount))}
         </p>
-        <p className="mt-1 text-primary-800/80">
-          Dernière étape : réinscrivez vos élèves dans leurs nouvelles classes.
-        </p>
+        <p className="mt-1 text-primary-800/80">{t("yearEnded.doneHint")}</p>
         <Link
           href="/directeur/reinscription"
           className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-primary-700 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-primary-800"
         >
-          Aller à la Réinscription
+          {t("yearEnded.goReenroll")}
           <ArrowRight className="h-3.5 w-3.5" />
         </Link>
       </div>
@@ -71,13 +75,9 @@ export function YearEndedBanner({
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-amber-900">
-            L&apos;année scolaire {label} est terminée (depuis le {endedOn}).
+            {t("yearEnded.title").replace("{label}", label).replace("{date}", endedOn)}
           </p>
-          <p className="mt-1 text-xs text-amber-800/80">
-            Ouvrez la nouvelle année pour continuer : vos classes actuelles y
-            seront reprises avec leurs matières et leurs professeurs, puis vous
-            réinscrirez vos élèves. Rien n&apos;est supprimé.
-          </p>
+          <p className="mt-1 text-xs text-amber-800/80">{t("yearEnded.hint")}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             <button
               type="button"
@@ -90,13 +90,13 @@ export function YearEndedBanner({
               ) : (
                 <CalendarClock className="h-3.5 w-3.5" />
               )}
-              Ouvrir la nouvelle année scolaire
+              {t("yearEnded.open")}
             </button>
             <Link
               href="/directeur/parametres"
               className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 px-3 py-2 text-xs font-medium text-amber-900 transition-colors hover:bg-amber-100"
             >
-              Gérer les années moi-même
+              {t("yearEnded.manage")}
             </Link>
           </div>
         </div>

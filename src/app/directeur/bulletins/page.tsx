@@ -5,6 +5,7 @@ import { FEATURES, schoolHasFeature } from "@/lib/plans";
 import { buildReportCards } from "@/lib/report-card-data";
 import { TERMS } from "@/app/directeur/examens/schema";
 import { BulletinsView, type BulletinRow } from "./bulletins-view";
+import { CURRENT_YEAR } from "@/lib/school-year";
 
 const DEFAULT_GRADES_TEMPLATE =
   "Bonjour {parentName},\n\nLes notes de {studentName} sont désormais disponibles (moyenne générale : {average}/20). N'hésitez pas à nous contacter pour en discuter.\n\n{schoolName}";
@@ -20,7 +21,7 @@ export default async function BulletinsPage({
   const params = await searchParams;
 
   const classes = await prisma.classRoom.findMany({
-    where: { schoolId: user.schoolId },
+    where: { schoolId: user.schoolId, ...CURRENT_YEAR },
     orderBy: { name: "asc" },
     select: { id: true, name: true },
   });

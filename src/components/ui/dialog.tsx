@@ -18,7 +18,9 @@ export const DialogContent = forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-surface p-6 shadow-lg focus:outline-none max-h-[90vh] overflow-y-auto",
+        // w-[calc(100%-2rem)] : sur un telephone de 375 px, un simple w-full
+        // collait le formulaire aux deux bords de l ecran, sans marge.
+        "fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-surface p-6 shadow-lg focus:outline-none max-h-[90vh] overflow-y-auto",
         className,
       )}
       {...props}

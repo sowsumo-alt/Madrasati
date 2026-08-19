@@ -15,7 +15,7 @@ const DEFAULT_TEMPLATE_AR =
 export default async function TeacherAtRiskPage() {
   const user = await requireFeature(FEATURES.AT_RISK_DETECTION, ROLES.TEACHER);
   const scope = await getTeacherScope(user.id, user.schoolId);
-  const classIds = scope?.classIds ?? [];
+  const classIds = scope?.currentClassIds ?? [];
 
   const [students, school, template] = await Promise.all([
     classIds.length > 0 ? findAtRiskStudents(user.schoolId, classIds) : Promise.resolve([]),

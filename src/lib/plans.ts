@@ -18,11 +18,35 @@ export function isPlan(value: string): value is Plan {
   return (PLANS as readonly string[]).includes(value);
 }
 
+/**
+ * Libellés français fixes. Réservés à ce qui ne suit pas la langue de
+ * l'utilisateur : le tableau de bord Super Admin (qui n'existe qu'en
+ * français) et les messages WhatsApp que l'éditeur envoie lui-même. Tout ce
+ * que voit un directeur passe par PLAN_LABEL_KEYS et le dictionnaire.
+ */
 export const PLAN_LABELS: Record<Plan, string> = {
   standard: "Standard",
   advanced: "Avancé",
   network: "Réseau",
 };
+
+/** Clés de traduction des noms de formule, pour les écrans côté école. */
+export const PLAN_LABEL_KEYS: Record<Plan, string> = {
+  standard: "plan.name.standard",
+  advanced: "plan.name.advanced",
+  network: "plan.name.network",
+};
+
+/** Clés de traduction des fonctionnalités de base, dans l'ordre d'affichage. */
+export const STANDARD_FEATURE_KEYS = [
+  "plan.std.core",
+  "plan.std.grades",
+  "plan.std.attendance",
+  "plan.std.finance",
+  "plan.std.whatsapp",
+  "plan.std.reportCards",
+  "plan.std.schedule",
+];
 
 /**
  * Tarifs officiels, à l'élève et au mois. Source unique : le tableau
@@ -59,6 +83,17 @@ export const IS_FEATURE_LIVE: Record<Feature, boolean> = {
   [FEATURES.MULTI_SCHOOL]: false,
 };
 
+/** Clé de traduction du libellé d'une fonctionnalité payante. */
+export const FEATURE_LABEL_KEYS: Record<Feature, string> = {
+  parentPortal: "plan.feature.parentPortal",
+  advancedStats: "plan.feature.advancedStats",
+  bilingualMessages: "plan.feature.bilingualMessages",
+  hrPayroll: "plan.feature.hrPayroll",
+  schoolLife: "plan.feature.schoolLife",
+  atRiskDetection: "plan.feature.atRiskDetection",
+  multiSchool: "plan.feature.multiSchool",
+};
+
 export interface FeatureInfo {
   feature: Feature;
   label: string;
@@ -77,16 +112,10 @@ const NETWORK_ONLY_FEATURES: FeatureInfo[] = [
   { feature: FEATURES.MULTI_SCHOOL, label: "Gestion de plusieurs établissements + tableau consolidé" },
 ];
 
-/** Fonctionnalités de base, incluses dans toutes les formules (pour l'affichage du comparatif). */
-export const STANDARD_FEATURES = [
-  "Élèves, classes, matières",
-  "Notes et moyennes",
-  "Présences (appel quotidien)",
-  "Finance (frais, paiements, reçus)",
-  "Relances WhatsApp de base",
-  "Bulletins automatiques (français)",
-  "Emploi du temps",
-];
+// Les fonctionnalités de base du comparatif sont désormais désignées par
+// STANDARD_FEATURE_KEYS (plus haut) et traduites depuis le dictionnaire : la
+// liste française en dur qui vivait ici laissait le tableau des formules
+// entièrement en français pour un directeur en anglais ou en arabe.
 
 export const PLAN_FEATURE_LIST: Record<Plan, FeatureInfo[]> = {
   standard: [],

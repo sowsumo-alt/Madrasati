@@ -94,7 +94,7 @@ export function ScheduleView({
           <p className="mt-1 text-sm text-foreground/60">{t("schedule.subtitle")}</p>
         </div>
         <div className="no-print flex gap-2">
-          <PrintButton label="Imprimer" />
+          <PrintButton label={t("common.print")} />
           <Button onClick={() => setFormOpen(true)} disabled={!selectedClass}>
             <Plus className="h-4 w-4" />{t("schedule.newSlot")}</Button>
         </div>

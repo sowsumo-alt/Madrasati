@@ -37,7 +37,7 @@ export default async function TeacherHome() {
 
   const [classes, studentCount, upcomingExams, todaySlots] = await Promise.all([
     prisma.classRoom.findMany({
-      where: { id: { in: scope.classIds } },
+      where: { id: { in: scope.currentClassIds } },
       orderBy: { name: "asc" },
       select: {
         id: true,
@@ -50,10 +50,10 @@ export default async function TeacherHome() {
       },
     }),
     prisma.student.count({
-      where: { classId: { in: scope.classIds }, status: "ACTIVE" },
+      where: { classId: { in: scope.currentClassIds }, status: "ACTIVE" },
     }),
     prisma.exam.findMany({
-      where: { classId: { in: scope.classIds }, date: { gte: new Date() } },
+      where: { classId: { in: scope.currentClassIds }, date: { gte: new Date() } },
       orderBy: { date: "asc" },
       take: 5,
       include: {
@@ -63,7 +63,7 @@ export default async function TeacherHome() {
     }),
     todayDow
       ? prisma.scheduleSlot.findMany({
-          where: { classId: { in: scope.classIds }, dayOfWeek: todayDow },
+          where: { classId: { in: scope.currentClassIds }, dayOfWeek: todayDow },
           orderBy: { startMinutes: "asc" },
           include: {
             classRoom: { select: { name: true } },

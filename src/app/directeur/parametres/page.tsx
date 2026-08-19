@@ -2,8 +2,9 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
-import { isPlan, trialEndsAt, daysBetween } from "@/lib/plans";
+import { effectivePlan, trialEndsAt, daysBetween } from "@/lib/plans";
 import { SettingsView, type YearRow } from "./settings-view";
+import { CURRENT_YEAR } from "@/lib/school-year";
 
 export default async function SettingsPage() {
   const user = await requireRole(ROLES.DIRECTOR);
@@ -16,7 +17,7 @@ export default async function SettingsPage() {
     }),
     prisma.student.count({ where: { schoolId: user.schoolId, status: "ACTIVE" } }),
     prisma.teacher.count({ where: { schoolId: user.schoolId, status: "ACTIVE" } }),
-    prisma.classRoom.count({ where: { schoolId: user.schoolId } }),
+    prisma.classRoom.count({ where: { schoolId: user.schoolId, ...CURRENT_YEAR } }),
   ]);
 
   if (!school) notFound();
@@ -40,7 +41,10 @@ export default async function SettingsPage() {
       }}
       years={yearRows}
       counts={{ students, teachers, classes }}
-      plan={isPlan(school.plan) ? school.plan : "standard"}
+      // Plan réellement accordé, pas le plan inscrit : une école « Restreinte »
+      // lisait « Formule actuelle : Avancé » sur cet écran alors que toutes
+      // les fonctionnalités Avancé lui étaient refusées partout ailleurs.
+      plan={effectivePlan(school)}
       trialDaysLeft={
         school.subscriptionStatus === "trial"
           ? daysBetween(new Date(), trialEndsAt(school))

@@ -2,12 +2,15 @@ import Link from "next/link";
 import { ArrowLeft, GraduationCap } from "lucide-react";
 import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import { ROLE_LABELS } from "@/lib/roles";
+import { ROLE_LABEL_KEYS } from "@/lib/roles";
+import type { TranslationKey } from "@/lib/i18n/dictionaries";
+import { getTranslations } from "@/lib/i18n/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PasswordForm } from "./password-form";
 
 export default async function AccountPage() {
   const sessionUser = await requireUser();
+  const { t } = await getTranslations();
 
   const user = await prisma.user.findUnique({
     where: { id: sessionUser.id },
@@ -55,7 +58,9 @@ export default async function AccountPage() {
             <p className="font-medium text-foreground">{user?.name}</p>
             <p className="text-foreground/60">{user?.email}</p>
             <p className="mt-1 text-xs text-foreground/50">
-              {ROLE_LABELS[user?.role ?? ""] ?? user?.role}
+              {ROLE_LABEL_KEYS[user?.role ?? ""]
+                ? t(ROLE_LABEL_KEYS[user!.role] as TranslationKey)
+                : user?.role}
             </p>
           </div>
 

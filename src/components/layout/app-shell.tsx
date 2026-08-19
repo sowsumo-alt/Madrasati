@@ -11,13 +11,15 @@ import { Logo } from "@/components/brand/logo";
 import { LanguageToggle } from "./language-toggle";
 import { navGroupsByRole, type NavKey, type NavItem } from "./nav-items";
 import { planHasFeature, type Plan } from "@/lib/plans";
+import type { TranslationKey } from "@/lib/i18n/dictionaries";
 
 interface AppShellProps {
   children: React.ReactNode;
   navKey: NavKey;
   schoolName: string;
   userName: string;
-  roleLabel: string;
+  /** Clé de traduction du rôle (voir ROLE_LABEL_KEYS) : affiché sous le nom. */
+  roleKey: string;
   /** Cible de la recherche globale ; la barre est masquée si absente. */
   searchHref?: string;
   /** Pastille rouge de l'icône cloche (0 = pas de pastille). */
@@ -51,7 +53,7 @@ export function AppShell({
   navKey,
   schoolName,
   userName,
-  roleLabel,
+  roleKey,
   searchHref,
   alertCount = 0,
   alertHref = "#",
@@ -198,7 +200,7 @@ export function AppShell({
               <span className="text-sm font-semibold text-foreground">
                 {userName}
               </span>
-              <span className="text-xs text-foreground/50">{roleLabel}</span>
+              <span className="text-xs text-foreground/50">{t(roleKey as TranslationKey)}</span>
             </span>
           </Link>
         </div>

@@ -16,6 +16,8 @@ import {
 } from "@/lib/plans";
 import { findAtRiskStudents } from "@/lib/at-risk";
 import { YearEndedBanner } from "./year-ended-banner";
+import { CURRENT_YEAR } from "@/lib/school-year";
+import { outstandingTotal } from "@/lib/finance";
 import {
   BookOpen,
   CalendarCheck,
@@ -100,12 +102,20 @@ export default async function DashboardPage() {
     recentAttendance,
     grades,
     students,
+    paymentsByFee,
     school,
   ] = await Promise.all([
     prisma.student.count({ where: { schoolId, status: "ACTIVE" } }),
-    prisma.student.count({ where: { schoolId, createdAt: { gte: startOfMonth } } }),
+    // Même filtre ACTIVE que le compteur principal : sans lui, la mention
+    // « +17 ce mois » s'affichait sous une tuile annonçant 15 élèves, parce
+    // que les élèves désinscrits restaient comptés dans les arrivées.
+    prisma.student.count({
+      where: { schoolId, status: "ACTIVE", createdAt: { gte: startOfMonth } },
+    }),
     prisma.teacher.count({ where: { schoolId, status: "ACTIVE" } }),
-    prisma.teacher.count({ where: { schoolId, createdAt: { gte: startOfMonth } } }),
+    prisma.teacher.count({
+      where: { schoolId, status: "ACTIVE", createdAt: { gte: startOfMonth } },
+    }),
     prisma.parent.count({ where: { schoolId } }),
     prisma.attendanceRecord.findMany({
       where: { schoolId, date: { gte: startOfToday, lt: endOfToday } },
@@ -115,16 +125,27 @@ export default async function DashboardPage() {
       where: { schoolId, paidAt: { gte: startOfMonth } },
       _sum: { amount: true },
     }),
-    prisma.fee.aggregate({
+    // Le reste dû, pas le montant facturé : un frais de 15 000 MRU déjà réglé
+    // à hauteur de 10 000 pesait pour 15 000 dans cette tuile, alors que la
+    // page Finance et les relances WhatsApp, elles, annonçaient 5 000.
+    prisma.fee.findMany({
       where: { schoolId, status: { not: "PAID" } },
-      _sum: { amount: true },
+      select: { id: true, amount: true },
     }),
     prisma.exam.count({
       where: { schoolId, date: { gte: startOfToday, lt: inSevenDays } },
     }),
     prisma.classRoom.findMany({
-      where: { schoolId },
-      select: { name: true, level: true, _count: { select: { students: true } } },
+      where: { schoolId, ...CURRENT_YEAR },
+      select: {
+        name: true,
+        level: true,
+        // Même règle de comptage que la tuile « Élèves inscrits » : sans le
+        // filtre ACTIVE, la répartition par niveau et le nombre de classes
+        // actives comptaient aussi les élèves inactifs ou transférés, et
+        // annonçaient un total différent de celui des Statistiques.
+        _count: { select: { students: { where: { status: "ACTIVE" } } } },
+      },
     }),
     prisma.attendanceRecord.findMany({
       where: { schoolId, date: { gte: since } },
@@ -182,7 +203,19 @@ export default async function DashboardPage() {
           select: {
             maxScore: true,
             subjectId: true,
+            classId: true,
             subject: { select: { coefficient: true } },
+            // Le coefficient peut être redéfini classe par classe. Les
+            // bulletins honorent cette surcharge (report-card-data.ts) : sans
+            // elle ici, ce classement affichait une autre moyenne que le
+            // bulletin du même élève.
+            classRoom: {
+              select: {
+                classSubjects: {
+                  select: { subjectId: true, coefficientOverride: true },
+                },
+              },
+            },
           },
         },
       },
@@ -196,6 +229,11 @@ export default async function DashboardPage() {
         classRoom: { select: { name: true } },
       },
     }),
+    prisma.payment.groupBy({
+      by: ["feeId"],
+      where: { schoolId },
+      _sum: { amount: true },
+    }),
     prisma.school.findUnique({
       where: { id: schoolId },
       select: {
@@ -207,6 +245,10 @@ export default async function DashboardPage() {
       },
     }),
   ]);
+
+  // Reste réellement dû, paiements partiels déduits (voir lib/finance.ts).
+  const paidByFee = new Map(paymentsByFee.map((p) => [p.feeId, p._sum.amount ?? 0]));
+  const outstanding = outstandingTotal(unpaidFees, paidByFee);
 
   const atRiskEnabled = schoolHasFeature(school, FEATURES.AT_RISK_DETECTION);
   const atRiskCount = atRiskEnabled ? (await findAtRiskStudents(schoolId)).length : 0;
@@ -274,10 +316,13 @@ export default async function DashboardPage() {
   for (const g of grades) {
     if (g.score == null) continue;
     const bySubject = perStudentSubject.get(g.studentId) ?? new Map();
+    const override = g.exam.classRoom.classSubjects.find(
+      (cs) => cs.subjectId === g.exam.subjectId,
+    )?.coefficientOverride;
     const entry = bySubject.get(g.exam.subjectId) ?? {
       total: 0,
       count: 0,
-      coefficient: g.exam.subject.coefficient,
+      coefficient: override ?? g.exam.subject.coefficient,
     };
     entry.total += (g.score / (g.exam.maxScore || 20)) * 20;
     entry.count += 1;
@@ -404,19 +449,18 @@ export default async function DashboardPage() {
             <span>
               <span className="block font-medium text-amber-900">
                 {trialDaysLeft! > 0
-                  ? `Votre essai gratuit se termine dans ${trialDaysLeft} jour${trialDaysLeft! > 1 ? "s" : ""}`
+                  ? t("dashboard.trialEndsIn").replace("{days}", String(trialDaysLeft))
                   : trialDaysLeft === 0
-                    ? "Votre essai gratuit se termine aujourd'hui"
-                    : "Votre essai gratuit est terminé"}
+                    ? t("dashboard.trialEndsToday")
+                    : t("dashboard.trialEnded")}
               </span>
               <span className="block text-xs text-amber-800/80">
-                Choisissez votre formule pour continuer sans interruption — vos
-                données sont conservées.
+                {t("dashboard.trialCta")}
               </span>
             </span>
           </span>
           <span className="shrink-0 text-xs font-medium text-amber-700">
-            Voir les formules →
+            {t("dashboard.seePlans")}
           </span>
         </Link>
       )}
@@ -431,11 +475,11 @@ export default async function DashboardPage() {
               <UserSearch className="h-4.5 w-4.5" strokeWidth={2} />
             </span>
             <span className="font-medium text-amber-900">
-              {atRiskCount} élève{atRiskCount > 1 ? "s" : ""} à surveiller cette semaine
+              {t("dashboard.atRiskBanner").replace("{count}", String(atRiskCount))}
             </span>
           </span>
           <span className="shrink-0 text-xs font-medium text-amber-700">
-            Voir le détail →
+            {t("dashboard.seeDetail")}
           </span>
         </Link>
       )}
@@ -492,7 +536,7 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatTile
           label={t("dashboard.unpaid")}
-          value={formatMRU(unpaidFees._sum.amount ?? 0)}
+          value={formatMRU(outstanding)}
           icon={Hourglass}
           tone="warning"
           hint={t("dashboard.unpaidHint")}
@@ -604,13 +648,13 @@ export default async function DashboardPage() {
               {t("dashboard.viewReportCards")}
             </Link>
           </CardHeader>
-          <CardContent className="p-0">
+          <CardContent className="overflow-x-auto p-0">
             {topStudents.length === 0 ? (
               <p className="px-5 py-10 text-center text-sm text-foreground/50">
                 {t("dashboard.noGradesYet")}
               </p>
             ) : (
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[26rem] text-sm">
                 <thead>
                   <tr className="border-b border-border text-xs text-foreground/50">
                     <th className="px-5 py-2.5 text-left font-medium">#</th>

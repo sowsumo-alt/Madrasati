@@ -46,7 +46,7 @@ export function StatisticsView({ data }: { data: StatsData }) {
           <h1 className="text-xl font-semibold text-foreground">Statistiques</h1>
           <p className="mt-1 text-sm text-foreground/60">{t("stats.subtitle")}</p>
         </div>
-        <PrintButton label="Imprimer" />
+        <PrintButton label={t("common.print")} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

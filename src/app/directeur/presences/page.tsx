@@ -3,6 +3,7 @@ import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { FEATURES, schoolHasFeature } from "@/lib/plans";
 import { AttendanceView, type AttendanceStudent } from "./attendance-view";
+import { CURRENT_YEAR } from "@/lib/school-year";
 
 const DEFAULT_ABSENCE_TEMPLATE =
   "Bonjour {parentName},\n\nNous vous informons que {studentName} est absent(e) aujourd'hui ({date}). Merci de nous contacter si besoin.\n\n{schoolName}";
@@ -26,7 +27,7 @@ export default async function AttendancePage({
   const params = await searchParams;
 
   const classes = await prisma.classRoom.findMany({
-    where: { schoolId: user.schoolId },
+    where: { schoolId: user.schoolId, ...CURRENT_YEAR },
     orderBy: { name: "asc" },
     select: { id: true, name: true },
   });

@@ -12,13 +12,16 @@ import { CONTACT_PHONE } from "@/lib/contact";
 import {
   PLANS,
   PLAN_LABELS,
+  PLAN_LABEL_KEYS,
   PLAN_PRICE,
   PLAN_FEATURE_LIST,
-  STANDARD_FEATURES,
+  STANDARD_FEATURE_KEYS,
+  FEATURE_LABEL_KEYS,
   IS_FEATURE_LIVE,
   TRIAL_REMINDER_DAYS,
   type Plan,
 } from "@/lib/plans";
+import type { TranslationKey } from "@/lib/i18n/dictionaries";
 import { requestPlanUpgrade } from "./actions";
 import { useLanguage } from "@/lib/i18n/language-provider";
 
@@ -35,6 +38,11 @@ export function PlanCard({
   trialDaysLeft: number | null;
 }) {
   const { t } = useLanguage();
+  // Les libellés de formule sont désignés par des clés construites ailleurs
+  // (src/lib/plans.ts) : ce petit adaptateur évite d'avoir à élargir le type
+  // TranslationKey, qui sert justement à garantir qu'aucune clé n'existe en
+  // français sans exister aussi en anglais et en arabe.
+  const tk = (key: string) => t(key as TranslationKey);
   const [requestingPlan, setRequestingPlan] = useState<Plan | null>(null);
   const [requested, setRequested] = useState<Plan | null>(null);
 
@@ -76,15 +84,13 @@ export function PlanCard({
             <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
               <Sparkles className="h-4 w-4 text-accent-500" />
               {trialDaysLeft > 0
-                ? `Essai gratuit — ${trialDaysLeft} jour${trialDaysLeft > 1 ? "s" : ""} restant${trialDaysLeft > 1 ? "s" : ""}`
+                ? t("plan.trialRemaining").replace("{days}", String(trialDaysLeft))
                 : trialDaysLeft === 0
-                  ? "Essai gratuit — dernier jour"
-                  : "Votre essai gratuit est terminé"}
+                  ? t("plan.trialLastDay")
+                  : t("plan.trialOver")}
             </p>
             <p className="mt-1 text-sm text-foreground/70">
-              {trialDaysLeft >= 0
-                ? "Vous testez actuellement toutes les fonctionnalités du plan Avancé gratuitement. Choisissez votre formule définitive avant la fin de votre essai pour continuer sans interruption."
-                : "Choisissez votre formule ci-dessous pour retrouver toutes les fonctionnalités. Vos données sont conservées, rien n'est supprimé."}
+              {trialDaysLeft >= 0 ? t("plan.trialHint") : t("plan.trialOverHint")}
             </p>
           </div>
         )}
@@ -109,26 +115,34 @@ export function PlanCard({
                 )}
               >
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-foreground">{PLAN_LABELS[plan]}</h3>
+                  <h3 className="font-semibold text-foreground">
+                    {tk(PLAN_LABEL_KEYS[plan])}
+                  </h3>
                   {isCurrent && (
                     <span className="rounded-full bg-primary-600 px-2 py-0.5 text-[11px] font-medium text-white">
-                      Formule actuelle
+                      {t("plan.current")}
                     </span>
                   )}
                 </div>
-                <p className="mt-1 text-sm text-foreground/60">{price.label}</p>
+                <p className="mt-1 text-sm text-foreground/60">
+                  {price.amountPerStudent != null
+                    ? `${price.amountPerStudent} ${t("plan.perStudentMonth")}`
+                    : t("plan.onQuote")}
+                </p>
                 {estimate && (
                   <p className="text-xs text-foreground/40">
-                    ≈ {estimate} / mois pour {studentCount} élève(s)
+                    {t("plan.estimate")
+                      .replace("{amount}", estimate)
+                      .replace("{count}", String(studentCount))}
                   </p>
                 )}
 
                 <ul className="mt-4 flex-1 space-y-2 text-sm">
                   {plan === "standard" ? (
-                    STANDARD_FEATURES.map((f) => (
-                      <li key={f} className="flex items-start gap-2 text-foreground/70">
+                    STANDARD_FEATURE_KEYS.map((key) => (
+                      <li key={key} className="flex items-start gap-2 text-foreground/70">
                         <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary-600" />
-                        {f}
+                        {tk(key)}
                       </li>
                     ))
                   ) : (
@@ -142,8 +156,8 @@ export function PlanCard({
                             <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-foreground/25" />
                           )}
                           <span className={cn(!IS_FEATURE_LIVE[f.feature] && "text-foreground/40")}>
-                            {f.label}
-                            {!IS_FEATURE_LIVE[f.feature] && " (bientôt disponible)"}
+                            {tk(FEATURE_LABEL_KEYS[f.feature])}
+                            {!IS_FEATURE_LIVE[f.feature] && ` ${t("plan.comingSoon")}`}
                           </span>
                         </li>
                       ))}
@@ -166,7 +180,7 @@ export function PlanCard({
                     ) : (
                       <MessageCircle className="h-3.5 w-3.5" />
                     )}
-                    {requested === plan ? "Demande envoyée" : `Demander cette formule`}
+                    {requested === plan ? t("plan.requested") : t("plan.request")}
                   </Button>
                 )}
               </div>

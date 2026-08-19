@@ -118,9 +118,21 @@ export const DEFAULT_TEMPLATES = [
  * Année scolaire en cours : elle commence en septembre. Une inscription faite
  * en mars 2026 rejoint donc l'année « 2025-2026 », pas « 2026-2027 ».
  */
+/**
+ * Le seuil est en juillet (mois 6), pas en septembre : une école qui
+ * s'inscrit en juillet ou en août prépare la rentrée de septembre, elle ne
+ * revient pas sur l'année qui vient de se terminer le 30 juin. Avec un seuil
+ * en septembre, toute école créée pendant les deux mois d'inscriptions
+ * recevait une année scolaire déjà expirée et voyait, dès sa première
+ * connexion, le bandeau « votre année scolaire est terminée ».
+ */
+const NEW_YEAR_STARTS_FROM_MONTH = 6; // juillet
+
 export function currentAcademicYear(today = new Date()) {
   const startYear =
-    today.getMonth() >= 8 ? today.getFullYear() : today.getFullYear() - 1;
+    today.getMonth() >= NEW_YEAR_STARTS_FROM_MONTH
+      ? today.getFullYear()
+      : today.getFullYear() - 1;
   return {
     label: `${startYear}-${startYear + 1}`,
     startDate: new Date(startYear, 8, 1),

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { requireRole } from "@/lib/session";
-import { ROLES } from "@/lib/roles";
+import { ROLES, ROLE_LABEL_KEYS } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { AppShell } from "@/components/layout/app-shell";
 import { effectivePlan } from "@/lib/plans";
@@ -32,7 +32,7 @@ export default async function DirectorLayout({
       navKey="director"
       schoolName={school?.name ?? "Madrasati"}
       userName={user.name ?? ""}
-      roleLabel="Directeur"
+      roleKey={ROLE_LABEL_KEYS.DIRECTOR}
       plan={school ? effectivePlan(school) : "standard"}
       searchHref="/directeur/eleves"
       alertCount={overdueFees}

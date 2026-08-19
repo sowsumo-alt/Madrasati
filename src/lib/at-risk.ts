@@ -16,10 +16,10 @@ export interface AtRiskStudent {
  * ni contester.
  */
 export const AT_RISK_CRITERIA = [
-  "Moyenne générale inférieure à 10/20",
+  "Moyenne générale inférieure à 10/20, pondérée par les coefficients comme sur le bulletin",
   "Baisse de plus de 3 points entre les deux derniers examens",
-  "Taux de présence inférieur à 80 % sur le mois (à partir de 5 appels)",
-  "Au moins 2 incidents disciplinaires dans le mois",
+  "Taux de présence inférieur à 80 % sur les 30 derniers jours (à partir de 5 appels)",
+  "Au moins 2 incidents disciplinaires depuis le début du mois",
 ];
 
 const LOW_AVERAGE_THRESHOLD = 10;
@@ -66,7 +66,23 @@ export async function findAtRiskStudents(
   const [grades, attendance, incidents] = await Promise.all([
     prisma.grade.findMany({
       where: { studentId: { in: studentIds }, isAbsent: false, score: { not: null } },
-      select: { studentId: true, score: true, exam: { select: { date: true, maxScore: true } } },
+      select: {
+        studentId: true,
+        score: true,
+        exam: {
+          select: {
+            date: true,
+            maxScore: true,
+            subjectId: true,
+            subject: { select: { coefficient: true } },
+            classRoom: {
+              select: {
+                classSubjects: { select: { subjectId: true, coefficientOverride: true } },
+              },
+            },
+          },
+        },
+      },
       orderBy: { exam: { date: "desc" } },
     }),
     prisma.attendanceRecord.findMany({
@@ -80,12 +96,56 @@ export async function findAtRiskStudents(
     }),
   ]);
 
-  const gradesByStudent = new Map<string, number[]>();
+  // Deux lectures distinctes des mêmes notes.
+  //
+  // `recentByStudent` garde la suite chronologique brute, de la plus récente
+  // à la plus ancienne : c'est elle qui sert au critère « moyenne en baisse ».
+  //
+  // `bySubject` regroupe par matière avec son coefficient, pour calculer une
+  // moyenne générale par la même méthode que le bulletin (moyenne de chaque
+  // matière, puis pondération). Une moyenne simple de toutes les notes donnait
+  // un chiffre différent de celui imprimé sur le bulletin du même élève : le
+  // directeur voyait « Moyenne faible : 9,8 » sur un élève dont le bulletin
+  // annonçait 10,4, sans pouvoir trancher lequel des deux disait vrai.
+  const recentByStudent = new Map<string, number[]>();
+  const bySubject = new Map<
+    string,
+    Map<string, { total: number; count: number; coefficient: number }>
+  >();
   for (const g of grades) {
     if (g.score == null || !g.exam.maxScore) continue;
-    const list = gradesByStudent.get(g.studentId) ?? [];
-    list.push((g.score / g.exam.maxScore) * 20);
-    gradesByStudent.set(g.studentId, list);
+    const scaled = (g.score / g.exam.maxScore) * 20;
+
+    const list = recentByStudent.get(g.studentId) ?? [];
+    list.push(scaled);
+    recentByStudent.set(g.studentId, list);
+
+    const override = g.exam.classRoom.classSubjects.find(
+      (cs) => cs.subjectId === g.exam.subjectId,
+    )?.coefficientOverride;
+    const subjects = bySubject.get(g.studentId) ?? new Map();
+    const entry = subjects.get(g.exam.subjectId) ?? {
+      total: 0,
+      count: 0,
+      coefficient: override ?? g.exam.subject.coefficient,
+    };
+    entry.total += scaled;
+    entry.count += 1;
+    subjects.set(g.exam.subjectId, entry);
+    bySubject.set(g.studentId, subjects);
+  }
+
+  /** Moyenne générale pondérée, identique à celle du bulletin. */
+  function weightedAverageFor(studentId: string): number | null {
+    const subjects = bySubject.get(studentId);
+    if (!subjects || subjects.size === 0) return null;
+    let weightedSum = 0;
+    let totalCoefficient = 0;
+    for (const entry of subjects.values()) {
+      weightedSum += (entry.total / entry.count) * entry.coefficient;
+      totalCoefficient += entry.coefficient;
+    }
+    return totalCoefficient > 0 ? weightedSum / totalCoefficient : null;
   }
 
   const attendanceByStudent = new Map<string, { present: number; total: number }>();
@@ -105,10 +165,10 @@ export async function findAtRiskStudents(
 
     // Notes normalisées sur 20, de la plus récente à la plus ancienne
     // (ordre imposé par le tri de la requête ci-dessus).
-    const grades20 = gradesByStudent.get(s.id) ?? [];
+    const grades20 = recentByStudent.get(s.id) ?? [];
     if (grades20.length > 0) {
-      const average = grades20.reduce((sum, v) => sum + v, 0) / grades20.length;
-      if (average < LOW_AVERAGE_THRESHOLD) {
+      const average = weightedAverageFor(s.id);
+      if (average != null && average < LOW_AVERAGE_THRESHOLD) {
         reasons.push(`Moyenne faible : ${average.toFixed(1)}/20`);
       }
       if (grades20.length >= 2) {
@@ -123,7 +183,7 @@ export async function findAtRiskStudents(
     if (att && att.total >= MIN_ATTENDANCE_RECORDS) {
       const rate = Math.round((att.present / att.total) * 100);
       if (rate < ATTENDANCE_RATE_THRESHOLD) {
-        reasons.push(`Présence : ${rate}% ce mois-ci`);
+        reasons.push(`Présence : ${rate}% sur 30 jours`);
       }
     }
 

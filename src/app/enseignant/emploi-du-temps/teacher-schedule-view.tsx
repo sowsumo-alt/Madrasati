@@ -80,7 +80,7 @@ export function TeacherScheduleView({
         <div className="flex gap-2">
           <Button onClick={() => setFormOpen(true)}>
             <Plus className="h-4 w-4" />{t("schedule.addCourse")}</Button>
-          <PrintButton label="Imprimer" />
+          <PrintButton label={t("common.print")} />
         </div>
       </div>
 

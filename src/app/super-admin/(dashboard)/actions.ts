@@ -39,6 +39,13 @@ export async function changeSubscriptionStatus(schoolId: string, status: string)
   const startsTrial =
     status === "trial" && school.subscriptionStatus !== "trial" && !school.nextDueAt;
 
+  // Passer une école directement en « Actif » sans encaisser de paiement (donc
+  // sans passer par markAsPaid) ne lui posait aucune échéance : elle n'entrait
+  // jamais en retard, n'apparaissait jamais dans les relances et sortait
+  // silencieusement du suivi de facturation. On lui ouvre un cycle à partir
+  // d'aujourd'hui, exactement comme un premier paiement l'aurait fait.
+  const startsBillingCycle = status === "active" && !school.nextDueAt;
+
   const data: { subscriptionStatus: string; nextDueAt?: Date } = {
     subscriptionStatus: status,
   };
@@ -46,6 +53,10 @@ export async function changeSubscriptionStatus(schoolId: string, status: string)
     const end = new Date();
     end.setDate(end.getDate() + TRIAL_DAYS);
     data.nextDueAt = end;
+  } else if (startsBillingCycle) {
+    const due = new Date();
+    due.setDate(due.getDate() + BILLING_CYCLE_DAYS);
+    data.nextDueAt = due;
   }
 
   await prisma.school.update({ where: { id: schoolId }, data });

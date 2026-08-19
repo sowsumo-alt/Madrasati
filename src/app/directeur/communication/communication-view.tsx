@@ -64,6 +64,14 @@ export function CommunicationView({
   const [message, setMessage] = useState("");
   /** Variables du modèle choisi qu'on n'a pas pu renseigner : bloque l'envoi. */
   const [missingVars, setMissingVars] = useState<string[]>([]);
+  /**
+   * Valeurs saisies à la main par le directeur pour les variables que
+   * l'application ne connaît pas (le motif d'une alerte, la date d'une
+   * réunion). Sans ce champ, ces modèles restaient bloqués définitivement :
+   * le message invitait à « modifier le texte à la main », mais retoucher le
+   * texte ne débloquait jamais le bouton d'envoi.
+   */
+  const [manualVars, setManualVars] = useState<Record<string, string>>({});
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<TemplateEditTarget | null>(null);
@@ -90,25 +98,38 @@ export function CommunicationView({
    * manquant doit bloquer l'envoi : un parent qui reçoit « frais de scolarité
    * de  MRU » comprend surtout que l'école ne maîtrise pas ses outils.
    */
-  function applyTemplate(tpl: TemplateRow, recipient: Recipient | null) {
+  function applyTemplate(
+    tpl: TemplateRow,
+    recipient: Recipient | null,
+    manual: Record<string, string> = {},
+  ) {
     const today = new Date();
     const child = recipient?.children[0] ?? null;
-    const base = {
+    // Une saisie manuelle non vide l'emporte : c'est elle qui permet de
+    // compléter un motif ou une date que l'application ne peut pas deviner.
+    const filled = <T extends Record<string, string>>(values: T) => {
+      const out: Record<string, string> = { ...values };
+      for (const [key, value] of Object.entries(manual)) {
+        if (value.trim()) out[key] = value.trim();
+      }
+      return out;
+    };
+    const base = filled({
       parentName: recipient?.name ?? "",
       teacherName: recipient?.name ?? "",
       studentName: child?.name ?? "",
       amount: child?.outstanding ?? "",
-    };
+    });
 
     const fr = fillTemplateChecked(tpl.body, {
-      ...base,
       date: formatLongDate(today),
+      ...base,
       schoolName: schoolSignatureFr(schoolName),
     });
     const ar = tpl.bodyAr
       ? fillTemplateChecked(tpl.bodyAr, {
-          ...base,
           date: formatLongDateAr(today),
+          ...base,
           schoolName: schoolSignatureAr(schoolName),
         })
       : null;
@@ -123,6 +144,9 @@ export function CommunicationView({
 
   function handlePickTemplate(tpl: TemplateRow) {
     setTemplateId(tpl.id);
+    // Changer de modèle repart d'une page blanche : le motif saisi pour une
+    // alerte n'a aucun sens dans une invitation à une réunion.
+    setManualVars({});
     const { text, missing } = applyTemplate(tpl, selected);
     setMessage(text);
     setMissingVars(missing);
@@ -132,7 +156,18 @@ export function CommunicationView({
     setSelectedId(recipient.id);
     const tpl = templates.find((t) => t.id === templateId);
     if (!tpl) return;
-    const { text, missing } = applyTemplate(tpl, recipient);
+    const { text, missing } = applyTemplate(tpl, recipient, manualVars);
+    setMessage(text);
+    setMissingVars(missing);
+  }
+
+  /** Saisie d'une variable manquante : le message se reconstruit à chaque frappe. */
+  function handleManualVar(name: string, value: string) {
+    const next = { ...manualVars, [name]: value };
+    setManualVars(next);
+    const tpl = templates.find((t) => t.id === templateId);
+    if (!tpl) return;
+    const { text, missing } = applyTemplate(tpl, selected, next);
     setMessage(text);
     setMissingVars(missing);
   }
@@ -319,7 +354,8 @@ export function CommunicationView({
               )}
 
               {blocked && (
-                <div className="flex items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5">
+                <div className="space-y-2.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5">
+                  <div className="flex items-start gap-2.5">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
                   <div className="text-xs text-amber-900">
                     <p className="font-medium">
@@ -329,9 +365,26 @@ export function CommunicationView({
                     </p>
                     <p className="mt-1 text-amber-800/80">
                       Non renseigné :{" "}
-                      {missingVars.map((v) => describeVariable(v)).join(", ")}. Complétez
-                      la donnée manquante, ou modifiez le texte à la main ci-dessus.
+                      {missingVars.map((v) => describeVariable(v)).join(", ")}.
+                      Renseignez {missingVars.length > 1 ? "ces champs" : "ce champ"} pour
+                      débloquer l&apos;envoi — le message se met à jour à chaque frappe.
                     </p>
+                  </div>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {missingVars.map((name) => (
+                      <label key={name} className="block text-xs">
+                        <span className="mb-1 block font-medium capitalize text-amber-900">
+                          {describeVariable(name)}
+                        </span>
+                        <Input
+                          value={manualVars[name] ?? ""}
+                          onChange={(e) => handleManualVar(name, e.target.value)}
+                          placeholder={describeVariable(name)}
+                          className="h-9 bg-surface text-sm"
+                        />
+                      </label>
+                    ))}
                   </div>
                 </div>
               )}
@@ -345,12 +398,12 @@ export function CommunicationView({
                     className="inline-flex items-center gap-2 rounded-lg bg-primary-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-800"
                   >
                     <MessageCircle className="h-4 w-4" />
-                    Ouvrir WhatsApp
+                    {t("comm.openWhatsApp")}
                   </a>
                 ) : (
                   <Button disabled>
                     <MessageCircle className="h-4 w-4" />
-                    Ouvrir WhatsApp
+                    {t("comm.openWhatsApp")}
                   </Button>
                 )}
               </div>

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { requireFeature } from "@/lib/session";
-import { ROLES } from "@/lib/roles";
+import { ROLES, ROLE_LABEL_KEYS } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { AppShell } from "@/components/layout/app-shell";
 import { effectivePlan, FEATURES } from "@/lib/plans";
@@ -20,7 +20,7 @@ export default async function ParentLayout({ children }: { children: ReactNode }
       navKey="parent"
       schoolName={school?.name ?? "Madrasati"}
       userName={user.name ?? ""}
-      roleLabel="Parent"
+      roleKey={ROLE_LABEL_KEYS.PARENT}
       plan={school ? effectivePlan(school) : "standard"}
     >
       {children}
