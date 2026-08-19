@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/select";
 import { examSchema, TERMS, type ExamFormValues } from "./schema";
 import { createExam } from "./actions";
+import { useLanguage } from "@/lib/i18n/language-provider";
 
 export interface ExamClassOption {
   id: string;
@@ -49,6 +50,7 @@ const emptyValues: ExamFormValues = {
 };
 
 export function ExamFormDialog({ open, onOpenChange, classes }: ExamFormDialogProps) {
+  const { t } = useLanguage();
   const router = useRouter();
   const {
     register,
@@ -69,7 +71,7 @@ export function ExamFormDialog({ open, onOpenChange, classes }: ExamFormDialogPr
   async function onSubmit(values: ExamFormValues) {
     try {
       await createExam(values);
-      toast.success("Examen planifié.");
+      toast.success(t("exams.scheduled"));
       onOpenChange(false);
       router.refresh();
     } catch (e) {
@@ -101,7 +103,7 @@ export function ExamFormDialog({ open, onOpenChange, classes }: ExamFormDialogPr
                 }}
               >
                 <SelectTrigger id="exam-class-select">
-                  <SelectValue placeholder="Sélectionner" />
+                  <SelectValue placeholder={t("students.selectPlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
                   {classes.map((c) => (
@@ -116,14 +118,14 @@ export function ExamFormDialog({ open, onOpenChange, classes }: ExamFormDialogPr
               )}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="exam-subject-select">Matière</Label>
+              <Label htmlFor="exam-subject-select">{t("teachers.subject")}</Label>
               <Select
                 value={subjectId || undefined}
                 onValueChange={(v) => setValue("subjectId", v)}
                 disabled={!selectedClass}
               >
                 <SelectTrigger id="exam-subject-select">
-                  <SelectValue placeholder="Sélectionner" />
+                  <SelectValue placeholder={t("students.selectPlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
                   {selectedClass?.subjects.map((s) => (
@@ -137,16 +139,14 @@ export function ExamFormDialog({ open, onOpenChange, classes }: ExamFormDialogPr
                 <p className="text-xs text-danger">{errors.subjectId.message}</p>
               )}
               {selectedClass && selectedClass.subjects.length === 0 && (
-                <p className="text-xs text-foreground/50">
-                  Assignez d&apos;abord des matières à cette classe.
-                </p>
+                <p className="text-xs text-foreground/50">{t("exams.assignSubjectsFirst")}</p>
               )}
             </div>
           </div>
 
           <div className="space-y-1.5">
             <Label htmlFor="title">Titre</Label>
-            <Input id="title" placeholder="Devoir surveillé n°1" {...register("title")} />
+            <Input id="title" placeholder={t("exams.titlePlaceholder")} {...register("title")} />
             {errors.title && (
               <p className="text-xs text-danger">{errors.title.message}</p>
             )}

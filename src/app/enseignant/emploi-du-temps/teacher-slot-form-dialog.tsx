@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/select";
 import { teacherSlotSchema, type TeacherSlotFormValues } from "./schema";
 import { createTeacherSlot } from "./actions";
+import { useLanguage } from "@/lib/i18n/language-provider";
 
 const DAYS = [
   { value: 1, label: "Lundi" },
@@ -51,6 +52,7 @@ export function TeacherSlotFormDialog({
   onOpenChange,
   classSubjects,
 }: TeacherSlotFormDialogProps) {
+  const { t } = useLanguage();
   const router = useRouter();
   const {
     handleSubmit,
@@ -85,7 +87,7 @@ export function TeacherSlotFormDialog({
   async function onSubmit(values: TeacherSlotFormValues) {
     try {
       await createTeacherSlot(values);
-      toast.success("Cours ajouté à votre emploi du temps.");
+      toast.success(t("schedule.courseAdded"));
       onOpenChange(false);
       router.refresh();
     } catch (e) {
@@ -100,18 +102,18 @@ export function TeacherSlotFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Ajouter un cours</DialogTitle>
+          <DialogTitle>{t("schedule.addCourse")}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
           <div className="space-y-1.5">
-            <Label htmlFor="teacher-slot-class-subject-select">Classe & matière</Label>
+            <Label htmlFor="teacher-slot-class-subject-select">{t("schedule.classAndSubject")}</Label>
             <Select
               value={classSubjectId || undefined}
               onValueChange={(v) => setValue("classSubjectId", v)}
             >
               <SelectTrigger id="teacher-slot-class-subject-select">
-                <SelectValue placeholder="Sélectionner" />
+                <SelectValue placeholder={t("students.selectPlaceholder")} />
               </SelectTrigger>
               <SelectContent>
                 {classSubjects.map((cs) => (
@@ -125,9 +127,7 @@ export function TeacherSlotFormDialog({
               <p className="text-xs text-danger">{errors.classSubjectId.message}</p>
             )}
             {classSubjects.length === 0 && (
-              <p className="text-xs text-foreground/50">
-                Aucune matière ne vous est encore assignée. Contactez le directeur.
-              </p>
+              <p className="text-xs text-foreground/50">{t("schedule.noSubjectAssigned")}</p>
             )}
           </div>
 
@@ -152,7 +152,7 @@ export function TeacherSlotFormDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="startTime">Début</Label>
+              <Label htmlFor="startTime">{t("settings.start")}</Label>
               <Input id="startTime" type="time" {...register("startTime")} />
             </div>
             <div className="space-y-1.5">

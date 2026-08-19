@@ -12,6 +12,7 @@ import {
   type TeacherClassSubjectOption,
 } from "./teacher-slot-form-dialog";
 import { deleteTeacherSlot } from "./actions";
+import { useLanguage } from "@/lib/i18n/language-provider";
 
 const DAYS = [
   { value: 1, label: "Lundi" },
@@ -48,6 +49,7 @@ export function TeacherScheduleView({
   schoolName: string;
   teacherName: string;
 }) {
+  const { t } = useLanguage();
   const router = useRouter();
   const [formOpen, setFormOpen] = useState(false);
   const [confirmTarget, setConfirmTarget] = useState<TeacherScheduleSlot | null>(null);
@@ -58,7 +60,7 @@ export function TeacherScheduleView({
     setConfirmLoading(true);
     try {
       await deleteTeacherSlot(confirmTarget.id);
-      toast.success("Cours retiré de l'emploi du temps.");
+      toast.success(t("schedule.courseRemoved"));
       setConfirmTarget(null);
       router.refresh();
     } catch (e) {
@@ -72,16 +74,12 @@ export function TeacherScheduleView({
     <div className="space-y-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-foreground">Mon emploi du temps</h1>
-          <p className="mt-1 text-sm text-foreground/60">
-            Vos cours de la semaine, du lundi au vendredi.
-          </p>
+          <h1 className="text-xl font-semibold text-foreground">{t("schedule.myTitle")}</h1>
+          <p className="mt-1 text-sm text-foreground/60">{t("schedule.mySubtitle")}</p>
         </div>
         <div className="flex gap-2">
           <Button onClick={() => setFormOpen(true)}>
-            <Plus className="h-4 w-4" />
-            Ajouter un cours
-          </Button>
+            <Plus className="h-4 w-4" />{t("schedule.addCourse")}</Button>
           <PrintButton label="Imprimer" />
         </div>
       </div>
@@ -91,9 +89,7 @@ export function TeacherScheduleView({
       </p>
 
       {slots.length === 0 ? (
-        <div className="rounded-xl border border-border bg-surface px-5 py-16 text-center text-sm text-foreground/50">
-          Aucun cours pour l&apos;instant. Ajoutez votre premier créneau.
-        </div>
+        <div className="rounded-xl border border-border bg-surface px-5 py-16 text-center text-sm text-foreground/50">{t("schedule.noCourse")}</div>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {DAYS.map((day) => {
@@ -114,7 +110,7 @@ export function TeacherScheduleView({
                       >
                         <button
                           onClick={() => setConfirmTarget(s)}
-                          title="Retirer ce cours"
+                          title={t("schedule.removeCourse")}
                           className="no-print absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-md text-primary-700/50 opacity-0 transition-opacity hover:bg-primary-100 hover:text-danger group-hover:opacity-100"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -147,7 +143,7 @@ export function TeacherScheduleView({
       <ConfirmDialog
         open={Boolean(confirmTarget)}
         onOpenChange={(open) => !open && setConfirmTarget(null)}
-        title="Retirer ce cours ?"
+        title={t("schedule.removeCourseTitle")}
         description="Ce créneau sera supprimé de votre emploi du temps."
         confirmLabel="Retirer"
         variant="danger"

@@ -16,6 +16,7 @@ import { PrintButton } from "@/components/ui/print-button";
 import { SlotFormDialog, type SlotSubjectOption } from "./slot-form-dialog";
 import { deleteSlot } from "./actions";
 import { minutesToTime } from "./schema";
+import { useLanguage } from "@/lib/i18n/language-provider";
 
 export interface ScheduleClassOption {
   id: string;
@@ -51,6 +52,7 @@ export function ScheduleView({
   slots: SlotRow[];
   schoolName: string;
 }) {
+  const { t } = useLanguage();
   const router = useRouter();
   const [classId, setClassId] = useState(classes[0]?.id ?? "");
   const [formOpen, setFormOpen] = useState(false);
@@ -77,10 +79,10 @@ export function ScheduleView({
   async function handleDelete(slotId: string) {
     try {
       await deleteSlot(slotId);
-      toast.success("Créneau retiré.");
+      toast.success(t("schedule.slotRemoved"));
       router.refresh();
     } catch {
-      toast.error("Une erreur est survenue.");
+      toast.error(t("common.error"));
     }
   }
 
@@ -88,17 +90,13 @@ export function ScheduleView({
     <div className="space-y-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-foreground">Emploi du temps</h1>
-          <p className="mt-1 text-sm text-foreground/60">
-            Organisez la semaine de chaque classe, du lundi au vendredi.
-          </p>
+          <h1 className="text-xl font-semibold text-foreground">{t("schedule.title")}</h1>
+          <p className="mt-1 text-sm text-foreground/60">{t("schedule.subtitle")}</p>
         </div>
         <div className="no-print flex gap-2">
           <PrintButton label="Imprimer" />
           <Button onClick={() => setFormOpen(true)} disabled={!selectedClass}>
-            <Plus className="h-4 w-4" />
-            Nouveau créneau
-          </Button>
+            <Plus className="h-4 w-4" />{t("schedule.newSlot")}</Button>
         </div>
       </div>
 
@@ -133,7 +131,7 @@ export function ScheduleView({
       <div className="no-print max-w-xs">
         <Select value={classId} onValueChange={setClassId}>
           <SelectTrigger>
-            <SelectValue placeholder="Choisir une classe" />
+            <SelectValue placeholder={t("attendance.chooseClass")} />
           </SelectTrigger>
           <SelectContent>
             {classes.map((c) => (
@@ -152,14 +150,9 @@ export function ScheduleView({
       )}
 
       {!selectedClass ? (
-        <div className="rounded-xl border border-border bg-surface px-5 py-16 text-center text-sm text-foreground/50">
-          Créez d&apos;abord une classe dans le module Classes.
-        </div>
+        <div className="rounded-xl border border-border bg-surface px-5 py-16 text-center text-sm text-foreground/50">{t("schedule.createClassFirst")}</div>
       ) : selectedClass.classSubjects.length === 0 ? (
-        <div className="rounded-xl border border-border bg-surface px-5 py-16 text-center text-sm text-foreground/50">
-          Assignez d&apos;abord des matières et des enseignants à cette classe
-          depuis le module Classes.
-        </div>
+        <div className="rounded-xl border border-border bg-surface px-5 py-16 text-center text-sm text-foreground/50">{t("schedule.assignSubjectsFirst")}</div>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {DAYS.map((day) => {

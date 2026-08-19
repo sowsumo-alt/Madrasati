@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/select";
 import { slotSchema, type SlotFormValues } from "./schema";
 import { createSlot } from "./actions";
+import { useLanguage } from "@/lib/i18n/language-provider";
 
 const DAYS = [
   { value: 1, label: "Lundi" },
@@ -53,6 +54,7 @@ export function SlotFormDialog({
   classId,
   classSubjects,
 }: SlotFormDialogProps) {
+  const { t } = useLanguage();
   const router = useRouter();
   const {
     register,
@@ -89,7 +91,7 @@ export function SlotFormDialog({
   async function onSubmit(values: SlotFormValues) {
     try {
       await createSlot(values);
-      toast.success("Créneau ajouté à l'emploi du temps.");
+      toast.success(t("schedule.slotAdded"));
       onOpenChange(false);
       router.refresh();
     } catch (e) {
@@ -104,18 +106,18 @@ export function SlotFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Nouveau créneau</DialogTitle>
+          <DialogTitle>{t("schedule.newSlot")}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
           <div className="space-y-1.5">
-            <Label htmlFor="slot-subject-teacher-select">Matière & enseignant</Label>
+            <Label htmlFor="slot-subject-teacher-select">{t("schedule.subjectAndTeacher")}</Label>
             <Select
               value={classSubjectId || undefined}
               onValueChange={(v) => setValue("classSubjectId", v)}
             >
               <SelectTrigger id="slot-subject-teacher-select">
-                <SelectValue placeholder="Sélectionner" />
+                <SelectValue placeholder={t("students.selectPlaceholder")} />
               </SelectTrigger>
               <SelectContent>
                 {classSubjects.map((cs) => (
@@ -152,7 +154,7 @@ export function SlotFormDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="startTime">Début</Label>
+              <Label htmlFor="startTime">{t("settings.start")}</Label>
               <Input id="startTime" type="time" {...register("startTime")} />
             </div>
             <div className="space-y-1.5">

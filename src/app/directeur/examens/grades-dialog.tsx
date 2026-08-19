@@ -19,6 +19,7 @@ import { rankOf } from "@/lib/report-card";
 import { withArabic, schoolSignatureFr, schoolSignatureAr } from "@/lib/whatsapp";
 import { cn } from "@/lib/utils";
 import { saveGrades } from "./actions";
+import { useLanguage } from "@/lib/i18n/language-provider";
 
 /** Couleur de fond du champ de note selon le niveau, pour un repérage visuel
  *  immédiat des élèves en difficulté pendant la saisie. */
@@ -92,6 +93,7 @@ export function GradesDialog({
   bilingual: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { t } = useLanguage();
   const router = useRouter();
   const [entries, setEntries] = useState<Record<string, { score: string; isAbsent: boolean }>>({});
   const [isSaving, setIsSaving] = useState(false);
@@ -165,11 +167,11 @@ export function GradesDialog({
           isAbsent: e.isAbsent,
         })),
       );
-      toast.success("Notes enregistrées.");
+      toast.success(t("exams.gradesSaved"));
       setSaved(true);
       router.refresh();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Une erreur est survenue.");
+      toast.error(e instanceof Error ? e.message : t("common.error"));
     } finally {
       setIsSaving(false);
     }
@@ -179,7 +181,7 @@ export function GradesDialog({
     <Dialog open={Boolean(target)} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Saisir les notes</DialogTitle>
+          <DialogTitle>{t("exams.enterGradesTitle")}</DialogTitle>
           {target && (
             <DialogDescription>
               {target.title} — {target.className} · {target.subjectName} · sur{" "}
@@ -278,7 +280,7 @@ export function GradesDialog({
                   <WhatsAppLink
                     phone={s.parentPhone as string}
                     message={gradeMessage as string}
-                    title="Alerter le parent sur WhatsApp"
+                    title={t("exams.alertParentWhatsapp")}
                     className="shrink-0"
                   />
                 ) : (
@@ -290,10 +292,9 @@ export function GradesDialog({
         </div>
 
         {saved && (
-          <p className="mt-2 text-xs text-foreground/50">
-            Notes enregistrées — cliquez sur{" "}
-            <MessageCircle className="inline h-3.5 w-3.5 text-primary-600" /> pour prévenir un
-            parent sur WhatsApp.
+          <p className="mt-2 flex items-center gap-1.5 text-xs text-foreground/50">
+            <MessageCircle className="h-3.5 w-3.5 shrink-0 text-primary-600" />
+            {t("exams.savedHint")}
           </p>
         )}
 

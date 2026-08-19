@@ -19,6 +19,7 @@ import { GradesDialog, type GradesDialogStudent } from "./grades-dialog";
 import { deleteExam } from "./actions";
 import { formatDate } from "@/lib/format";
 import { TERMS } from "./schema";
+import { useLanguage } from "@/lib/i18n/language-provider";
 
 export interface ExamRow {
   id: string;
@@ -50,6 +51,7 @@ export function ExamsView({
   schoolName: string;
   bilingual: boolean;
 }) {
+  const { t } = useLanguage();
   const router = useRouter();
   const [termFilter, setTermFilter] = useState<string>("ALL");
   const [formOpen, setFormOpen] = useState(false);
@@ -69,11 +71,11 @@ export function ExamsView({
     setDeleteLoading(true);
     try {
       await deleteExam(deleteTarget.id);
-      toast.success("Examen supprimé.");
+      toast.success(t("exams.deleted"));
       setDeleteTarget(null);
       router.refresh();
     } catch {
-      toast.error("Une erreur est survenue.");
+      toast.error(t("common.error"));
     } finally {
       setDeleteLoading(false);
     }
@@ -104,7 +106,7 @@ export function ExamsView({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="ALL">Tous les trimestres</SelectItem>
+            <SelectItem value="ALL">{t("exams.allTerms")}</SelectItem>
             {TERMS.map((t) => (
               <SelectItem key={t} value={t}>
                 {t}
@@ -128,7 +130,7 @@ export function ExamsView({
                 <tr className="border-b border-border bg-surface-muted/60 text-left text-xs font-medium uppercase tracking-wide text-foreground/50">
                   <th className="px-5 py-3">Examen</th>
                   <th className="px-5 py-3">Classe</th>
-                  <th className="px-5 py-3">Matière</th>
+                  <th className="px-5 py-3">{t("teachers.subject")}</th>
                   <th className="px-5 py-3">Date</th>
                   <th className="px-5 py-3">Notes saisies</th>
                   <th className="px-5 py-3">Moyenne</th>
@@ -173,7 +175,7 @@ export function ExamsView({
                     <td className="px-5 py-3">
                       <div className="flex items-center justify-end gap-1">
                         <button
-                          title="Saisir les notes"
+                          title={t("teacherHome.enterGrades")}
                           onClick={() => setGradesExamId(e.id)}
                           className="flex h-8 w-8 items-center justify-center rounded-lg text-primary-700 transition-colors hover:bg-primary-50"
                         >
@@ -219,7 +221,7 @@ export function ExamsView({
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
-        title="Supprimer cet examen ?"
+        title={t("exams.deleteTitle")}
         description="Les notes déjà saisies pour cet examen seront également supprimées."
         confirmLabel="Supprimer"
         variant="danger"
