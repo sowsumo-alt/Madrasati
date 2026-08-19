@@ -35,6 +35,7 @@ import { setStudentStatus } from "./actions";
 import { buildTelUrl } from "@/lib/whatsapp";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/lib/i18n/language-provider";
+import { AlphabetFilter, matchesLetter } from "@/components/ui/alphabet-filter";
 import type { TranslationKey } from "@/lib/i18n/dictionaries";
 
 export interface StudentRow {
@@ -87,6 +88,7 @@ export function StudentsView({
   const [statusFilter, setStatusFilter] =
     useState<(typeof STATUS_FILTERS)[number]>("ALL");
   const [showUnassignedOnly, setShowUnassignedOnly] = useState(false);
+  const [letter, setLetter] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<StudentEditTarget | null>(null);
@@ -111,9 +113,10 @@ export function StudentsView({
         (s.className ?? "").toLowerCase().includes(q);
       const matchesStatus = statusFilter === "ALL" || s.status === statusFilter;
       const matchesUnassigned = !showUnassignedOnly || s.className == null;
-      return matchesQuery && matchesStatus && matchesUnassigned;
+      const matchesInitial = matchesLetter(`${s.firstName} ${s.lastName}`, letter);
+      return matchesQuery && matchesStatus && matchesUnassigned && matchesInitial;
     });
-  }, [students, query, statusFilter, showUnassignedOnly]);
+  }, [students, query, statusFilter, showUnassignedOnly, letter]);
 
   // Seuls les élèves actifs comptent : un élève transféré ou diplômé n'a pas
   // vocation à porter une classe, le signaler serait un faux positif.
@@ -207,6 +210,16 @@ export function StudentsView({
           ))}
         </div>
       </div>
+
+      {/* Accès direct par initiale : sur une école de plusieurs centaines
+          d'élèves, faire défiler la liste ou taper un nom complet est le geste
+          le plus fréquent de la journée. Les lettres sans élève sont grisées,
+          pour ne jamais mener à une liste vide. */}
+      <AlphabetFilter
+        names={students.map((s) => `${s.firstName} ${s.lastName}`)}
+        value={letter}
+        onChange={setLetter}
+      />
 
       {/* Explique l'écart entre cette liste et les compteurs des autres écrans :
           les élèves sans classe n'apparaissent ni à l'appel, ni sur un bulletin,

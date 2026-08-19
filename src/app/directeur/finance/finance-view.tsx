@@ -20,6 +20,7 @@ import { fillTemplate, withArabic, schoolSignatureFr, schoolSignatureAr } from "
 import { FeeFormDialog, type FeeStudentOption } from "./fee-form-dialog";
 import { PaymentDialog } from "./payment-dialog";
 import { useLanguage } from "@/lib/i18n/language-provider";
+import { AlphabetFilter, matchesLetter } from "@/components/ui/alphabet-filter";
 import type { TranslationKey } from "@/lib/i18n/dictionaries";
 
 export interface FeeRow {
@@ -61,16 +62,18 @@ const STATUS_FILTERS = ["ALL", "PENDING", "PARTIAL", "PAID", "OVERDUE"] as const
  * Ancienneté d'un impayé, en jours puis en mois. Calculée sur les dates
  * civiles pour que le compte ne dépende pas de l'heure de consultation.
  */
-function formatOverdue(dueDate: string) {
+function formatOverdue(dueDate: string, t: (key: TranslationKey) => string) {
   const startOfDay = (d: Date) => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
   const days = Math.round(
     (startOfDay(new Date()) - startOfDay(new Date(dueDate))) / 86_400_000,
   );
   if (days <= 0) return "";
-  if (days === 1) return "— 1 jour de retard";
-  if (days < 31) return `— ${days} jours de retard`;
+  if (days === 1) return t("finance.overdueOneDay");
+  if (days < 31) return t("finance.overdueDays").replace("{n}", String(days));
   const months = Math.floor(days / 30);
-  return months === 1 ? "— 1 mois de retard" : `— ${months} mois de retard`;
+  return months === 1
+    ? t("finance.overdueOneMonth")
+    : t("finance.overdueMonths").replace("{n}", String(months));
 }
 
 export function FinanceView({
@@ -91,6 +94,7 @@ export function FinanceView({
   const schoolAr = schoolSignatureAr(schoolName);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>("ALL");
+  const [letter, setLetter] = useState<string | null>(null);
   const [feeFormOpen, setFeeFormOpen] = useState(false);
   const [paymentTarget, setPaymentTarget] = useState<{
     feeId: string;
@@ -115,9 +119,13 @@ export function FinanceView({
       const matchesQuery = !q || name.includes(q) || f.label.toLowerCase().includes(q);
       const status = displayStatus(f);
       const matchesStatus = statusFilter === "ALL" || status === statusFilter;
-      return matchesQuery && matchesStatus;
+      const matchesInitial = matchesLetter(
+        `${f.student.firstName} ${f.student.lastName}`,
+        letter,
+      );
+      return matchesQuery && matchesStatus && matchesInitial;
     });
-  }, [fees, query, statusFilter]);
+  }, [fees, query, statusFilter, letter]);
 
   return (
     <div className="space-y-5">
@@ -173,6 +181,15 @@ export function FinanceView({
           ))}
         </div>
       </div>
+
+      {/* Meme acces par initiale que sur la page Eleves : la liste des frais
+          est la plus longue de l application, un frais par eleve et par
+          trimestre. */}
+      <AlphabetFilter
+        names={fees.map((f) => `${f.student.firstName} ${f.student.lastName}`)}
+        value={letter}
+        onChange={setLetter}
+      />
 
       <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
         {filtered.length === 0 ? (
@@ -243,7 +260,7 @@ export function FinanceView({
                             ce qui dit laquelle relancer en premier. */}
                         {status === "OVERDUE" && (
                           <span className="ml-1.5 whitespace-nowrap text-xs text-danger">
-                            {formatOverdue(f.dueDate)}
+                            {formatOverdue(f.dueDate, t)}
                           </span>
                         )}
                       </td>
