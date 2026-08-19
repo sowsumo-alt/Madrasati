@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { assignSubjectToClass, removeSubjectFromClass } from "./actions";
+import { useLanguage } from "@/lib/i18n/language-provider";
 
 export interface AssignmentSubject {
   id: string;
@@ -50,6 +51,7 @@ export function ClassAssignmentsDialog({
   subjects,
   teachers,
 }: ClassAssignmentsDialogProps) {
+  const { t } = useLanguage();
   const router = useRouter();
 
   async function handleToggle(subjectId: string, checked: boolean) {
@@ -62,7 +64,7 @@ export function ClassAssignmentsDialog({
       }
       router.refresh();
     } catch {
-      toast.error("Une erreur est survenue.");
+      toast.error(t("common.error"));
     }
   }
 
@@ -72,7 +74,7 @@ export function ClassAssignmentsDialog({
       await assignSubjectToClass(target.classId, subjectId, teacherId === "none" ? null : teacherId);
       router.refresh();
     } catch {
-      toast.error("Une erreur est survenue.");
+      toast.error(t("common.error"));
     }
   }
 
@@ -81,10 +83,7 @@ export function ClassAssignmentsDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Matières de {target?.className}</DialogTitle>
-          <DialogDescription>
-            Cochez les matières enseignées dans cette classe et assignez un
-            enseignant à chacune.
-          </DialogDescription>
+          <DialogDescription>{t("classes.assignHint")}</DialogDescription>
         </DialogHeader>
 
         <div className="max-h-96 space-y-1 overflow-y-auto">
@@ -114,7 +113,7 @@ export function ClassAssignmentsDialog({
                       <SelectValue placeholder="Enseignant" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">Non assigné</SelectItem>
+                      <SelectItem value="none">{t("classes.unassigned")}</SelectItem>
                       {teachers.map((t) => (
                         <SelectItem key={t.id} value={t.id}>
                           {t.firstName} {t.lastName}

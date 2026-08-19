@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/select";
 import { classSchema, type ClassFormValues } from "./schema";
 import { createClass, updateClass } from "./actions";
+import { useLanguage } from "@/lib/i18n/language-provider";
 
 export interface ClassTeacherOption {
   id: string;
@@ -60,6 +61,7 @@ export function ClassFormDialog({
   teachers,
   editTarget,
 }: ClassFormDialogProps) {
+  const { t } = useLanguage();
   const router = useRouter();
   const isEdit = Boolean(editTarget);
   const {
@@ -93,10 +95,10 @@ export function ClassFormDialog({
     try {
       if (isEdit && editTarget) {
         await updateClass(editTarget.id, values);
-        toast.success("Classe modifiée avec succès.");
+        toast.success(t("classes.updated"));
       } else {
         await createClass(values);
-        toast.success("Classe ajoutée avec succès.");
+        toast.success(t("classes.created"));
       }
       onOpenChange(false);
       router.refresh();
@@ -117,7 +119,7 @@ export function ClassFormDialog({
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="name">Nom de la classe</Label>
+              <Label htmlFor="name">{t("classes.name")}</Label>
               <Input id="name" placeholder="6AF" {...register("name")} />
               {errors.name && (
                 <p className="text-xs text-danger">{errors.name.message}</p>
@@ -134,7 +136,7 @@ export function ClassFormDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="capacity">Capacité</Label>
+              <Label htmlFor="capacity">{t("classes.capacity")}</Label>
               <Input id="capacity" type="number" min={1} {...register("capacity")} />
               {errors.capacity && (
                 <p className="text-xs text-danger">{errors.capacity.message}</p>
@@ -147,10 +149,10 @@ export function ClassFormDialog({
                 onValueChange={(v) => setValue("mainTeacherId", v === "none" ? "" : v)}
               >
                 <SelectTrigger id="class-main-teacher-select">
-                  <SelectValue placeholder="Aucun" />
+                  <SelectValue placeholder={t("common.none")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Aucun</SelectItem>
+                  <SelectItem value="none">{t("common.none")}</SelectItem>
                   {teachers.map((t) => (
                     <SelectItem key={t.id} value={t.id}>
                       {t.firstName} {t.lastName}

@@ -377,6 +377,38 @@ export const dictionaries = {
     "stats.byGender": "Répartition par genre",
     "stats.dataTable": "Tableau des données",
     "stats.attendance": "Présence",
+
+    "common.none": "Aucun",
+    "common.retryError": "Une erreur est survenue. Réessayez.",
+
+    "parents.relationshipPlaceholder": "père, mère, tuteur…",
+    "parents.linkedChildren": "Enfant(s) lié(s)",
+    "parents.searchStudent": "Rechercher un élève…",
+    "parents.noStudentFound": "Aucun élève trouvé.",
+    "parents.updated": "Parent modifié avec succès.",
+    "parents.created": "Parent ajouté avec succès.",
+
+    "teachers.subjectTaught": "Matière enseignée",
+    "teachers.diploma": "Diplôme",
+    "teachers.updated": "Enseignant modifié avec succès.",
+    "teachers.created": "Enseignant ajouté avec succès.",
+
+    "classes.name": "Nom de la classe",
+    "classes.capacity": "Capacité",
+    "classes.updated": "Classe modifiée avec succès.",
+    "classes.created": "Classe ajoutée avec succès.",
+    "classes.assignHint":
+      "Cochez les matières enseignées dans cette classe et assignez un enseignant à chacune.",
+    "classes.unassigned": "Non assigné",
+
+    "atRisk.title": "Élèves à surveiller",
+    "atRisk.criteriaTitle": "Quand un élève est-il signalé ?",
+    "atRisk.criteriaHint":
+      "Un seul critère suffit à signaler l'élève. Le motif exact, avec ses chiffres, est indiqué sur sa ligne.",
+    "atRisk.empty": "Aucun élève ne correspond aux critères de surveillance pour l'instant.",
+    "atRisk.student": "Élève",
+    "atRisk.contactParent": "Contacter le parent sur WhatsApp",
+    "atRisk.viewRecord": "Voir la fiche complète",
   },
   en: {
     "nav.dashboard": "Dashboard",
@@ -756,6 +788,38 @@ export const dictionaries = {
     "stats.byGender": "Breakdown by gender",
     "stats.dataTable": "Data table",
     "stats.attendance": "Attendance",
+
+    "common.none": "None",
+    "common.retryError": "Something went wrong. Please try again.",
+
+    "parents.relationshipPlaceholder": "father, mother, guardian…",
+    "parents.linkedChildren": "Linked child(ren)",
+    "parents.searchStudent": "Search for a student…",
+    "parents.noStudentFound": "No student found.",
+    "parents.updated": "Parent updated successfully.",
+    "parents.created": "Parent added successfully.",
+
+    "teachers.subjectTaught": "Subject taught",
+    "teachers.diploma": "Diploma",
+    "teachers.updated": "Teacher updated successfully.",
+    "teachers.created": "Teacher added successfully.",
+
+    "classes.name": "Class name",
+    "classes.capacity": "Capacity",
+    "classes.updated": "Class updated successfully.",
+    "classes.created": "Class added successfully.",
+    "classes.assignHint":
+      "Tick the subjects taught in this class and assign a teacher to each one.",
+    "classes.unassigned": "Unassigned",
+
+    "atRisk.title": "Students to watch",
+    "atRisk.criteriaTitle": "When is a student flagged?",
+    "atRisk.criteriaHint":
+      "A single criterion is enough to flag the student. The exact reason, with its figures, is shown on their row.",
+    "atRisk.empty": "No student matches the monitoring criteria at the moment.",
+    "atRisk.student": "Student",
+    "atRisk.contactParent": "Contact the parent on WhatsApp",
+    "atRisk.viewRecord": "View the full record",
   },
   ar: {
     "nav.dashboard": "لوحة القيادة",
@@ -1134,6 +1198,37 @@ export const dictionaries = {
     "stats.byGender": "التوزيع حسب الجنس",
     "stats.dataTable": "جدول البيانات",
     "stats.attendance": "الحضور",
+
+    "common.none": "لا أحد",
+    "common.retryError": "حدث خطأ. أعد المحاولة.",
+
+    "parents.relationshipPlaceholder": "أب، أم، وصي…",
+    "parents.linkedChildren": "الأبناء المرتبطون",
+    "parents.searchStudent": "ابحث عن تلميذ…",
+    "parents.noStudentFound": "لم يُعثر على أي تلميذ.",
+    "parents.updated": "تم تعديل ولي الأمر بنجاح.",
+    "parents.created": "تمت إضافة ولي الأمر بنجاح.",
+
+    "teachers.subjectTaught": "المادة المدرَّسة",
+    "teachers.diploma": "الشهادة",
+    "teachers.updated": "تم تعديل المدرّس بنجاح.",
+    "teachers.created": "تمت إضافة المدرّس بنجاح.",
+
+    "classes.name": "اسم القسم",
+    "classes.capacity": "الطاقة الاستيعابية",
+    "classes.updated": "تم تعديل القسم بنجاح.",
+    "classes.created": "تمت إضافة القسم بنجاح.",
+    "classes.assignHint": "حدّد المواد المدرَّسة في هذا القسم وأسنِد مدرّسًا لكل منها.",
+    "classes.unassigned": "غير مُسنَد",
+
+    "atRisk.title": "التلاميذ المطلوب متابعتهم",
+    "atRisk.criteriaTitle": "متى يُشار إلى تلميذ؟",
+    "atRisk.criteriaHint":
+      "يكفي معيار واحد للإشارة إلى التلميذ. السبب الدقيق، بأرقامه، مبيَّن في سطره.",
+    "atRisk.empty": "لا يوجد حاليًا أي تلميذ ينطبق عليه معيار المتابعة.",
+    "atRisk.student": "التلميذ",
+    "atRisk.contactParent": "الاتصال بولي الأمر عبر واتساب",
+    "atRisk.viewRecord": "عرض الملف الكامل",
   },
 } as const;
 

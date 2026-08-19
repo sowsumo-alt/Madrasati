@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { parentSchema, type ParentFormValues } from "./schema";
 import { createParent, updateParent } from "./actions";
+import { useLanguage } from "@/lib/i18n/language-provider";
 
 export interface ParentStudentOption {
   id: string;
@@ -60,6 +61,7 @@ export function ParentFormDialog({
   students,
   editTarget,
 }: ParentFormDialogProps) {
+  const { t } = useLanguage();
   const router = useRouter();
   const isEdit = Boolean(editTarget);
   const [studentQuery, setStudentQuery] = useState("");
@@ -105,15 +107,15 @@ export function ParentFormDialog({
     try {
       if (isEdit && editTarget) {
         await updateParent(editTarget.id, values);
-        toast.success("Parent modifié avec succès.");
+        toast.success(t("parents.updated"));
       } else {
         await createParent(values);
-        toast.success("Parent ajouté avec succès.");
+        toast.success(t("parents.created"));
       }
       onOpenChange(false);
       router.refresh();
     } catch {
-      toast.error("Une erreur est survenue. Réessayez.");
+      toast.error(t("common.retryError"));
     }
   }
 
@@ -127,7 +129,7 @@ export function ParentFormDialog({
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="firstName">Prénom</Label>
+              <Label htmlFor="firstName">{t("students.firstName")}</Label>
               <Input id="firstName" {...register("firstName")} />
               {errors.firstName && (
                 <p className="text-xs text-danger">{errors.firstName.message}</p>
@@ -144,7 +146,7 @@ export function ParentFormDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="phone">Téléphone (WhatsApp)</Label>
+              <Label htmlFor="phone">{t("students.parentPhone")}</Label>
               <Input id="phone" placeholder="+222 XX XX XX XX" {...register("phone")} />
               {errors.phone && (
                 <p className="text-xs text-danger">{errors.phone.message}</p>
@@ -154,7 +156,7 @@ export function ParentFormDialog({
               <Label htmlFor="relationship">
                 Lien <span className="font-normal text-foreground/40">(optionnel)</span>
               </Label>
-              <Input id="relationship" placeholder="père, mère, tuteur…" {...register("relationship")} />
+              <Input id="relationship" placeholder={t("parents.relationshipPlaceholder")} {...register("relationship")} />
             </div>
           </div>
 
@@ -174,13 +176,13 @@ export function ParentFormDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label>Enfant(s) lié(s)</Label>
+            <Label>{t("parents.linkedChildren")}</Label>
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/40" />
               <Input
                 value={studentQuery}
                 onChange={(e) => setStudentQuery(e.target.value)}
-                placeholder="Rechercher un élève…"
+                placeholder={t("parents.searchStudent")}
                 className="pl-9"
               />
             </div>
@@ -190,9 +192,7 @@ export function ParentFormDialog({
               render={({ field }) => (
                 <div className="mt-2 max-h-40 overflow-y-auto rounded-lg border border-border">
                   {filteredStudents.length === 0 ? (
-                    <p className="px-3 py-4 text-center text-xs text-foreground/40">
-                      Aucun élève trouvé.
-                    </p>
+                    <p className="px-3 py-4 text-center text-xs text-foreground/40">{t("parents.noStudentFound")}</p>
                   ) : (
                     filteredStudents.map((s) => {
                       const checked = field.value.includes(s.id);

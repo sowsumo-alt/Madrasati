@@ -60,10 +60,22 @@ function scan(file) {
   return found;
 }
 
-const filter = process.argv[2] ?? "";
+/**
+ * Le tableau de bord Super Admin est hors périmètre : il n'a qu'un seul
+ * utilisateur, l'éditeur, qui travaille en français. Le traduire serait du
+ * travail pour personne, et le compter fausserait la mesure de ce qui reste
+ * réellement à faire côté écoles. `--tout` le réintègre si besoin.
+ */
+const OUT_OF_SCOPE = ["src/app/super-admin/"];
+
+const args = process.argv.slice(2);
+const includeAll = args.includes("--tout");
+const filter = args.find((a) => !a.startsWith("--")) ?? "";
+
 const results = [];
 for (const file of walk("src")) {
   const rel = file.split(path.sep).join("/");
+  if (!includeAll && OUT_OF_SCOPE.some((p) => rel.startsWith(p))) continue;
   if (filter && !rel.includes(filter)) continue;
   const found = scan(file);
   if (found.length) results.push({ rel, found });

@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/select";
 import { teacherSchema, type TeacherFormValues } from "./schema";
 import { createTeacher, updateTeacher } from "./actions";
+import { useLanguage } from "@/lib/i18n/language-provider";
 
 export interface TeacherEditTarget {
   id: string;
@@ -64,6 +65,7 @@ export function TeacherFormDialog({
   subjects,
   editTarget,
 }: TeacherFormDialogProps) {
+  const { t } = useLanguage();
   const router = useRouter();
   const isEdit = Boolean(editTarget);
   const {
@@ -103,15 +105,15 @@ export function TeacherFormDialog({
     try {
       if (isEdit && editTarget) {
         await updateTeacher(editTarget.id, values);
-        toast.success("Enseignant modifié avec succès.");
+        toast.success(t("teachers.updated"));
       } else {
         await createTeacher(values);
-        toast.success("Enseignant ajouté avec succès.");
+        toast.success(t("teachers.created"));
       }
       onOpenChange(false);
       router.refresh();
     } catch {
-      toast.error("Une erreur est survenue. Réessayez.");
+      toast.error(t("common.retryError"));
     }
   }
 
@@ -130,7 +132,7 @@ export function TeacherFormDialog({
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="firstName">Prénom</Label>
+              <Label htmlFor="firstName">{t("students.firstName")}</Label>
               <Input id="firstName" {...register("firstName")} />
               {errors.firstName && (
                 <p className="text-xs text-danger">{errors.firstName.message}</p>
@@ -147,7 +149,7 @@ export function TeacherFormDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="phone">Téléphone (WhatsApp)</Label>
+              <Label htmlFor="phone">{t("students.parentPhone")}</Label>
               <Input id="phone" placeholder="+222 XX XX XX XX" {...register("phone")} />
               {errors.phone && (
                 <p className="text-xs text-danger">{errors.phone.message}</p>
@@ -163,13 +165,13 @@ export function TeacherFormDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="teacher-subject-select">Matière enseignée</Label>
+              <Label htmlFor="teacher-subject-select">{t("teachers.subjectTaught")}</Label>
               <Select
                 value={subjectSpecialty || undefined}
                 onValueChange={(v) => setValue("subjectSpecialty", v)}
               >
                 <SelectTrigger id="teacher-subject-select">
-                  <SelectValue placeholder="Sélectionner" />
+                  <SelectValue placeholder={t("students.selectPlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
                   {subjects.map((s) => (
@@ -181,8 +183,7 @@ export function TeacherFormDialog({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="diploma">
-                Diplôme <span className="font-normal text-foreground/40">(optionnel)</span>
+              <Label htmlFor="diploma">{t("teachers.diploma")}<span className="font-normal text-foreground/40">(optionnel)</span>
               </Label>
               <Input id="diploma" placeholder="Licence, Master…" {...register("diploma")} />
             </div>
