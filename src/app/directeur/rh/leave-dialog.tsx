@@ -27,6 +27,7 @@ import { formatDate } from "@/lib/format";
 import { leaveSchema, type LeaveFormValues, LEAVE_REASONS } from "./schema";
 import { recordLeave, deleteLeave } from "./actions";
 import type { TeacherHrRow } from "./rh-view";
+import { useLanguage } from "@/lib/i18n/language-provider";
 
 const REASON_LABELS: Record<(typeof LEAVE_REASONS)[number], string> = {
   ANNUAL: "Congé annuel",
@@ -43,6 +44,7 @@ export function LeaveDialog({
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
 }) {
+  const { t } = useLanguage();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const {
     register,
@@ -66,11 +68,11 @@ export function LeaveDialog({
   async function onSubmit(values: LeaveFormValues) {
     try {
       await recordLeave(values);
-      toast.success("Congé enregistré.");
+      toast.success(t("hr.leaveSaved"));
       reset({ teacherId: values.teacherId, startDate: "", endDate: "", reason: "ANNUAL", note: "" });
       onSaved();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Une erreur est survenue.");
+      toast.error(e instanceof Error ? e.message : t("common.error"));
     }
   }
 
@@ -80,7 +82,7 @@ export function LeaveDialog({
       await deleteLeave(leaveId);
       onSaved();
     } catch {
-      toast.error("Une erreur est survenue.");
+      toast.error(t("common.error"));
     } finally {
       setDeletingId(null);
     }
@@ -90,7 +92,7 @@ export function LeaveDialog({
     <Dialog open={Boolean(target)} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Congés</DialogTitle>
+          <DialogTitle>{t("hr.leaves")}</DialogTitle>
           {target && (
             <DialogDescription>
               {target.firstName} {target.lastName} · Solde : {target.leaveBalance} /{" "}
@@ -130,7 +132,7 @@ export function LeaveDialog({
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="leave-startDate">Début</Label>
+              <Label htmlFor="leave-startDate">{t("settings.start")}</Label>
               <Input id="leave-startDate" type="date" {...register("startDate")} />
               {errors.startDate && (
                 <p className="text-xs text-danger">{errors.startDate.message}</p>

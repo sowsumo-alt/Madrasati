@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { buildWhatsAppUrl } from "@/lib/whatsapp";
 import type { AccountResult } from "./actions";
+import { useLanguage } from "@/lib/i18n/language-provider";
 
 /**
  * Affiche l'identifiant et le mot de passe temporaire — une seule fois.
@@ -28,6 +29,7 @@ export function CredentialsDialog({
   onOpenChange: (open: boolean) => void;
   schoolName: string;
 }) {
+  const { t } = useLanguage();
   const [copied, setCopied] = useState(false);
 
   if (!result) {
@@ -59,12 +61,10 @@ export function CredentialsDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <KeyRound className="h-5 w-5 text-primary-700" />
-            Accès créé
-          </DialogTitle>
+            <KeyRound className="h-5 w-5 text-primary-700" />{t("credentials.title")}</DialogTitle>
           <DialogDescription>
             Notez ou envoyez ces informations maintenant :{" "}
-            <strong>le mot de passe ne sera plus affiché</strong>. Vous pourrez
+            <strong>{t("credentials.warningBold")}</strong>. Vous pourrez
             seulement en générer un nouveau.
           </DialogDescription>
         </DialogHeader>
@@ -100,13 +100,9 @@ export function CredentialsDialog({
               rel="noopener noreferrer"
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-800"
             >
-              <MessageCircle className="h-4 w-4" />
-              Envoyer sur WhatsApp
-            </a>
+              <MessageCircle className="h-4 w-4" />{t("credentials.sendWhatsapp")}</a>
           )}
-          <Button type="button" onClick={() => onOpenChange(false)}>
-            J&apos;ai noté
-          </Button>
+          <Button type="button" onClick={() => onOpenChange(false)}>{t("credentials.acknowledged")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -20,6 +20,7 @@ import {
   type Plan,
 } from "@/lib/plans";
 import { requestPlanUpgrade } from "./actions";
+import { useLanguage } from "@/lib/i18n/language-provider";
 
 export function PlanCard({
   currentPlan,
@@ -33,6 +34,7 @@ export function PlanCard({
   /** Jours restants avant la fin de l'essai gratuit, `null` hors période d'essai. */
   trialDaysLeft: number | null;
 }) {
+  const { t } = useLanguage();
   const [requestingPlan, setRequestingPlan] = useState<Plan | null>(null);
   const [requested, setRequested] = useState<Plan | null>(null);
 
@@ -41,7 +43,7 @@ export function PlanCard({
     try {
       await requestPlanUpgrade(plan);
       setRequested(plan);
-      toast.success("Demande enregistrée. Ouvrez WhatsApp pour finaliser avec nous.");
+      toast.success(t("plan.requestSaved"));
       window.open(
         buildWhatsAppUrl(
           CONTACT_PHONE,
@@ -50,7 +52,7 @@ export function PlanCard({
         "_blank",
       );
     } catch {
-      toast.error("Une erreur est survenue.");
+      toast.error(t("common.error"));
     } finally {
       setRequestingPlan(null);
     }
@@ -59,7 +61,7 @@ export function PlanCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm">Votre formule</CardTitle>
+        <CardTitle className="text-sm">{t("plan.title")}</CardTitle>
       </CardHeader>
       <CardContent className="p-4 pt-0">
         {trialDaysLeft != null && (
@@ -131,9 +133,7 @@ export function PlanCard({
                     ))
                   ) : (
                     <>
-                      <li className="text-xs font-medium uppercase tracking-wide text-foreground/40">
-                        Tout Standard, plus :
-                      </li>
+                      <li className="text-xs font-medium uppercase tracking-wide text-foreground/40">{t("plan.allStandardPlus")}</li>
                       {PLAN_FEATURE_LIST[plan].map((f) => (
                         <li key={f.feature} className="flex items-start gap-2 text-foreground/70">
                           {IS_FEATURE_LIVE[f.feature] ? (
@@ -173,10 +173,7 @@ export function PlanCard({
             );
           })}
         </div>
-        <p className="mt-4 text-xs text-foreground/40">
-          Le changement de formule n&apos;est jamais automatique : nous validons ensemble le
-          paiement sur WhatsApp avant de l&apos;activer.
-        </p>
+        <p className="mt-4 text-xs text-foreground/40">{t("plan.manualNote")}</p>
       </CardContent>
     </Card>
   );

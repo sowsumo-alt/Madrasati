@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { subjectSchema, type SubjectFormValues } from "./schema";
 import { createSubject, updateSubject } from "./actions";
+import { useLanguage } from "@/lib/i18n/language-provider";
 
 export interface SubjectEditTarget {
   id: string;
@@ -35,6 +36,7 @@ interface SubjectFormDialogProps {
 const emptyValues: SubjectFormValues = { name: "", nameAr: "", coefficient: 1 };
 
 export function SubjectFormDialog({ open, onOpenChange, editTarget }: SubjectFormDialogProps) {
+  const { t } = useLanguage();
   const router = useRouter();
   const isEdit = Boolean(editTarget);
   const {
@@ -65,15 +67,15 @@ export function SubjectFormDialog({ open, onOpenChange, editTarget }: SubjectFor
     try {
       if (isEdit && editTarget) {
         await updateSubject(editTarget.id, values);
-        toast.success("Matière modifiée avec succès.");
+        toast.success(t("classes.subjectUpdated"));
       } else {
         await createSubject(values);
-        toast.success("Matière ajoutée avec succès.");
+        toast.success(t("classes.subjectCreated"));
       }
       onOpenChange(false);
       router.refresh();
     } catch {
-      toast.error("Une erreur est survenue. Réessayez.");
+      toast.error(t("common.retryError"));
     }
   }
 
@@ -104,9 +106,7 @@ export function SubjectFormDialog({ open, onOpenChange, editTarget }: SubjectFor
               placeholder="الرياضيات"
               {...register("nameAr")}
             />
-            <p className="text-xs text-foreground/40">
-              Il apparaîtra à droite du nom français sur les bulletins.
-            </p>
+            <p className="text-xs text-foreground/40">{t("classes.subjectArabicHint")}</p>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="coefficient">Coefficient</Label>

@@ -469,6 +469,42 @@ export const dictionaries = {
     "login.createSchool": "Créer mon école",
     "login.emailPlaceholder": "votre@email.com",
     "login.invalidCredentials": "Email ou mot de passe incorrect.",
+
+    "comm.arabicHint":
+      "Ajoutée automatiquement en bas du message envoyé, pour les parents qui lisent l'arabe.",
+    "comm.templateTitlePlaceholder": "Rappel de réunion",
+    "comm.templateUpdated": "Modèle modifié.",
+    "comm.templateCreated": "Modèle créé.",
+
+    "credentials.title": "Accès créé",
+    "credentials.warningBold": "le mot de passe ne sera plus affiché",
+    "credentials.warningRest": ". Vous pourrez seulement en générer un nouveau.",
+    "credentials.sendWhatsapp": "Envoyer sur WhatsApp",
+    "credentials.acknowledged": "J'ai noté",
+
+    "plan.title": "Votre formule",
+    "plan.allStandardPlus": "Tout Standard, plus :",
+    "plan.manualNote":
+      "Le changement de formule n'est jamais automatique : nous validons ensemble le paiement sur WhatsApp avant de l'activer.",
+    "plan.requestSaved": "Demande enregistrée. Ouvrez WhatsApp pour finaliser avec nous.",
+
+    "classes.autoTitle": "Créer les classes automatiquement",
+    "classes.autoHint":
+      "Choisissez les niveaux de votre école : les classes et leurs matières sont créées d'un coup.",
+    "classes.autoNoDuplicate":
+      "Les niveaux que vous avez déjà ne seront pas dupliqués. Vous pourrez renommer, ajouter ou supprimer chaque classe ensuite.",
+    "classes.autoAlreadyExist": "Ces classes existent déjà.",
+    "classes.subjectArabicHint": "Il apparaîtra à droite du nom français sur les bulletins.",
+    "classes.subjectUpdated": "Matière modifiée avec succès.",
+    "classes.subjectCreated": "Matière ajoutée avec succès.",
+
+    "students.createClassFirst": "Créez d'abord une classe dans « Classes ».",
+    "students.duplicateTitle": "Un élève portant ce nom est déjà inscrit.",
+    "students.duplicateHint":
+      "S'il s'agit de la même personne, annulez et modifiez la fiche existante. S'il s'agit d'un homonyme, confirmez pour créer quand même.",
+    "students.duplicateConfirm": "C'est un homonyme, créer quand même",
+
+    "hr.leaveSaved": "Congé enregistré.",
   },
   en: {
     "nav.dashboard": "Dashboard",
@@ -939,6 +975,42 @@ export const dictionaries = {
     "login.createSchool": "Create my school",
     "login.emailPlaceholder": "you@email.com",
     "login.invalidCredentials": "Incorrect email or password.",
+
+    "comm.arabicHint":
+      "Added automatically at the bottom of the message, for parents who read Arabic.",
+    "comm.templateTitlePlaceholder": "Meeting reminder",
+    "comm.templateUpdated": "Template updated.",
+    "comm.templateCreated": "Template created.",
+
+    "credentials.title": "Access created",
+    "credentials.warningBold": "the password will no longer be shown",
+    "credentials.warningRest": ". You will only be able to generate a new one.",
+    "credentials.sendWhatsapp": "Send on WhatsApp",
+    "credentials.acknowledged": "Noted",
+
+    "plan.title": "Your plan",
+    "plan.allStandardPlus": "Everything in Standard, plus:",
+    "plan.manualNote":
+      "A plan change is never automatic: we confirm the payment together on WhatsApp before activating it.",
+    "plan.requestSaved": "Request saved. Open WhatsApp to finalise it with us.",
+
+    "classes.autoTitle": "Create the classes automatically",
+    "classes.autoHint":
+      "Choose your school's levels: the classes and their subjects are created in one go.",
+    "classes.autoNoDuplicate":
+      "Levels you already have will not be duplicated. You can rename, add or delete each class afterwards.",
+    "classes.autoAlreadyExist": "These classes already exist.",
+    "classes.subjectArabicHint": "It appears to the right of the French name on report cards.",
+    "classes.subjectUpdated": "Subject updated successfully.",
+    "classes.subjectCreated": "Subject added successfully.",
+
+    "students.createClassFirst": "Create a class in “Classes” first.",
+    "students.duplicateTitle": "A student with this name is already enrolled.",
+    "students.duplicateHint":
+      "If this is the same person, cancel and edit the existing record. If it is a namesake, confirm to create anyway.",
+    "students.duplicateConfirm": "It's a namesake, create anyway",
+
+    "hr.leaveSaved": "Leave saved.",
   },
   ar: {
     "nav.dashboard": "لوحة القيادة",
@@ -1406,6 +1478,40 @@ export const dictionaries = {
     "login.createSchool": "إنشاء مدرستي",
     "login.emailPlaceholder": "you@email.com",
     "login.invalidCredentials": "البريد الإلكتروني أو كلمة المرور غير صحيحة.",
+
+    "comm.arabicHint": "تُضاف تلقائيًا أسفل الرسالة، لأولياء الأمور الذين يقرؤون العربية.",
+    "comm.templateTitlePlaceholder": "تذكير باجتماع",
+    "comm.templateUpdated": "تم تعديل النموذج.",
+    "comm.templateCreated": "تم إنشاء النموذج.",
+
+    "credentials.title": "تم إنشاء الوصول",
+    "credentials.warningBold": "لن تُعرض كلمة المرور مرة أخرى",
+    "credentials.warningRest": ". يمكنك فقط توليد كلمة مرور جديدة.",
+    "credentials.sendWhatsapp": "الإرسال عبر واتساب",
+    "credentials.acknowledged": "تم التدوين",
+
+    "plan.title": "صيغتك",
+    "plan.allStandardPlus": "كل ما في الصيغة العادية، إضافة إلى:",
+    "plan.manualNote":
+      "تغيير الصيغة ليس تلقائيًا أبدًا: نؤكد الدفع معًا عبر واتساب قبل تفعيله.",
+    "plan.requestSaved": "تم تسجيل الطلب. افتح واتساب لإتمامه معنا.",
+
+    "classes.autoTitle": "إنشاء الأقسام تلقائيًا",
+    "classes.autoHint": "اختر مستويات مدرستك: تُنشأ الأقسام وموادها دفعة واحدة.",
+    "classes.autoNoDuplicate":
+      "لن تتكرّر المستويات الموجودة لديك. يمكنك لاحقًا إعادة تسمية كل قسم أو إضافته أو حذفه.",
+    "classes.autoAlreadyExist": "هذه الأقسام موجودة بالفعل.",
+    "classes.subjectArabicHint": "يظهر على يمين الاسم الفرنسي في كشوف النقاط.",
+    "classes.subjectUpdated": "تم تعديل المادة بنجاح.",
+    "classes.subjectCreated": "تمت إضافة المادة بنجاح.",
+
+    "students.createClassFirst": "أنشئ قسمًا أولًا من «الأقسام».",
+    "students.duplicateTitle": "يوجد تلميذ مسجّل بهذا الاسم بالفعل.",
+    "students.duplicateHint":
+      "إن كان الشخص نفسه، فألغِ العملية وعدّل الملف الموجود. وإن كان مجرد تشابه في الأسماء، فأكّد الإنشاء.",
+    "students.duplicateConfirm": "تشابه في الأسماء، أنشئ رغم ذلك",
+
+    "hr.leaveSaved": "تم حفظ العطلة.",
   },
 } as const;
 

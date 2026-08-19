@@ -243,9 +243,7 @@ export function StudentFormDialog({
                 </SelectContent>
               </Select>
               {classes.length === 0 ? (
-                <p className="text-xs text-danger">
-                  Créez d&apos;abord une classe dans « Classes ».
-                </p>
+                <p className="text-xs text-danger">{t("students.createClassFirst")}</p>
               ) : (
                 errors.classId && (
                   <p className="text-xs text-danger">{errors.classId.message}</p>
@@ -355,9 +353,7 @@ export function StudentFormDialog({
             <div className="flex items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
               <div className="text-xs text-amber-900">
-                <p className="font-medium">
-                  Un élève portant ce nom est déjà inscrit.
-                </p>
+                <p className="font-medium">{t("students.duplicateTitle")}</p>
                 <ul className="mt-1 space-y-0.5 text-amber-800/80">
                   {duplicates.map((d) => (
                     <li key={d.id}>
@@ -366,18 +362,12 @@ export function StudentFormDialog({
                     </li>
                   ))}
                 </ul>
-                <p className="mt-1.5 text-amber-800/80">
-                  S&apos;il s&apos;agit de la même personne, annulez et modifiez la fiche
-                  existante. S&apos;il s&apos;agit d&apos;un homonyme, confirmez pour créer
-                  quand même.
-                </p>
+                <p className="mt-1.5 text-amber-800/80">{t("students.duplicateHint")}</p>
                 <button
                   type="button"
                   onClick={() => setDuplicateAck(true)}
                   className="mt-2 rounded-md bg-amber-600 px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-700"
-                >
-                  C&apos;est un homonyme, créer quand même
-                </button>
+                >{t("students.duplicateConfirm")}</button>
               </div>
             </div>
           )}

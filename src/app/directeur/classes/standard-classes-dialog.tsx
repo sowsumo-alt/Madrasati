@@ -22,6 +22,7 @@ import {
   type SchoolType,
 } from "@/lib/school-levels";
 import { generateStandardClasses } from "./actions";
+import { useLanguage } from "@/lib/i18n/language-provider";
 
 /**
  * Crée les classes standard en un clic, pour une école qui n'en a pas encore.
@@ -36,6 +37,7 @@ export function StandardClassesDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { t } = useLanguage();
   const router = useRouter();
   const [schoolType, setSchoolType] = useState<SchoolType>("complet");
   const [isCreating, setIsCreating] = useState(false);
@@ -47,14 +49,14 @@ export function StandardClassesDialog({
     try {
       const { created } = await generateStandardClasses(schoolType);
       if (created === 0) {
-        toast.info("Ces classes existent déjà.");
+        toast.info(t("classes.autoAlreadyExist"));
       } else {
         toast.success(`${created} classe(s) créée(s) avec leurs matières.`);
       }
       onOpenChange(false);
       router.refresh();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Une erreur est survenue.");
+      toast.error(e instanceof Error ? e.message : t("common.error"));
     } finally {
       setIsCreating(false);
     }
@@ -64,11 +66,8 @@ export function StandardClassesDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Créer les classes automatiquement</DialogTitle>
-          <DialogDescription>
-            Choisissez les niveaux de votre école : les classes et leurs
-            matières sont créées d&apos;un coup.
-          </DialogDescription>
+          <DialogTitle>{t("classes.autoTitle")}</DialogTitle>
+          <DialogDescription>{t("classes.autoHint")}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3">
@@ -112,10 +111,7 @@ export function StandardClassesDialog({
             </div>
           </div>
 
-          <p className="text-xs text-foreground/50">
-            Les niveaux que vous avez déjà ne seront pas dupliqués. Vous pourrez
-            renommer, ajouter ou supprimer chaque classe ensuite.
-          </p>
+          <p className="text-xs text-foreground/50">{t("classes.autoNoDuplicate")}</p>
         </div>
 
         <DialogFooter>
