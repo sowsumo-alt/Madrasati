@@ -4,9 +4,18 @@ import { prisma } from "@/lib/prisma";
 import { FEATURES, schoolHasFeature } from "@/lib/plans";
 import { ExamsView, type ExamRow } from "./exams-view";
 import type { ExamClassOption } from "./exam-form-dialog";
+import { CURRENT_YEAR } from "@/lib/school-year";
 
-export default async function ExamsPage() {
+export default async function ExamsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ exam?: string }>;
+}) {
   const user = await requireRole(ROLES.DIRECTOR);
+  // ?exam=<id> ouvre directement la saisie des notes de cet examen. C'est ce
+  // qui permet d'y arriver en un clic depuis n'importe où, sans avoir à
+  // retrouver la bonne ligne au milieu de la liste.
+  const { exam: initialExamId } = await searchParams;
 
   const [exams, classes, students, school] = await Promise.all([
     prisma.exam.findMany({
@@ -19,7 +28,7 @@ export default async function ExamsPage() {
       },
     }),
     prisma.classRoom.findMany({
-      where: { schoolId: user.schoolId },
+      where: { schoolId: user.schoolId, ...CURRENT_YEAR },
       orderBy: { name: "asc" },
       include: {
         classSubjects: { include: { subject: { select: { id: true, name: true } } } },
@@ -64,6 +73,7 @@ export default async function ExamsPage() {
       maxScore: e.maxScore,
       classId: e.classId,
       className: e.classRoom.name,
+      subjectId: e.subjectId,
       subjectName: e.subject.name,
       gradedCount: e.grades.filter((g) => g.score != null || g.isAbsent).length,
       studentCount: classStudents.length,
@@ -99,6 +109,7 @@ export default async function ExamsPage() {
       classes={classOptions}
       schoolName={school?.name ?? "Madrasati"}
       bilingual={bilingual}
+      initialExamId={initialExamId ?? null}
     />
   );
 }

@@ -20,6 +20,9 @@ interface ConfirmDialogProps {
   variant?: "primary" | "danger";
   loading?: boolean;
   onConfirm: () => void;
+  /** Complément inséré avant les boutons — par exemple le choix de la portée
+   *  d'une suppression (cette classe seule, ou toutes les classes). */
+  children?: React.ReactNode;
 }
 
 export function ConfirmDialog({
@@ -31,6 +34,7 @@ export function ConfirmDialog({
   variant = "primary",
   loading,
   onConfirm,
+  children,
 }: ConfirmDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -39,6 +43,7 @@ export function ConfirmDialog({
           <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
+        {children}
         <DialogFooter>
           <Button
             type="button"

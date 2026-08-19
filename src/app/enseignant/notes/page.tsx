@@ -6,10 +6,15 @@ import { FEATURES, schoolHasFeature } from "@/lib/plans";
 import { ExamsView, type ExamRow } from "@/app/directeur/examens/exams-view";
 import type { ExamClassOption } from "@/app/directeur/examens/exam-form-dialog";
 
-export default async function TeacherGradesPage() {
+export default async function TeacherGradesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ exam?: string }>;
+}) {
   const user = await requireRole(ROLES.TEACHER);
+  const { exam: initialExamId } = await searchParams;
   const scope = await getTeacherScope(user.id, user.schoolId);
-  const classIds = scope?.classIds ?? [];
+  const classIds = scope?.currentClassIds ?? [];
 
   const [exams, classes, students, school] = await Promise.all([
     prisma.exam.findMany({
@@ -67,6 +72,7 @@ export default async function TeacherGradesPage() {
       maxScore: e.maxScore,
       classId: e.classId,
       className: e.classRoom.name,
+      subjectId: e.subjectId,
       subjectName: e.subject.name,
       gradedCount: e.grades.filter((g) => g.score != null || g.isAbsent).length,
       studentCount: classStudents.length,
@@ -100,6 +106,7 @@ export default async function TeacherGradesPage() {
       canManageExams={false}
       schoolName={school?.name ?? "Madrasati"}
       bilingual={bilingual}
+      initialExamId={initialExamId ?? null}
     />
   );
 }
