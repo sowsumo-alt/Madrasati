@@ -9,7 +9,7 @@ import { PrintButton } from "@/components/ui/print-button";
 import { GraduationCap } from "lucide-react";
 import { isAiEnabled } from "@/lib/ai";
 import { CommentEditor } from "./comment-editor";
-import { SendPdfButton } from "./send-pdf-button";
+import { PdfButton } from "@/components/ui/pdf-button";
 import { getTranslations } from "@/lib/i18n/server";
 import type { TranslationKey } from "@/lib/i18n/dictionaries";
 import { FEATURES, schoolHasFeature } from "@/lib/plans";
@@ -92,9 +92,10 @@ export default async function ReportCardPage({
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <div className="no-print mb-6 flex justify-end gap-2">
-        <SendPdfButton
+        <PdfButton
           elementId="bulletin-card"
           fileName={`Bulletin-${studentName}-${term}.pdf`}
+          labelKey="bulletin.sendPdf"
           parentPhone={parent?.phone ?? null}
           message={pdfMessage}
         />

@@ -138,10 +138,18 @@ export function StudentFormDialog({
         toast.success(t("students.updatedSuccess"));
       } else {
         const result = await createStudent(values);
-        toast.success(t("students.createdSuccess"));
         if (result.paymentId) {
-          window.open(`/directeur/finance/recus/${result.paymentId}`, "_blank");
+          // Navigation dans le même onglet, et non window.open : le geste de
+          // l'utilisateur a expiré pendant l'attente du serveur, si bien que
+          // le navigateur bloquait l'ouverture en arrière-plan sans rien
+          // dire. Le directeur ne voyait jamais le reçu et devait aller le
+          // chercher dans Finance.
+          toast.success(t("students.enrolledWithReceipt"));
+          onOpenChange(false);
+          router.push(`/directeur/finance/recus/${result.paymentId}`);
+          return;
         }
+        toast.success(t("students.createdSuccess"));
       }
       onOpenChange(false);
       router.refresh();

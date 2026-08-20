@@ -5,9 +5,11 @@ import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { FEATURES, schoolHasFeature } from "@/lib/plans";
 import { formatMRU, formatDate, formatLongDate, formatLongDateAr, formatAmount } from "@/lib/format";
+import Link from "next/link";
 import { PrintButton } from "@/components/ui/print-button";
+import { PdfButton } from "@/components/ui/pdf-button";
 import { buttonVariants } from "@/components/ui/button";
-import { GraduationCap, MessageCircle } from "lucide-react";
+import { GraduationCap, MessageCircle, ArrowLeft } from "lucide-react";
 import { getTranslations } from "@/lib/i18n/server";
 import type { TranslationKey } from "@/lib/i18n/dictionaries";
 import {
@@ -81,7 +83,26 @@ export default async function ReceiptPage({
 
   return (
     <div className="mx-auto max-w-xl px-4 py-10">
+      {/* Le reçu s'ouvre juste après une inscription : sans ce retour, le
+          directeur se retrouve sur une page sans issue vers sa liste. */}
+      <div className="no-print mb-4">
+        <Link
+          href="/directeur/eleves"
+          className="inline-flex items-center gap-1.5 text-sm text-foreground/50 transition-colors hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {t("finance.backToStudents")}
+        </Link>
+      </div>
+
       <div className="no-print mb-6 flex flex-wrap justify-end gap-2">
+        <PdfButton
+          elementId="recu-card"
+          fileName={`Recu-${payment.receiptNumber}.pdf`}
+          labelKey={parent ? "finance.sendReceiptPdf" : "finance.downloadReceiptPdf"}
+          parentPhone={parent?.phone ?? null}
+          message={confirmationMessage}
+        />
         {parent && (
           <a
             href={buildWhatsAppUrl(parent.phone, confirmationMessage)}
@@ -96,7 +117,10 @@ export default async function ReceiptPage({
         <PrintButton label={t("finance.printReceipt")} />
       </div>
 
-      <div className="rounded-xl border border-border bg-surface p-8 shadow-sm print:border-0 print:shadow-none">
+      <div
+        id="recu-card"
+        className="rounded-xl border border-border bg-surface p-8 shadow-sm print:border-0 print:shadow-none"
+      >
         <div className="flex items-start justify-between border-b border-border pb-6">
           <div className="flex items-center gap-3 text-primary-800">
             {payment.school.logoUrl ? (
