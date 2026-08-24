@@ -124,18 +124,25 @@ export function CommentEditor({
         </div>
       </div>
 
-      {/* Rendu imprimé — français à gauche, arabe à droite */}
-      <div className="hidden print:block">
-        <p className="text-xs font-medium uppercase tracking-wide text-foreground/40">
-          Appréciation / ملاحظة
-        </p>
-        <div className="mt-1 grid grid-cols-2 gap-6">
-          <p className="text-sm leading-relaxed text-foreground">{body}</p>
-          <p dir="rtl" lang="ar" className="text-sm leading-relaxed text-foreground">
-            {bodyAr}
+      {/* Rendu imprimé — français à gauche, arabe à droite. `data-pdf-show`
+          le fait apparaître aussi dans le PDF envoyé au parent : la capture
+          ne connaît pas les règles d'impression et n'aurait montré que les
+          champs de saisie et leurs boutons. */}
+      {/* Rien à imprimer sans appréciation : un intitulé seul au-dessus de deux
+          colonnes vides ferait croire à un bulletin incomplet. */}
+      {(body || bodyAr) && (
+        <div className="hidden print:block" data-pdf-show>
+          <p className="text-xs font-medium uppercase tracking-wide text-foreground/40">
+            Appréciation / ملاحظة
           </p>
+          <div className="mt-1 grid grid-cols-2 gap-6">
+            <p className="text-sm leading-relaxed text-foreground">{body}</p>
+            <p dir="rtl" lang="ar" className="text-sm leading-relaxed text-foreground">
+              {bodyAr}
+            </p>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
