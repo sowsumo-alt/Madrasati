@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { FileText } from "lucide-react";
+import { FileText, Info } from "lucide-react";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import {
   Select,
@@ -60,6 +60,7 @@ export function BulletinsView({
   terms,
   selectedClassId,
   selectedTerm,
+  hasExamThisTerm,
   schoolName,
   gradesTemplate,
   gradesTemplateAr,
@@ -69,6 +70,8 @@ export function BulletinsView({
   terms: string[];
   selectedClassId: string;
   selectedTerm: string;
+  /** Un examen existe-t-il pour cette classe et ce trimestre ? */
+  hasExamThisTerm: boolean;
   schoolName: string;
   gradesTemplate: string;
   gradesTemplateAr?: string;
@@ -129,6 +132,20 @@ export function BulletinsView({
           </Select>
         </div>
       </div>
+
+      {/* Un bulletin vide a deux causes très différentes, et la page les
+          présentait de la même façon — c'est-à-dire pas du tout. Sans examen
+          planifié, aucune note ne peut exister : le dire évite de chercher
+          l'erreur du côté de la saisie. */}
+      {rows.length > 0 && !hasExamThisTerm && (
+        <div className="flex items-start gap-2.5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+          <div className="text-amber-900">
+            <p className="font-medium">{t("bulletin.noExamThisTerm")}</p>
+            <p className="mt-0.5 text-xs text-amber-800/80">{t("bulletin.noExamHint")}</p>
+          </div>
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
         {rows.length === 0 ? (

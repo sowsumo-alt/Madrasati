@@ -118,7 +118,7 @@ export async function createExam(values: ExamFormValues): Promise<CreateExamResu
 async function examsInScope(schoolId: string, examId: string, scope: ExamScope) {
   const exam = await prisma.exam.findFirst({
     where: { id: examId, schoolId },
-    select: { id: true, title: true, date: true, subjectId: true },
+    select: { id: true, title: true, date: true, subjectId: true, academicYearId: true },
   });
   if (!exam) throw new Error("Examen introuvable.");
 
@@ -133,7 +133,15 @@ async function examsInScope(schoolId: string, examId: string, scope: ExamScope) 
     subjectId: exam.subjectId,
   });
   const sameDay = await prisma.exam.findMany({
-    where: { schoolId, subjectId: exam.subjectId, date: exam.date },
+    // Borné à l'année scolaire de l'examen : deux compositions homonymes à un
+    // an d'intervalle ne forment pas un même examen, et « supprimer pour
+    // toutes les classes » ne doit jamais atteindre une année archivée.
+    where: {
+      schoolId,
+      academicYearId: exam.academicYearId,
+      subjectId: exam.subjectId,
+      date: exam.date,
+    },
     select: { id: true, title: true, date: true, subjectId: true },
   });
   const ids = sameDay

@@ -30,10 +30,22 @@ export default async function BulletinsPage({
     params.classId && classes.some((c) => c.id === params.classId)
       ? params.classId
       : (classes[0]?.id ?? "");
+  // Trimestre proposé par défaut : le premier qui porte réellement un examen
+  // dans cette classe. Retomber systématiquement sur le Trimestre 1 affichait
+  // une page vide au directeur qui vient de noter une composition du
+  // Trimestre 2 — sans rien lui indiquer.
+  const examTerms = selectedClassId
+    ? await prisma.exam.findMany({
+        where: { schoolId: user.schoolId, classId: selectedClassId },
+        select: { term: true },
+        distinct: ["term"],
+      })
+    : [];
+  const termsWithExams = new Set(examTerms.map((e) => e.term));
   const selectedTerm =
     params.term && (TERMS as readonly string[]).includes(params.term)
       ? params.term
-      : TERMS[0];
+      : (TERMS.find((t) => termsWithExams.has(t)) ?? TERMS[0]);
 
   const [cards, parents, school, template] = await Promise.all([
     selectedClassId
@@ -53,6 +65,11 @@ export default async function BulletinsPage({
   const bilingual = schoolHasFeature(school, FEATURES.BILINGUAL_MESSAGES);
 
   const parentByStudent = new Map(parents.map((p) => [p.studentId, p.parent]));
+
+  // Aucune moyenne peut vouloir dire deux choses très différentes : aucun
+  // examen n'a été planifié, ou les examens existent mais ne sont pas notés.
+  // La page le disait pareillement dans les deux cas — c'est-à-dire pas du tout.
+  const hasExamThisTerm = termsWithExams.has(selectedTerm);
 
   const rows: BulletinRow[] = cards.map((c) => {
     const parent = parentByStudent.get(c.student.id);
@@ -81,6 +98,7 @@ export default async function BulletinsPage({
       terms={[...TERMS]}
       selectedClassId={selectedClassId}
       selectedTerm={selectedTerm}
+      hasExamThisTerm={hasExamThisTerm}
       schoolName={school?.name ?? "Madrasati"}
       gradesTemplate={template?.body ?? DEFAULT_GRADES_TEMPLATE}
       gradesTemplateAr={bilingual ? (template?.bodyAr ?? DEFAULT_GRADES_TEMPLATE_AR) : undefined}

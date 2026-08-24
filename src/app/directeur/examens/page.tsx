@@ -19,7 +19,12 @@ export default async function ExamsPage({
 
   const [exams, classes, students, school] = await Promise.all([
     prisma.exam.findMany({
-      where: { schoolId: user.schoolId },
+      // Les examens de l'année écoulée n'ont rien à faire ici. Sans ce filtre,
+      // la page proposait encore ceux de l'an dernier : le directeur y
+      // saisissait des notes — qui s'enregistraient bel et bien — mais sur des
+      // élèves d'une classe archivée, que la page Bulletins ne liste plus. Les
+      // notes existaient et n'apparaissaient nulle part.
+      where: { schoolId: user.schoolId, ...CURRENT_YEAR },
       orderBy: { date: "desc" },
       include: {
         classRoom: { select: { name: true } },

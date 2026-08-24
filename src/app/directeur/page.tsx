@@ -133,7 +133,7 @@ export default async function DashboardPage() {
       select: { id: true, amount: true },
     }),
     prisma.exam.count({
-      where: { schoolId, date: { gte: startOfToday, lt: inSevenDays } },
+      where: { schoolId, ...CURRENT_YEAR, date: { gte: startOfToday, lt: inSevenDays } },
     }),
     prisma.classRoom.findMany({
       where: { schoolId, ...CURRENT_YEAR },
@@ -173,7 +173,7 @@ export default async function DashboardPage() {
       },
     }),
     prisma.exam.findMany({
-      where: { schoolId },
+      where: { schoolId, ...CURRENT_YEAR },
       orderBy: { createdAt: "desc" },
       take: 2,
       select: {

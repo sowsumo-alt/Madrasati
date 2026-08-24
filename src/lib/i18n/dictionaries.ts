@@ -211,6 +211,9 @@ export const dictionaries = {
     "bulletin.rankOrdinalOther": "ème",
     "bulletin.print": "Imprimer le bulletin",
     "bulletin.sendPdf": "Envoyer le PDF au parent",
+    "bulletin.noExamThisTerm": "Aucun examen n'est planifié pour cette classe sur ce trimestre.",
+    "bulletin.noExamHint":
+      "Les moyennes se calculent à partir des notes d'examens. Planifiez d'abord l'examen dans « Examens & Notes », puis saisissez-y les notes.",
     "pdf.sentInstructions":
       "Le PDF a été téléchargé et la conversation WhatsApp du parent vient de s'ouvrir — joignez-y le fichier téléchargé.",
     "pdf.downloaded": "PDF téléchargé.",
@@ -832,6 +835,9 @@ export const dictionaries = {
     "bulletin.rankOrdinalOther": "th",
     "bulletin.print": "Print the report card",
     "bulletin.sendPdf": "Send PDF to parent",
+    "bulletin.noExamThisTerm": "No exam is scheduled for this class this term.",
+    "bulletin.noExamHint":
+      "Averages are computed from exam grades. Schedule the exam in \"Exams & Grades\" first, then enter its grades there.",
     "pdf.sentInstructions":
       "The PDF has been downloaded and the parent's WhatsApp conversation just opened — attach the downloaded file there.",
     "pdf.downloaded": "PDF downloaded.",
@@ -1451,6 +1457,9 @@ export const dictionaries = {
     "bulletin.rankOrdinalOther": "",
     "bulletin.print": "طباعة كشف النقاط",
     "bulletin.sendPdf": "إرسال PDF إلى ولي الأمر",
+    "bulletin.noExamThisTerm": "لا يوجد امتحان مبرمج لهذا القسم في هذا الفصل.",
+    "bulletin.noExamHint":
+      "تُحتسب المعدلات من نقاط الامتحانات. برمجوا الامتحان أولًا في «الامتحانات والنقاط»، ثم أدخلوا نقاطه هناك.",
     "pdf.sentInstructions":
       "تم تحميل ملف PDF وفُتحت محادثة واتساب مع ولي الأمر — أرفق فيها الملف الذي تم تحميله.",
     "pdf.downloaded": "تم تحميل ملف PDF.",
