@@ -87,3 +87,37 @@ export async function recordPayment(feeId: string, values: PaymentFormValues) {
   revalidatePath("/directeur");
   return { paymentId };
 }
+
+/**
+ * Supprime un frais créé par erreur — un doublon de saisie, un montant posé
+ * sur le mauvais élève.
+ *
+ * Refusé dès qu'un paiement y est rattaché, et ce n'est pas une précaution de
+ * confort : en base, les paiements d'un frais sont supprimés avec lui
+ * (onDelete: Cascade). Effacer un frais réglé emporterait donc silencieusement
+ * les reçus déjà remis aux parents, avec leurs numéros — des pièces
+ * comptables que l'école ne peut plus reconstituer. Le trop-perçu se corrige
+ * en modifiant le frais, jamais en le faisant disparaître.
+ */
+export async function deleteFee(feeId: string) {
+  const user = await requireRole(ROLES.DIRECTOR);
+
+  const fee = await prisma.fee.findFirst({
+    where: { id: feeId, schoolId: user.schoolId },
+    select: { id: true, _count: { select: { payments: true } } },
+  });
+  if (!fee) throw new Error("Frais introuvable.");
+
+  if (fee._count.payments > 0) {
+    throw new Error(
+      fee._count.payments === 1
+        ? "Ce frais porte déjà un paiement : le supprimer effacerait son reçu."
+        : `Ce frais porte déjà ${fee._count.payments} paiements : les supprimer effacerait leurs reçus.`,
+    );
+  }
+
+  await prisma.fee.delete({ where: { id: fee.id } });
+
+  revalidatePath("/directeur/finance");
+  revalidatePath("/directeur");
+}

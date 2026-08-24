@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   Search,
   Plus,
@@ -9,6 +11,7 @@ import {
   Wallet,
   AlertCircle,
   Banknote,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +25,8 @@ import { PaymentDialog } from "./payment-dialog";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { AlphabetFilter, matchesLetter } from "@/components/ui/alphabet-filter";
 import { feeDisplayStatus, isLate, remainingOf } from "@/lib/fee-status";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { deleteFee } from "./actions";
 import type { TranslationKey } from "@/lib/i18n/dictionaries";
 
 export interface FeeRow {
@@ -87,6 +92,7 @@ export function FinanceView({
   reminderTemplateAr?: string;
 }) {
   const { t } = useLanguage();
+  const router = useRouter();
   const schoolFr = schoolSignatureFr(schoolName);
   const schoolAr = schoolSignatureAr(schoolName);
   const [query, setQuery] = useState("");
@@ -99,6 +105,29 @@ export function FinanceView({
     label: string;
     remaining: number;
   } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<FeeRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  /**
+   * Un frais déjà réglé n'est pas supprimable : ses paiements partiraient avec
+   * lui (onDelete: Cascade), emportant des reçus déjà remis aux parents. Le
+   * bouton n'apparaît donc que tant qu'aucun paiement n'est rattaché — plutôt
+   * que de le proposer pour finir par un refus.
+   */
+  async function handleDeleteFee() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await deleteFee(deleteTarget.id);
+      toast.success(t("finance.feeDeleted"));
+      setDeleteTarget(null);
+      router.refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t("common.error"));
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   const totalCollected = useMemo(
     () => fees.reduce((sum, f) => sum + f.totalPaid, 0),
@@ -314,6 +343,15 @@ export function FinanceView({
                               <Receipt className="h-4 w-4" />
                             </Link>
                           )}
+                          {f.payments.length === 0 && (
+                            <button
+                              title={t("finance.deleteFee")}
+                              onClick={() => setDeleteTarget(f)}
+                              className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground/60 transition-colors hover:bg-red-50 hover:text-danger"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -327,6 +365,26 @@ export function FinanceView({
 
       <FeeFormDialog open={feeFormOpen} onOpenChange={setFeeFormOpen} students={students} />
       <PaymentDialog target={paymentTarget} onOpenChange={(open) => !open && setPaymentTarget(null)} />
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title={t("finance.deleteFeeTitle")}
+        description={
+          deleteTarget
+            ? t("finance.deleteFeeHint")
+                .replace("{label}", deleteTarget.label)
+                .replace(
+                  "{student}",
+                  `${deleteTarget.student.firstName} ${deleteTarget.student.lastName}`,
+                )
+                .replace("{amount}", formatMRU(deleteTarget.amount))
+            : undefined
+        }
+        confirmLabel={t("finance.deleteFee")}
+        variant="danger"
+        loading={deleting}
+        onConfirm={handleDeleteFee}
+      />
     </div>
   );
 }
