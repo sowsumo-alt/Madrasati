@@ -21,6 +21,7 @@ import { FeeFormDialog, type FeeStudentOption } from "./fee-form-dialog";
 import { PaymentDialog } from "./payment-dialog";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { AlphabetFilter, matchesLetter } from "@/components/ui/alphabet-filter";
+import { feeDisplayStatus, isLate, remainingOf } from "@/lib/fee-status";
 import type { TranslationKey } from "@/lib/i18n/dictionaries";
 
 export interface FeeRow {
@@ -49,12 +50,8 @@ const STATUS_VARIANT: Record<string, BadgeProps["variant"]> = {
   OVERDUE: "danger",
 };
 
-function displayStatus(fee: FeeRow) {
-  if (fee.status !== "PAID" && new Date(fee.dueDate) < new Date()) {
-    return "OVERDUE";
-  }
-  return fee.status;
-}
+// Le statut affiché et le retard sont calculés dans lib/fee-status.ts,
+// hors de cet écran, pour être verrouillés par des tests.
 
 const STATUS_FILTERS = ["ALL", "PENDING", "PARTIAL", "PAID", "OVERDUE"] as const;
 
@@ -117,7 +114,7 @@ export function FinanceView({
     return fees.filter((f) => {
       const name = `${f.student.firstName} ${f.student.lastName}`.toLowerCase();
       const matchesQuery = !q || name.includes(q) || f.label.toLowerCase().includes(q);
-      const status = displayStatus(f);
+      const status = feeDisplayStatus(f);
       const matchesStatus = statusFilter === "ALL" || status === statusFilter;
       const matchesInitial = matchesLetter(
         `${f.student.firstName} ${f.student.lastName}`,
@@ -211,8 +208,8 @@ export function FinanceView({
               </thead>
               <tbody className="divide-y divide-border">
                 {filtered.map((f) => {
-                  const status = displayStatus(f);
-                  const remaining = Math.max(f.amount - f.totalPaid, 0);
+                  const status = feeDisplayStatus(f);
+                  const remaining = remainingOf(f);
                   const lastReceipt = f.payments[f.payments.length - 1];
                   const reminderMessage = f.parent
                     ? withArabic(
@@ -247,6 +244,22 @@ export function FinanceView({
                       <td className="px-5 py-3 text-foreground/70">{f.label}</td>
                       <td className="px-5 py-3 text-foreground/70">
                         {formatMRU(f.amount)}
+                        {/* Sans cette ligne, la colonne affichait le montant
+                            facturé et rien d'autre : un versement partiel
+                            n'y laissait aucune trace, et c'est le reste dû —
+                            pas le montant d'origine — que le directeur doit
+                            réclamer. */}
+                        {f.totalPaid > 0 && remaining > 0 && (
+                          <span className="mt-0.5 block whitespace-nowrap text-xs">
+                            <span className="font-medium text-warning">
+                              {t("finance.remainingIs").replace("{amount}", formatMRU(remaining))}
+                            </span>
+                            <span className="text-foreground/45">
+                              {" · "}
+                              {t("finance.alreadyPaid").replace("{amount}", formatMRU(f.totalPaid))}
+                            </span>
+                          </span>
+                        )}
                       </td>
                       <td className="px-5 py-3 text-foreground/70">
                         {formatDate(f.dueDate)}
@@ -257,8 +270,10 @@ export function FinanceView({
                         </Badge>
                         {/* Une échéance d'octobre dernier et une d'avant-hier
                             portaient le même badge : l'ancienneté du retard est
-                            ce qui dit laquelle relancer en premier. */}
-                        {status === "OVERDUE" && (
+                            ce qui dit laquelle relancer en premier. Affiché
+                            aussi sur un frais partiellement réglé, qui reste en
+                            retard sans porter le badge « Impayé ». */}
+                        {isLate(f) && (
                           <span className="ml-1.5 whitespace-nowrap text-xs text-danger">
                             {formatOverdue(f.dueDate, t)}
                           </span>
