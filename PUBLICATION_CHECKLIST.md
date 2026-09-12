@@ -10,20 +10,18 @@ Ce document liste tout ce qu'il reste à faire, côté configuration et décisio
 
 | Variable | Où la trouver | Obligatoire |
 |---|---|---|
-| `DATABASE_URL` | Supabase → Project Settings → Database → Connection string (pooler, mode transaction, port 6543) | Oui |
-| `DIRECT_URL` | Supabase → Project Settings → Database → Connection string (connexion directe, port 5432) | Oui |
+| `DATABASE_URL` | Neon → Connect → Connection string, *Connection pooling* coché (hôte en `-pooler`), suffixe `?sslmode=require&pgbouncer=true` | Oui |
+| `DIRECT_URL` | Neon → Connect → Connection string, *Connection pooling* décoché, suffixe `?sslmode=require` | Oui |
 | `NEXTAUTH_SECRET` | À générer une fois : `openssl rand -base64 32` | Oui |
 | `NEXTAUTH_URL` | L'URL publique finale de l'application (ex: `https://madrasati.mr` ou l'URL `.vercel.app`) | Oui |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Project Settings → API → Project URL | Oui |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase → Project Settings → API → clé "anon public" (publique par design, sûre à exposer) | Oui |
 | `GEMINI_API_KEY` | Google AI Studio → Get API key | Oui (sinon la génération d'appréciation par IA échoue silencieusement, le reste fonctionne) |
 
 Voir `.env.example` à la racine du projet pour le modèle exact.
 
 ## 2. Ce qu'Abou doit fournir avant l'ouverture
 
-- [ ] **Compte Supabase** en plan payant si le volume d'écoles/élèves dépasse le plan gratuit (limites : taille de base, bande passante, mise en veille après inactivité sur le plan gratuit — à surveiller, une base "endormie" ralentit la première requête de la journée).
-- [ ] **Compte Google Cloud Console** avec un Client OAuth configuré, Client ID/Secret renseignés dans Supabase (Authentication → Providers → Google) — déjà fait pour le développement, à vérifier que l'URI de redirection Supabase (`https://<projet>.supabase.co/auth/v1/callback`) est bien enregistrée côté Google (à faire une seule fois, indépendant de l'environnement).
+- [ ] **Compte Neon** : l'offre gratuite met la base en veille après quelques minutes sans requête et la réveille toute seule à la suivante (la première requête de la journée est donc plus lente), mais elle ne supprime pas le projet. Passer au plan payant avant le premier client facturé, pour les sauvegardes ponctuelles (*point-in-time restore*) et l'absence de mise en veille.
+- [ ] **Sauvegardes** : vérifier qu'une restauration est réellement possible, et l'essayer une fois — un projet de base de données perdu sans sauvegarde emporte toutes les écoles.
 - [ ] **Clé Google AI Studio (Gemini)** dédiée à la production (recommandé : une clé distincte de celle utilisée en développement, avec quota/facturation suivis séparément).
 - [ ] **Nom de domaine** si `madrasati.mr` ou équivalent est souhaité (voir section 3).
 - [ ] **Décision sur le numéro WhatsApp affiché** sur la page publique et dans les modèles de message (actuellement `+222 31 72 84 17`, à confirmer que c'est bien le numéro définitif de contact/support).
@@ -42,12 +40,12 @@ Voir `.env.example` à la racine du projet pour le modèle exact.
 ## 4. Hébergement (déjà en place)
 
 - **Frontend** : Vercel (build Next.js). Recommandé : plan Pro dès que plusieurs écoles réelles sont actives (le plan gratuit limite l'usage des fonctions serverless).
-- **Base de données** : Supabase (PostgreSQL managé). Les migrations Prisma (`prisma/migrations/`) doivent être appliquées avec `npx prisma migrate deploy` avant chaque mise en production d'un changement de schéma — jamais `prisma migrate reset` sur une base contenant de vraies données.
+- **Base de données** : Neon (PostgreSQL managé). Les migrations Prisma (`prisma/migrations/`) doivent être appliquées avec `npx prisma migrate deploy` avant chaque mise en production d'un changement de schéma — jamais `prisma migrate reset` sur une base contenant de vraies données.
 
 ## 5. Sécurité — vérifications finales
 
 - **Isolation entre écoles** : entièrement assurée au niveau applicatif — chaque requête Prisma est filtrée par `schoolId`, et chaque action serveur vérifie le rôle de l'utilisateur (`requireRole`/`requireUser`, voir `src/lib/session.ts`). Un audit complet ligne par ligne de cette isolation a été fait (voir `audit-report.md`), plusieurs failles réelles trouvées et corrigées.
-  **Point important à comprendre** : ce projet **n'utilise pas** les policies Row Level Security (RLS) de Supabase. Prisma se connecte directement à la base Postgres avec les identifiants de connexion (`DATABASE_URL`), en contournant la couche API de Supabase (PostgREST) — RLS ne s'applique donc pas ici et n'a pas de sens à activer dans cette architecture. L'isolation entre écoles repose entièrement et uniquement sur le code applicatif audité. Pour une deuxième couche de protection indépendante du code (défense en profondeur), il faudrait un changement d'architecture plus important : activer RLS sur chaque table ET faire transiter les requêtes de données par le client Supabase plutôt que par Prisma — non fait ici, à évaluer séparément si ce niveau de garantie supplémentaire est jugé nécessaire.
+  **Point important à comprendre** : l'isolation entre écoles repose entièrement et uniquement sur le code applicatif audité — le filtrage par `schoolId` dans chaque requête Prisma. Aucune protection au niveau de la base (type Row Level Security) n'est en place : Prisma se connecte directement à Postgres avec les identifiants de connexion, et contourne donc toute couche d'API intermédiaire. C'est le même constat quel que soit l'hébergeur. Ajouter une seconde barrière indépendante du code demanderait un changement d'architecture à part entière, à évaluer séparément si ce niveau de garantie est jugé nécessaire.
 - **Liens WhatsApp** : les numéros de téléphone sont normalisés avant envoi (`src/lib/phone.ts`, ajout automatique de l'indicatif mauritanien si absent) et le contenu du message est encodé dans l'URL par `buildWhatsAppUrl` (`src/lib/whatsapp.ts`) — pas d'injection possible dans le lien `wa.me`. Ces liens ouvrent WhatsApp côté client uniquement ; aucune donnée n'est envoyée à un serveur tiers par Madrasati lui-même.
 - **Mots de passe temporaires** générés avec un générateur cryptographique (`crypto.randomInt`), jamais affichés à nouveau après création — communiqués une seule fois au directeur, changement obligatoire à la première connexion.
 - **Limitation de tentatives de connexion (throttling)** : non implémentée (voir limitations connues d'`audit-report.md`). À ajouter avant une ouverture à grande échelle, avec un service externe adapté au serverless (ex. Upstash Redis + Vercel).
@@ -60,7 +58,7 @@ Je ne suis pas juriste et ces points nécessitent une vraie validation légale a
 - [ ] **Politique de confidentialité** : à rédiger et publier, expliquant quelles données sont collectées (élèves, parents, notes, présences, paiements), pourquoi, combien de temps elles sont conservées, et qui y a accès.
 - [ ] **Conditions d'utilisation** pour les écoles clientes.
 - [ ] **Protection des données de mineurs** : vérifier les obligations légales applicables en Mauritanie (et dans les pays des écoles utilisatrices le cas échéant) concernant les données d'enfants — consentement parental, droit à l'effacement, durée de conservation.
-- [ ] **Localisation des données** : Supabase héberge par défaut hors Mauritanie (région choisie à la création du projet — actuellement `eu-central-1`, en Europe) ; vérifier si une réglementation impose un hébergement local ou dans une zone géographique précise.
+- [ ] **Localisation des données** : la base est hébergée hors Mauritanie (région choisie à la création du projet Neon) ; vérifier si une réglementation impose un hébergement local ou dans une zone géographique précise.
 - [ ] **Contrat/accord avec chaque école** clarifiant qui est responsable des données saisies (l'école reste responsable du contenu qu'elle saisit ; Madrasati est l'hébergeur technique).
 
 ## 7. Build et livraison
@@ -92,4 +90,4 @@ Le dossier `public/` (icônes PWA, `manifest.webmanifest` généré depuis `src/
 ## 10. Ce qui n'a pas pu être vérifié
 
 - Rendu visuel réel sur téléphone/tablette physiques, contraste des couleurs, comportement sous 3G réelle : pas d'accès navigateur pendant cet audit. Le code suit les bonnes pratiques standard (Tailwind responsive, Radix UI accessible) mais un passage humain reste recommandé avant une ouverture à grande échelle.
-- Facturation réelle Supabase/Vercel/Google AI Studio à grande échelle : les plans gratuits suffisent pour une poignée d'écoles pilotes, mais les coûts doivent être anticipés avant une croissance importante du nombre d'écoles.
+- Facturation réelle Neon/Vercel/Google AI Studio à grande échelle : les plans gratuits suffisent pour une poignée d'écoles pilotes, mais les coûts doivent être anticipés avant une croissance importante du nombre d'écoles.

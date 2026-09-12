@@ -2,10 +2,9 @@ import { DefaultSession } from "next-auth";
 
 declare module "next-auth" {
   interface User {
-    // Optionnels : une identité Google fraîchement vérifiée par Supabase
-    // (provider "supabase-google") n'a pas encore de role/schoolId tant que
-    // le directeur n'a pas créé son école (état "pending", voir jwt() dans
-    // src/lib/auth.ts).
+    // Optionnels dans le type de next-auth, mais toujours fixés par nos deux
+    // providers : un compte d'école porte son rôle et son école, le compte
+    // propriétaire porte le rôle SUPER_ADMIN et une école vide.
     role?: string;
     schoolId?: string;
   }
@@ -15,9 +14,6 @@ declare module "next-auth" {
       id: string;
       role: string;
       schoolId: string;
-      /** Vrai pour une identité Google authentifiée qui n'a pas encore créé
-       *  d'école — role/schoolId sont alors absents à l'exécution. */
-      pending?: boolean;
     } & DefaultSession["user"];
   }
 }
@@ -27,6 +23,5 @@ declare module "next-auth/jwt" {
     id: string;
     role: string;
     schoolId: string;
-    pending?: boolean;
   }
 }

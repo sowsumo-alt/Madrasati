@@ -12,7 +12,9 @@ const WELCOME_MESSAGE_TEMPLATE =
 
 export default async function WelcomePage() {
   const user = await requireUser();
-  if (!user.schoolId) redirect("/inscription/ecole");
+  // Tout compte créé passe par l'inscription d'une école : sans schoolId, la
+  // session est inexploitable et on repart de la connexion.
+  if (!user.schoolId) redirect("/login");
 
   const account = await prisma.user.findUnique({
     where: { id: user.id },
@@ -21,7 +23,7 @@ export default async function WelcomePage() {
       school: { select: { name: true, city: true, phone: true } },
     },
   });
-  if (!account) redirect("/inscription/ecole");
+  if (!account) redirect("/login");
 
   const message = fillTemplate(WELCOME_MESSAGE_TEMPLATE, {
     schoolName: account.school.name,

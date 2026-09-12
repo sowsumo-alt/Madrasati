@@ -2,10 +2,17 @@
 // Multi-écoles (multi-tenant) : chaque table métier porte un schoolId
 // et toutes les requêtes de l'application doivent filtrer dessus.
 //
-// Postgres (Supabase). DATABASE_URL passe par le pooler en mode transaction
-// (port 6543, ?pgbouncer=true) pour les requêtes de l'application ; DIRECT_URL
-// passe par le pooler en mode session (port 5432) car les migrations ont
-// besoin d'une vraie connexion directe, incompatible avec le mode transaction.
+// Postgres managé (Neon). Deux adresses pour la même base :
+// DATABASE_URL passe par le pooler (hôte en « -pooler », avec
+// ?sslmode=require&pgbouncer=true) et sert toutes les requêtes de
+// l'application ; DIRECT_URL vise l'hôte direct, car les migrations ont besoin
+// d'une vraie connexion persistante que le pooler ne peut pas leur offrir.
+//
+// Le schéma ne dépend d'aucune particularité de l'hébergeur : c'est du
+// PostgreSQL standard, et l'isolation entre écoles est assurée par le code
+// applicatif (schoolId sur chaque table), jamais par une fonctionnalité
+// propre à un fournisseur. Changer d'hébergeur ne demande que de changer ces
+// deux adresses.
 
 generator client {
   provider = "prisma-client-js"

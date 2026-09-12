@@ -5,8 +5,8 @@ Plateforme de gestion scolaire pour les écoles privées en Mauritanie — élè
 ## Stack technique
 
 - **Next.js 15** (App Router, Server Components) / **TypeScript**
-- **Prisma** + **PostgreSQL** (hébergé sur [Supabase](https://supabase.com))
-- **next-auth** (session JWT) pour la connexion par identifiants ; **Supabase Auth** pour la connexion Google (page d'inscription d'une nouvelle école uniquement)
+- **Prisma** + **PostgreSQL** (hébergé sur [Neon](https://neon.tech))
+- **next-auth** (session JWT), connexion par email et mot de passe
 - **Tailwind CSS v4**, composants accessibles via **Radix UI**
 - **Google AI Studio (Gemini)** pour la génération assistée des appréciations de bulletin
 - i18n maison (français / anglais / arabe, RTL complet pour l'arabe)
@@ -44,15 +44,13 @@ Plateforme de gestion scolaire pour les écoles privées en Mauritanie — élè
 
 | Variable | Description |
 |---|---|
-| `DATABASE_URL` | Connexion Postgres via le pooler Supabase (mode transaction, port 6543) — utilisée par l'application |
-| `DIRECT_URL` | Connexion Postgres directe (port 5432) — utilisée uniquement par les migrations Prisma |
+| `DATABASE_URL` | Connexion Postgres via le pooler Neon (hôte en `-pooler`, avec `?sslmode=require&pgbouncer=true`) — utilisée par l'application |
+| `DIRECT_URL` | Connexion Postgres directe (même base, hôte sans `-pooler`) — utilisée uniquement par les migrations Prisma |
 | `NEXTAUTH_SECRET` | Clé secrète de signature des sessions next-auth |
 | `NEXTAUTH_URL` | URL publique de l'application (`http://localhost:3000` en local, l'URL Vercel en production) |
-| `NEXT_PUBLIC_SUPABASE_URL` | URL du projet Supabase, utilisée pour la connexion Google |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Clé publique (publishable) Supabase — sûre à exposer côté navigateur |
 | `GEMINI_API_KEY` | Clé Google AI Studio pour la génération d'appréciations de bulletin |
 
-La connexion Google (page `/inscription`) nécessite en plus, côté tableau de bord Supabase (Authentication → Providers → Google), le Client ID/Secret d'un projet Google Cloud Console, avec `https://<projet>.supabase.co/auth/v1/callback` déclaré comme URI de redirection autorisé — ce réglage ne dépend pas de l'environnement (local/production) et n'est à faire qu'une seule fois.
+Les deux adresses se copient depuis le tableau de bord Neon (**Connect** → *Connection string*), en cochant *Connection pooling* pour la première et en la décochant pour la seconde.
 
 ### Scripts disponibles
 
@@ -80,7 +78,6 @@ src/
                            + xxx-dialog.tsx (formulaires modaux)
     enseignant/          portail Enseignant (périmètre limité à ses classes)
     parent/              portail Parent (périmètre limité à ses enfants)
-    auth/callback/       pont Supabase Auth -> session next-auth
   components/
     ui/                  primitives réutilisables (Button, Dialog, Select, Card...)
     layout/              structure de page (AppShell, menu latéral par catégories)
@@ -100,7 +97,7 @@ prisma/
 
 ## Fonctionnalités implémentées
 
-- [x] Inscription d'une nouvelle école (formulaire ou connexion Google via Supabase Auth)
+- [x] Inscription d'une nouvelle école (formulaire email + mot de passe)
 - [x] Authentification par rôle (Directeur / Enseignant / Parent), changement de mot de passe forcé à la première connexion
 - [x] Élèves : création, modification, recherche, filtres, import Excel, désactivation/réactivation, frais d'inscription optionnel avec reçu
 - [x] Enseignants : création, modification, salaire, matières et classes assignées
@@ -123,4 +120,8 @@ Voir [`audit-report.md`](./audit-report.md) pour le détail de l'audit de produc
 
 ## Déploiement
 
-Hébergement prévu sur **Vercel** (build Next.js) + **Supabase** (base Postgres). Renseigner les variables d'environnement ci-dessus dans le tableau de bord Vercel, avec `NEXTAUTH_URL` pointant vers l'URL de production.
+Hébergement sur **Vercel** (build Next.js) + **Neon** (base Postgres). Renseigner les variables d'environnement ci-dessus dans le tableau de bord Vercel, avec `NEXTAUTH_URL` pointant vers l'URL de production.
+
+Après tout changement d'hébergeur de base, appliquer les migrations avec
+`npx prisma migrate deploy` — jamais `prisma migrate reset`, qui efface les
+données.

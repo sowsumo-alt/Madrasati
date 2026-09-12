@@ -10,10 +10,8 @@ export default async function Home() {
   // Utilisateur connecté : on l'envoie directement dans son espace.
   if (!user) redirect("/login");
 
-  // Le rôle est vérifié avant tout : un Super Admin a lui aussi un schoolId
-  // vide (voir jwt() dans src/lib/auth.ts) mais ne doit jamais atterrir sur
-  // le formulaire de création d'école — seule une identité Google réellement
-  // "pending" (aucun rôle du tout, voir plus bas) doit y être envoyée.
+  // Chaque rôle rejoint son espace. Un Super Admin a un schoolId vide (voir
+  // jwt() dans src/lib/auth.ts) : c'est son rôle, et lui seul, qui l'oriente.
   switch (user.role) {
     case ROLES.DIRECTOR:
       redirect("/directeur");
@@ -25,9 +23,6 @@ export default async function Home() {
       redirect("/super-admin");
   }
 
-  // Identité Google authentifiée mais sans école : direction le formulaire
-  // de création avant tout accès à l'application.
-  if (user.pending) redirect("/inscription/ecole");
-
+  // Rôle inconnu : on ne devine pas, on renvoie à la connexion.
   redirect("/login");
 }
