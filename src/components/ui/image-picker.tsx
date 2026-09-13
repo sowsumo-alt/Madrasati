@@ -39,7 +39,7 @@ export function ImagePicker({
     }
     setBusy(true);
     try {
-      onChange(await resizeToDataUri(file, maxSize));
+      onChange(await resizeImageToDataUri(file, maxSize));
     } catch {
       toast.error("Impossible de lire cette image.");
     } finally {
@@ -115,8 +115,12 @@ export function ImagePicker({
   );
 }
 
-/** Réduit l'image à `maxSize` pixels de côté maximum et renvoie un data URI JPEG. */
-function resizeToDataUri(file: File, maxSize: number): Promise<string> {
+/**
+ * Réduit l'image à `maxSize` pixels de côté maximum et renvoie un data URI
+ * JPEG. Exportée pour les sélecteurs de photo plus compacts (avatar du
+ * formulaire élève), qui doivent réduire l'image de la même façon.
+ */
+export function resizeImageToDataUri(file: File, maxSize: number): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error("lecture impossible"));

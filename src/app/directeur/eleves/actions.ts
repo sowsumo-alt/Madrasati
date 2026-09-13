@@ -1,10 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { generateReceiptNumber, runWithReceipt } from "@/lib/receipts";
+import { splitFullName } from "@/lib/student-form";
 import { studentSchema, type StudentFormValues } from "./schema";
 import { CURRENT_YEAR } from "@/lib/school-year";
 
@@ -57,6 +59,22 @@ export async function findDuplicateStudents(
     }));
 }
 
+/** Champs du dossier élève communs à la création et à la modification. */
+function studentFields(data: StudentFormValues) {
+  return {
+    firstName: data.firstName,
+    lastName: data.lastName,
+    dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
+    gender: data.gender,
+    placeOfBirth: data.placeOfBirth || null,
+    nationality: data.nationality || null,
+    motherName: data.motherName || null,
+    classId: data.classId || null,
+    status: data.status,
+    photoUrl: data.photoUrl || null,
+  };
+}
+
 export async function createStudent(values: StudentFormValues) {
   const user = await requireRole(ROLES.DIRECTOR);
   const data = studentSchema.parse(values);
@@ -80,17 +98,14 @@ export async function createStudent(values: StudentFormValues) {
     const student = await tx.student.create({
       data: {
         schoolId: user.schoolId,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
-        gender: data.gender || null,
-        classId: data.classId || null,
-        status: data.status,
-        photoUrl: data.photoUrl || null,
+        ...studentFields(data),
+        // Le jour même si le champ a été vidé : l'inscription se fait sur place.
+        enrollmentDate: data.enrollmentDate ? new Date(data.enrollmentDate) : new Date(),
       },
     });
 
-    if (data.parentFirstName && data.parentLastName && data.parentPhone) {
+    if (data.parentName && data.parentPhone) {
+      const parentName = splitFullName(data.parentName);
       // Même nom et même téléphone : c'est le même tuteur, pas un homonyme.
       // Le recréer dupliquait la fiche à chaque frère ou sœur inscrit — c'est
       // ainsi que « Abou Sow » et « abou sow » ont coexisté.
@@ -98,25 +113,34 @@ export async function createStudent(values: StudentFormValues) {
         where: {
           schoolId: user.schoolId,
           phone: data.parentPhone,
-          firstName: { equals: data.parentFirstName, mode: "insensitive" },
-          lastName: { equals: data.parentLastName, mode: "insensitive" },
+          firstName: { equals: parentName.firstName, mode: "insensitive" },
+          lastName: { equals: parentName.lastName, mode: "insensitive" },
         },
-        select: { id: true },
+        select: { id: true, address: true },
       });
 
-      const parentId =
-        existing?.id ??
-        (
+      let parentId = existing?.id;
+      if (!parentId) {
+        parentId = (
           await tx.parent.create({
             data: {
               schoolId: user.schoolId,
-              firstName: data.parentFirstName,
-              lastName: data.parentLastName,
+              firstName: parentName.firstName,
+              lastName: parentName.lastName,
               phone: data.parentPhone,
+              address: data.parentAddress || null,
               relationship: "tuteur",
             },
           })
         ).id;
+      } else if (!existing?.address && data.parentAddress) {
+        // Fiche déjà connue (un frère ou une sœur) : l'adresse la complète,
+        // sans jamais écraser une adresse déjà saisie.
+        await tx.parent.update({
+          where: { id: parentId },
+          data: { address: data.parentAddress },
+        });
+      }
 
       await tx.studentParent.create({
         data: { studentId: student.id, parentId, isPrimary: true },
@@ -189,36 +213,25 @@ export async function updateStudent(studentId: string, values: StudentFormValues
   await prisma.student.update({
     where: { id: studentId },
     data: {
-      firstName: data.firstName,
-      lastName: data.lastName,
-      dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
-      gender: data.gender || null,
-      classId: data.classId || null,
-      status: data.status,
-      photoUrl: data.photoUrl || null,
+      ...studentFields(data),
+      ...(data.enrollmentDate ? { enrollmentDate: new Date(data.enrollmentDate) } : {}),
     },
   });
 
-  if (data.parentFirstName && data.parentLastName && data.parentPhone) {
+  if (data.parentName && data.parentPhone) {
+    const parentName = splitFullName(data.parentName);
+    const parentData = {
+      firstName: parentName.firstName,
+      lastName: parentName.lastName,
+      phone: data.parentPhone,
+      address: data.parentAddress || null,
+    };
     const primaryLink = existing.parentLinks.find((l) => l.isPrimary);
     if (primaryLink) {
-      await prisma.parent.update({
-        where: { id: primaryLink.parentId },
-        data: {
-          firstName: data.parentFirstName,
-          lastName: data.parentLastName,
-          phone: data.parentPhone,
-        },
-      });
+      await prisma.parent.update({ where: { id: primaryLink.parentId }, data: parentData });
     } else {
       const parent = await prisma.parent.create({
-        data: {
-          schoolId: user.schoolId,
-          firstName: data.parentFirstName,
-          lastName: data.parentLastName,
-          phone: data.parentPhone,
-          relationship: "tuteur",
-        },
+        data: { schoolId: user.schoolId, ...parentData, relationship: "tuteur" },
       });
       await prisma.studentParent.create({
         data: { studentId, parentId: parent.id, isPrimary: true },
@@ -238,6 +251,51 @@ export async function setStudentStatus(studentId: string, status: string) {
   });
   revalidatePath("/directeur/eleves");
   revalidatePath("/directeur");
+}
+
+const bulkIdsSchema = z.array(z.string().min(1)).min(1).max(1000);
+
+/**
+ * Change plusieurs élèves de classe en une fois (cases cochées de la liste).
+ * Renvoie le nombre d'élèves réellement déplacés : les identifiants d'une
+ * autre école sont ignorés par le filtre sur schoolId.
+ */
+export async function moveStudentsToClass(studentIds: string[], classId: string) {
+  const user = await requireRole(ROLES.DIRECTOR);
+  const ids = bulkIdsSchema.parse(studentIds);
+
+  // Même garde que pour un élève seul, et limitée à l'année en cours : les
+  // classes proposées dans la liste sont celles-là.
+  const cls = await prisma.classRoom.findFirst({
+    where: { id: classId, schoolId: user.schoolId, ...CURRENT_YEAR },
+    select: { id: true },
+  });
+  if (!cls) throw new Error("Classe introuvable.");
+
+  const { count } = await prisma.student.updateMany({
+    where: { id: { in: ids }, schoolId: user.schoolId },
+    data: { classId: cls.id },
+  });
+
+  revalidatePath("/directeur/eleves");
+  revalidatePath("/directeur");
+  return count;
+}
+
+/** Retire (ou réactive) plusieurs élèves en une fois — le même statut que « Retirer » élève par élève. */
+export async function setStudentsStatus(studentIds: string[], status: "ACTIVE" | "INACTIVE") {
+  const user = await requireRole(ROLES.DIRECTOR);
+  const ids = bulkIdsSchema.parse(studentIds);
+  const next = z.enum(["ACTIVE", "INACTIVE"]).parse(status);
+
+  const { count } = await prisma.student.updateMany({
+    where: { id: { in: ids }, schoolId: user.schoolId },
+    data: { status: next },
+  });
+
+  revalidatePath("/directeur/eleves");
+  revalidatePath("/directeur");
+  return count;
 }
 
 interface ImportRow {

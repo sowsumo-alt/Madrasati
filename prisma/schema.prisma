@@ -266,6 +266,9 @@ model Student {
   status         String   @default("ACTIVE")
   enrollmentDate DateTime @default(now())
   photoUrl       String?
+  placeOfBirth   String?
+  nationality    String? // ex: "Mauritanienne", texte libre
+  motherName     String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

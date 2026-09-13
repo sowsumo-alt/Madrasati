@@ -177,6 +177,34 @@ body {
   animation: word-in 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* Panneau latéral (fiche élève) : il glisse depuis le bord où il se pose —
+   la droite en français, la gauche en arabe. */
+@keyframes sheet-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes sheet-in-rtl {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+.animate-sheet-in {
+  animation: sheet-in 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[dir="rtl"] .animate-sheet-in {
+  animation-name: sheet-in-rtl;
+}
+
 /* ---------------------------------------------------------------------------
    Retour d'interaction : une confirmation discrète au moment précis où une
    action métier aboutit (appel enregistré, paiement saisi, message WhatsApp
@@ -252,7 +280,8 @@ body {
   .animate-wave,
   .animate-word,
   .animate-check-pop,
-  .animate-ring-pulse {
+  .animate-ring-pulse,
+  .animate-sheet-in {
     animation: none !important;
     opacity: 1;
     transform: none;
