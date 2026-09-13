@@ -14,6 +14,11 @@ import { cn } from "@/lib/utils";
 
 export type ScheduleViewMode = "week" | "month";
 
+// Un libellé long (« Tous les enseignants ») reste sur une ligne, tronqué,
+// au lieu de passer à la ligne et de se centrer dans le bouton. La valeur est
+// visée depuis le bouton : Radix ignore la classe posée sur SelectValue.
+const trigger = "h-9 gap-2 text-start [&>span:first-child]:min-w-0 [&>span:first-child]:truncate";
+
 function FilterCard({
   icon: Icon,
   label,
@@ -71,7 +76,7 @@ export function ScheduleFilters({
     <div className="no-print grid gap-3 md:grid-cols-2 xl:grid-cols-[repeat(3,minmax(0,1fr))_auto]">
       <FilterCard icon={CalendarRange} label={t("students.schoolYear")}>
         <Select value={yearId} onValueChange={onYearChange} disabled={years.length === 0}>
-          <SelectTrigger className="h-9">
+          <SelectTrigger className={trigger}>
             <SelectValue>{years.find((y) => y.id === yearId)?.label ?? "—"}</SelectValue>
           </SelectTrigger>
           <SelectContent>
@@ -86,7 +91,7 @@ export function ScheduleFilters({
 
       <FilterCard icon={Users} label={t("students.class")}>
         <Select value={classFilter} onValueChange={onClassChange} disabled={classes.length === 0}>
-          <SelectTrigger className="h-9">
+          <SelectTrigger className={trigger}>
             <SelectValue>
               {classFilter === "ALL"
                 ? t("students.allClasses")
@@ -106,7 +111,7 @@ export function ScheduleFilters({
 
       <FilterCard icon={UserRound} label={t("schedule.teacher")}>
         <Select value={teacherFilter} onValueChange={onTeacherChange}>
-          <SelectTrigger className="h-9">
+          <SelectTrigger className={trigger}>
             <SelectValue>
               {teacherFilter === "ALL"
                 ? t("schedule.allTeachers")
@@ -124,7 +129,7 @@ export function ScheduleFilters({
         </Select>
       </FilterCard>
 
-      <div className="flex items-stretch gap-1 rounded-2xl border border-border/80 bg-surface p-1.5 shadow-soft md:col-span-2 xl:col-span-1">
+      <div className="flex items-center gap-1 rounded-2xl border border-border/80 bg-surface p-1.5 shadow-soft md:col-span-2 xl:col-span-1">
         {(["week", "month"] as const).map((mode) => (
           <button
             key={mode}
@@ -132,7 +137,7 @@ export function ScheduleFilters({
             onClick={() => onViewChange(mode)}
             aria-pressed={view === mode}
             className={cn(
-              "flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors",
+              "flex h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-3.5 text-sm font-semibold transition-colors",
               view === mode ? "bg-primary-700 text-white shadow-sm" : "text-foreground/65 hover:bg-surface-muted",
             )}
           >

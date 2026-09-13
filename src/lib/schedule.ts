@@ -45,6 +45,19 @@ export function isoWeekday(date: Date): number {
 }
 
 /**
+ * Lundi de la semaine à afficher : la semaine en cours du lundi au vendredi,
+ * la suivante le samedi et le dimanche — le week-end, c'est la semaine qui
+ * vient que l'on consulte.
+ */
+export function displayedWeekStart(today: Date): Date {
+  const weekday = isoWeekday(today);
+  const monday = new Date(
+    Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - (weekday - 1)),
+  );
+  return weekday >= 6 ? addWeeks(monday, 1) : monday;
+}
+
+/**
  * Cases du calendrier d'un mois, en semaines commençant le lundi : les jours
  * du mois précédent et du suivant complètent la première et la dernière ligne.
  */

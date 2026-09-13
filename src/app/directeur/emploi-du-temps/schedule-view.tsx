@@ -9,6 +9,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { PrintButton } from "@/components/ui/print-button";
 import { PdfButton } from "@/components/ui/pdf-button";
 import { startOfWeek } from "@/lib/dashboard-data";
+import { displayedWeekStart } from "@/lib/schedule";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { SlotFormDialog, type SlotSubjectOption } from "./slot-form-dialog";
 import { deleteSlot } from "./actions";
@@ -80,7 +81,9 @@ export function ScheduleView({
   );
   const [teacherFilter, setTeacherFilter] = useState("ALL");
   const [view, setView] = useState<ScheduleViewMode>("week");
-  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(`${todayIso}T00:00:00.000Z`)));
+  const [weekStart, setWeekStart] = useState(() =>
+    displayedWeekStart(new Date(`${todayIso}T00:00:00.000Z`)),
+  );
   const [monthCursor, setMonthCursor] = useState(() => ({
     year: Number(todayIso.slice(0, 4)),
     month: Number(todayIso.slice(5, 7)) - 1,
@@ -208,7 +211,7 @@ export function ScheduleView({
             fileName={`emploi-du-temps-${(selectedClass?.name ?? teacherName ?? "ecole").replace(/\s+/g, "-")}.pdf`}
             labelKey="schedule.exportPdf"
           />
-          <PrintButton label={t("common.print")} />
+          <PrintButton label={t("common.print")} variant="secondary" />
           <Button
             className="shadow-sm"
             onClick={() => setForm({ day: 1, start: "08:00", end: "09:00" })}
@@ -233,10 +236,12 @@ export function ScheduleView({
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
           <div className="text-sm text-amber-900">
             <p className="font-medium">
-              {emptyClasses.length} classe{emptyClasses.length > 1 ? "s" : ""} sans aucun cours programmé
+              {emptyClasses.length === 1
+                ? t("schedule.emptyClassesOne")
+                : t("schedule.emptyClassesMany").replace("{n}", String(emptyClasses.length))}
             </p>
             <p className="mt-1 text-xs text-amber-800/80">
-              Aucun créneau de toute la semaine pour : {emptyClasses.map((c) => c.name).join(", ")}.
+              {t("schedule.emptyClassesBody").replace("{classes}", emptyClasses.map((c) => c.name).join(", "))}
             </p>
             <div className="mt-2 flex flex-wrap gap-1.5">
               {emptyClasses.map((c) => (
@@ -246,7 +251,7 @@ export function ScheduleView({
                   onClick={() => pickClass(c.id)}
                   className="rounded-md bg-amber-100 px-2 py-1 text-xs font-medium text-amber-900 transition-colors hover:bg-amber-200"
                 >
-                  Remplir {c.name}
+                  {t("schedule.fillClass").replace("{class}", c.name)}
                 </button>
               ))}
             </div>

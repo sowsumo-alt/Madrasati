@@ -139,10 +139,14 @@ function RowActions({
   );
 }
 
+const classChip =
+  "inline-flex whitespace-nowrap rounded-full bg-primary-50 px-2.5 py-1 text-xs font-semibold text-primary-700";
+
 /**
- * Tableau des examens. Un examen commun à plusieurs classes forme une seule
- * ligne numérotée, dépliable classe par classe : « Composition Trimestre 1 »
- * planifiée pour six classes ne fait plus six lignes identiques.
+ * Tableau des examens (cartes sur téléphone). Un examen commun à plusieurs
+ * classes forme une seule ligne numérotée, dépliable classe par classe :
+ * « Composition Trimestre 1 » planifiée pour six classes ne fait plus six
+ * lignes identiques.
  */
 export function ExamsTable({
   groups,
@@ -168,136 +172,189 @@ export function ExamsTable({
 }) {
   const { t, locale } = useLanguage();
 
+  /** « Contrôle · Trimestre 1 · sur 20 » */
+  const details = (e: ExamRow) =>
+    [
+      isExamKind(e.kind) ? t(`exams.kind.${e.kind}` as TranslationKey) : null,
+      e.term,
+      `${t("exams.outOf")} ${e.maxScore}`,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  const sharedLabel = (group: ExamGroup<ExamRow>) =>
+    t("exams.sharedClasses").replace("{n}", String(group.exams.length));
+  // Sans dir="ltr", l'arabe inverse « 15/09/2026 08:00 » en « 08:00 2026/09/15 ».
+  const examDate = (e: ExamRow) => (
+    <span dir="ltr" style={{ fontVariantNumeric: "tabular-nums" }}>
+      {formatExamDate(locale, e.date, e.startMinutes)}
+    </span>
+  );
+
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[46rem] text-sm">
-        <thead>
-          <tr className="border-b border-border bg-surface-muted/60 text-xs font-semibold uppercase tracking-wide text-foreground/50">
-            <th className="w-12 px-4 py-3 text-start">{t("exams.colNumber")}</th>
-            <th className="px-3 py-3 text-start">{t("exams.colName")}</th>
-            <th className="px-3 py-3 text-start">{t("students.class")}</th>
-            <th className="hidden px-3 py-3 text-start lg:table-cell">{t("teachers.subject")}</th>
-            <th className="px-3 py-3 text-start">{t("exams.date")}</th>
-            <th className="hidden px-3 py-3 text-start md:table-cell">{t("exams.colGraded")}</th>
-            <th className="px-3 py-3 text-start">{t("students.status")}</th>
-            <th className="px-4 py-3 text-end">{t("common.actions")}</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border/70">
-          {groups.map((group, index) => {
-            const head = group.exams[0];
-            const folded = isCollapsed(group.key);
-            const graded = group.exams.reduce((n, e) => n + e.gradedCount, 0);
-            const total = group.exams.reduce((n, e) => n + e.studentCount, 0);
-
-            return (
-              <Fragment key={group.key}>
-                <tr className="transition-colors hover:bg-surface-muted/40">
-                  <td className="px-4 py-3 text-foreground/45" style={{ fontVariantNumeric: "tabular-nums" }}>
-                    {startIndex + index + 1}
-                  </td>
-                  <td className="px-3 py-3">
-                    <button type="button" onClick={() => onView(group)} className="group text-start">
-                      <span className="block font-semibold text-foreground transition-colors group-hover:text-primary-700">
-                        {head.title}
-                      </span>
-                      <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-foreground/50">
-                        {isExamKind(head.kind) && (
-                          <span className="rounded-full bg-surface-muted px-2 py-0.5 font-medium text-foreground/70">
-                            {t(`exams.kind.${head.kind}` as TranslationKey)}
-                          </span>
-                        )}
-                        {head.term} · {t("exams.outOf")} {head.maxScore}
-                      </span>
+    <>
+      <ul className="divide-y divide-border/70 md:hidden">
+        {groups.map((group, index) => {
+          const head = group.exams[0];
+          return (
+            <li key={group.key} className="flex gap-3 px-4 py-3.5">
+              <span className="w-5 shrink-0 pt-0.5 text-xs text-foreground/40">{startIndex + index + 1}</span>
+              <div className="min-w-0 flex-1">
+                <button type="button" onClick={() => onView(group)} className="block text-start">
+                  <span className="block font-semibold text-foreground">{head.title}</span>
+                  <span className="mt-0.5 block text-xs text-foreground/50">{details(head)}</span>
+                </button>
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  {group.isShared ? (
+                    <button type="button" onClick={() => onView(group)} className={classChip}>
+                      {sharedLabel(group)}
                     </button>
-                  </td>
-                  <td className="px-3 py-3">
-                    {group.isShared ? (
-                      <button
-                        type="button"
-                        onClick={() => onToggle(group.key)}
-                        aria-expanded={!folded}
-                        className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-primary-50 px-2.5 py-1 text-xs font-semibold text-primary-700 transition-colors hover:bg-primary-100"
-                      >
-                        {folded ? (
-                          <ChevronRight className="h-3.5 w-3.5 rtl:rotate-180" />
-                        ) : (
-                          <ChevronDown className="h-3.5 w-3.5" />
-                        )}
-                        {t("exams.sharedClasses").replace("{n}", String(group.exams.length))}
-                      </button>
-                    ) : (
-                      <span className="inline-flex whitespace-nowrap rounded-full bg-primary-50 px-2.5 py-1 text-xs font-semibold text-primary-700">
-                        {head.className}
-                      </span>
-                    )}
-                  </td>
-                  <td className="hidden px-3 py-3 lg:table-cell">
-                    <SubjectChip name={head.subjectName} />
-                  </td>
-                  <td
-                    className="whitespace-nowrap px-3 py-3 text-foreground/70"
-                    style={{ fontVariantNumeric: "tabular-nums" }}
-                  >
-                    {formatExamDate(locale, head.date, head.startMinutes)}
-                  </td>
-                  <td className="hidden px-3 py-3 md:table-cell">
-                    <GradingBadge gradedCount={graded} studentCount={total} />
-                  </td>
-                  <td className="px-3 py-3">
-                    <ExamStatusBadge status={head.status} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <RowActions
-                      exam={head}
-                      gradeTargets={group.exams}
-                      canManage={canManage}
-                      onView={() => onView(group)}
-                      onEdit={onEdit}
-                      onEnterGrades={onEnterGrades}
-                      onDelete={onDelete}
+                  ) : (
+                    <span className={classChip}>{head.className}</span>
+                  )}
+                  <SubjectChip name={head.subjectName} />
+                  <ExamStatusBadge status={head.status} />
+                </div>
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-foreground/60">
+                    {examDate(head)}
+                    <GradingBadge
+                      gradedCount={group.exams.reduce((n, e) => n + e.gradedCount, 0)}
+                      studentCount={group.exams.reduce((n, e) => n + e.studentCount, 0)}
                     />
-                  </td>
-                </tr>
+                  </div>
+                  <RowActions
+                    exam={head}
+                    gradeTargets={group.exams}
+                    canManage={canManage}
+                    onEdit={onEdit}
+                    onEnterGrades={onEnterGrades}
+                    onDelete={onDelete}
+                  />
+                </div>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
 
-                {group.isShared &&
-                  !folded &&
-                  group.exams.map((e) => (
-                    <tr key={e.id} className="bg-surface-muted/20 transition-colors hover:bg-surface-muted/40">
-                      <td className="px-4 py-2.5" />
-                      <td className="px-3 py-2.5">
-                        <span className="ms-1 block border-s-2 border-border ps-3 text-xs text-foreground/45">
-                          {t("exams.sameExam")}
+      <div className="hidden overflow-x-auto md:block">
+        <table className="w-full min-w-[40rem] text-sm">
+          <thead>
+            <tr className="border-b border-border bg-surface-muted/60 text-xs font-semibold uppercase tracking-wide text-foreground/50">
+              <th className="w-12 px-4 py-3 text-start">{t("exams.colNumber")}</th>
+              <th className="px-3 py-3 text-start">{t("exams.colName")}</th>
+              <th className="px-3 py-3 text-start">{t("students.class")}</th>
+              <th className="hidden px-3 py-3 text-start xl:table-cell">{t("teachers.subject")}</th>
+              <th className="px-3 py-3 text-start">{t("exams.date")}</th>
+              <th className="hidden px-3 py-3 text-start min-[90rem]:table-cell">{t("exams.colGraded")}</th>
+              <th className="px-3 py-3 text-start">{t("students.status")}</th>
+              <th className="px-4 py-3 text-end">{t("common.actions")}</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border/70">
+            {groups.map((group, index) => {
+              const head = group.exams[0];
+              const folded = isCollapsed(group.key);
+              const graded = group.exams.reduce((n, e) => n + e.gradedCount, 0);
+              const total = group.exams.reduce((n, e) => n + e.studentCount, 0);
+
+              return (
+                <Fragment key={group.key}>
+                  <tr className="transition-colors hover:bg-surface-muted/40">
+                    <td className="px-4 py-3 text-foreground/45" style={{ fontVariantNumeric: "tabular-nums" }}>
+                      {startIndex + index + 1}
+                    </td>
+                    <td className="px-3 py-3">
+                      <button type="button" onClick={() => onView(group)} className="group text-start">
+                        <span className="block font-semibold text-foreground transition-colors group-hover:text-primary-700">
+                          {head.title}
                         </span>
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <span className="inline-flex whitespace-nowrap rounded-full bg-surface px-2.5 py-1 text-xs font-semibold text-foreground/80 ring-1 ring-border">
-                          {e.className}
+                        <span className="mt-0.5 block text-xs text-foreground/50">
+                          {details(head)}
                         </span>
-                      </td>
-                      <td className="hidden px-3 py-2.5 lg:table-cell" />
-                      <td className="px-3 py-2.5" />
-                      <td className="hidden px-3 py-2.5 md:table-cell">
-                        <GradingBadge gradedCount={e.gradedCount} studentCount={e.studentCount} />
-                      </td>
-                      <td className="px-3 py-2.5" />
-                      <td className="px-4 py-2.5">
-                        <RowActions
-                          exam={e}
-                          gradeTargets={[e]}
-                          canManage={canManage}
-                          onEdit={onEdit}
-                          onEnterGrades={onEnterGrades}
-                          onDelete={onDelete}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-              </Fragment>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+                      </button>
+                    </td>
+                    <td className="px-3 py-3">
+                      {group.isShared ? (
+                        <button
+                          type="button"
+                          onClick={() => onToggle(group.key)}
+                          aria-expanded={!folded}
+                          className={`${classChip} items-center gap-1 transition-colors hover:bg-primary-100`}
+                        >
+                          {folded ? (
+                            <ChevronRight className="h-3.5 w-3.5 rtl:rotate-180" />
+                          ) : (
+                            <ChevronDown className="h-3.5 w-3.5" />
+                          )}
+                          {sharedLabel(group)}
+                        </button>
+                      ) : (
+                        <span className={classChip}>{head.className}</span>
+                      )}
+                    </td>
+                    <td className="hidden px-3 py-3 xl:table-cell">
+                      <SubjectChip name={head.subjectName} />
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-3 text-foreground/70">{examDate(head)}</td>
+                    <td className="hidden px-3 py-3 min-[90rem]:table-cell">
+                      <GradingBadge gradedCount={graded} studentCount={total} />
+                    </td>
+                    <td className="px-3 py-3">
+                      <ExamStatusBadge status={head.status} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <RowActions
+                        exam={head}
+                        gradeTargets={group.exams}
+                        canManage={canManage}
+                        onView={() => onView(group)}
+                        onEdit={onEdit}
+                        onEnterGrades={onEnterGrades}
+                        onDelete={onDelete}
+                      />
+                    </td>
+                  </tr>
+
+                  {group.isShared &&
+                    !folded &&
+                    group.exams.map((e) => (
+                      <tr key={e.id} className="bg-surface-muted/20 transition-colors hover:bg-surface-muted/40">
+                        <td className="px-4 py-2.5" />
+                        <td className="px-3 py-2.5">
+                          <span className="ms-1 block border-s-2 border-border ps-3 text-xs text-foreground/45">
+                            {t("exams.sameExam")}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <span className="inline-flex whitespace-nowrap rounded-full bg-surface px-2.5 py-1 text-xs font-semibold text-foreground/80 ring-1 ring-border">
+                            {e.className}
+                          </span>
+                        </td>
+                        <td className="hidden px-3 py-2.5 xl:table-cell" />
+                        <td className="px-3 py-2.5" />
+                        <td className="hidden px-3 py-2.5 min-[90rem]:table-cell">
+                          <GradingBadge gradedCount={e.gradedCount} studentCount={e.studentCount} />
+                        </td>
+                        <td className="px-3 py-2.5" />
+                        <td className="px-4 py-2.5">
+                          <RowActions
+                            exam={e}
+                            gradeTargets={[e]}
+                            canManage={canManage}
+                            onEdit={onEdit}
+                            onEnterGrades={onEnterGrades}
+                            onDelete={onDelete}
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }

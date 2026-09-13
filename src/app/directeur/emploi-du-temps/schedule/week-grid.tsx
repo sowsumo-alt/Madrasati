@@ -10,8 +10,8 @@ import {
   Plus,
 } from "lucide-react";
 import { formatDateIn } from "@/lib/format";
-import { isoDay, minutesToTime, startOfWeek } from "@/lib/dashboard-data";
-import { addWeeks, schoolDays, timeRows } from "@/lib/schedule";
+import { isoDay, minutesToTime } from "@/lib/dashboard-data";
+import { addWeeks, displayedWeekStart, schoolDays, timeRows } from "@/lib/schedule";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { cn } from "@/lib/utils";
 import type { ScheduleEvent, SlotRow } from "../schedule-view";
@@ -55,7 +55,7 @@ export function WeekGrid({
   const days = schoolDays(weekStart);
   const rows = timeRows(slots);
   const friday = days[4];
-  const currentMonday = startOfWeek(new Date(`${todayIso}T00:00:00.000Z`));
+  const currentMonday = displayedWeekStart(new Date(`${todayIso}T00:00:00.000Z`));
   const isCurrentWeek = isoDay(currentMonday) === isoDay(weekStart);
 
   const sameMonth = weekStart.getUTCMonth() === friday.getUTCMonth();
@@ -104,7 +104,7 @@ export function WeekGrid({
         </p>
       ) : (
         <div className="overflow-x-auto">
-          <div className="grid min-w-[56rem] grid-cols-[5.5rem_repeat(5,minmax(0,1fr))]">
+          <div className="grid min-w-[58rem] grid-cols-[7rem_repeat(5,minmax(0,1fr))]">
             <div className="sticky start-0 z-10 flex items-center justify-center border-b border-e border-border bg-surface-muted px-2 py-3 text-xs font-semibold text-foreground/60">
               {t("schedule.time")}
             </div>
@@ -160,7 +160,9 @@ export function WeekGrid({
                   className="sticky start-0 z-10 flex items-center justify-center border-b border-e border-border bg-surface px-2 py-3 text-xs font-semibold text-foreground/75"
                   style={{ fontVariantNumeric: "tabular-nums" }}
                 >
-                  {minutesToTime(row.startMinutes)} – {minutesToTime(row.endMinutes)}
+                  <span dir="ltr" className="whitespace-nowrap">
+                    {minutesToTime(row.startMinutes)} – {minutesToTime(row.endMinutes)}
+                  </span>
                 </div>
                 {days.map((date, i) => {
                   const iso = isoDay(date);

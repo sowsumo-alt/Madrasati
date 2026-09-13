@@ -41,17 +41,26 @@ export function GradingBadge({
 }) {
   const { t } = useLanguage();
 
+  // dir="ltr" : sans lui, l'arabe affiche « 0 / 24 » à l'envers, « 24 / 0 ».
+  const count = (
+    <span dir="ltr" style={{ fontVariantNumeric: "tabular-nums" }}>
+      {gradedCount} / {studentCount}
+    </span>
+  );
+
   if (isFullyGraded({ gradedCount, studentCount })) {
     return (
-      <Badge variant="success">
+      <Badge variant="success" className="whitespace-nowrap">
         <CheckCircle2 className="me-1 inline h-3 w-3" strokeWidth={2.5} />
-        {t("exams.complete")} · {gradedCount}/{studentCount}
+        {/* La coche verte suffit à l'œil ; le mot reste pour les lecteurs d'écran. */}
+        <span className="sr-only">{t("exams.complete")} · </span>
+        {count}
       </Badge>
     );
   }
   return (
-    <Badge variant={gradedCount === 0 ? "neutral" : "warning"}>
-      {gradedCount} / {studentCount}
+    <Badge variant={gradedCount === 0 ? "neutral" : "warning"} className="whitespace-nowrap">
+      {count}
     </Badge>
   );
 }

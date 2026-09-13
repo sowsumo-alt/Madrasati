@@ -124,7 +124,7 @@ const RULES: [RegExp, LucideIcon, Tone][] = [
 ];
 
 function normalize(name: string) {
-  return name.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  return name.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 }
 
 /**

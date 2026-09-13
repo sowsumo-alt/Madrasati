@@ -1,7 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { addWeeks, isoWeekday, monthCells, schoolDays, timeRows } from "../src/lib/schedule";
+import {
+  addWeeks,
+  displayedWeekStart,
+  isoWeekday,
+  monthCells,
+  schoolDays,
+  timeRows,
+} from "../src/lib/schedule";
 
 /** La grille de l'emploi du temps doit épouser les horaires réels de l'école. */
 
@@ -30,6 +37,14 @@ test("une semaine de classe va du lundi au vendredi", () => {
 test("le dimanche est le septième jour, comme dans la saisie des créneaux", () => {
   assert.equal(isoWeekday(new Date("2026-09-14T08:00:00Z")), 1);
   assert.equal(isoWeekday(new Date("2026-09-20T08:00:00Z")), 7);
+});
+
+test("en semaine on voit la semaine en cours, le week-end la suivante", () => {
+  const monday = (iso: string) => displayedWeekStart(new Date(`${iso}T00:00:00Z`)).toISOString().slice(0, 10);
+  assert.equal(monday("2026-09-14"), "2026-09-14"); // lundi
+  assert.equal(monday("2026-09-18"), "2026-09-14"); // vendredi
+  assert.equal(monday("2026-09-19"), "2026-09-21"); // samedi
+  assert.equal(monday("2026-09-13"), "2026-09-14"); // dimanche
 });
 
 test("le calendrier du mois commence le lundi et se complète par semaines entières", () => {
