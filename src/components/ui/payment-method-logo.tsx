@@ -54,9 +54,7 @@ export function PaymentMethodLogo({
       // directeur à chaque ouverture de la liste.
       className={cn(
         "shrink-0 rounded-sm object-contain",
-        // Hauteur fixe, largeur libre : les logos des marques sont plus
-        // larges que hauts (nom écrit à côté du dessin).
-        state === "loaded" ? "h-5 w-auto max-w-[3rem]" : "hidden",
+        state === "loaded" ? "h-5 w-5" : "hidden",
         className,
       )}
     />
