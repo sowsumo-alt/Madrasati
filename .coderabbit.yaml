@@ -1,0 +1,83 @@
+# Configuration CodeRabbit — relecture automatique des pull requests.
+# Référence du format : https://docs.coderabbit.ai/guides/configure-coderabbit
+
+# Les commentaires de relecture arrivent en français : c'est la langue de
+# travail du projet, des commits et des commentaires de code.
+language: fr-FR
+
+tone_instructions: >
+  Écris pour un fondateur non développeur. Explique la conséquence concrète
+  d'un problème (ce que l'utilisateur verra, ce qui sera faux à l'écran ou en
+  base) avant d'expliquer la cause technique. Va droit au but, sans flatterie.
+
+reviews:
+  profile: chill
+  # La relecture ne bloque pas la fusion : c'est un avis, pas un gardien.
+  request_changes_workflow: false
+  high_level_summary: true
+  review_status: true
+  poem: false
+  collapse_walkthrough: true
+
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - master
+
+  # Fichiers sans intérêt pour une relecture : ils noieraient les vrais points.
+  path_filters:
+    - "!**/package-lock.json"
+    - "!prisma/migrations/**"
+    - "!public/**"
+    - "!brand-assets/**"
+    - "!**/*.svg"
+    - "!**/*.png"
+
+  # Invariants de ce projet, tous issus de pannes réellement survenues.
+  path_instructions:
+    - path: "src/app/**/actions.ts"
+      instructions: >
+        Toute action serveur doit commencer par requireRole(), requireFeature()
+        ou requireSuperAdmin(). Toute lecture ou écriture d'une donnée d'école
+        doit être filtrée par schoolId — une mise à jour ciblée par identifiant
+        seul (update/delete/findUnique sur un id) doit être précédée d'une
+        vérification que cet enregistrement appartient bien à l'école de
+        l'appelant, sinon un identifiant d'une autre école passerait.
+        Signale toute boucle qui écrit ligne par ligne là où une écriture
+        groupée conviendrait.
+
+    - path: "src/app/**/page.tsx"
+      instructions: >
+        Les listes de classes et d'examens doivent être limitées à l'année
+        scolaire en cours (CURRENT_YEAR de lib/school-year.ts). Sans ce filtre,
+        l'ouverture d'une nouvelle année fait apparaître chaque classe en
+        double et rend les notes saisies invisibles sur les bulletins.
+        Les droits liés à la formule doivent passer par schoolHasFeature(), qui
+        tient compte du statut de facturation, jamais par planHasFeature() sur
+        le plan brut.
+
+    - path: "src/lib/**"
+      instructions: >
+        Ce dossier porte les règles de calcul partagées (moyennes de bulletin,
+        reste dû, numérotation des reçus, détection des élèves à surveiller).
+        Une règle métier ajoutée ici doit être couverte par un test dans
+        tests/. Vérifie les bornes : division par zéro, montant négatif,
+        effectif nul, liste vide.
+
+    - path: "src/**/*.tsx"
+      instructions: >
+        Tout texte visible par un utilisateur passe par t() et doit exister
+        dans les trois langues du dictionnaire (français, anglais, arabe).
+        Les tableaux de données doivent être dans un conteneur défilant
+        horizontalement pour rester utilisables sur téléphone.
+
+    - path: "prisma/schema.prisma"
+      instructions: >
+        Toute table métier porte un schoolId. Signale toute contrainte unique
+        globale qui devrait être composée avec schoolId : une unicité globale
+        sur un numéro séquentiel par école bloque toutes les écoles sauf la
+        première.
+
+chat:
+  auto_reply: true
