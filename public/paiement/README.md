@@ -15,8 +15,8 @@ les chercher sous ces noms précis.
 
 - **PNG à fond transparent** — le logo apparaît sur fond blanc comme sur fond
   coloré, notamment sur les reçus imprimés.
-- **Carré, 128 × 128 pixels** suffit largement : les logos s'affichent en petit
-  (16 à 24 pixels). Plus grand n'apporte rien et alourdit chaque page.
+- **96 pixels de haut**, largeur libre : les logos s'affichent sur 20 pixels de
+  haut, à côté du nom. Plus grand n'apporte rien et alourdit chaque page.
 - **Moins de 30 Ko** par fichier.
 
 ## Tant qu'un fichier est absent
