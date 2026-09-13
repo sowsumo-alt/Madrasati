@@ -43,7 +43,12 @@ export function AttendanceTrendCard({
             aria-label={t("dashboard.attendanceTrend")}
           >
             <CalendarDays className="h-4 w-4 shrink-0 text-foreground/50" />
-            <SelectValue />
+            {/* Libellé écrit ici plutôt que recopié depuis la liste par Radix :
+                celle-ci n'est montée qu'après coup, et le bouton restait
+                parfois vide sur tablette. */}
+            <SelectValue>
+              {period === "week" ? t("dashboard.thisWeek") : t("dashboard.lastMonths")}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="week">{t("dashboard.thisWeek")}</SelectItem>

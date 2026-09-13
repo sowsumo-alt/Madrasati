@@ -70,7 +70,10 @@ export function ClassDistributionCard({
             className="h-8 w-auto gap-1.5 rounded-lg px-2.5 text-xs"
             aria-label={t("dashboard.distributionByClass")}
           >
-            <SelectValue />
+            {/* Libellé explicite, comme dans AttendanceTrendCard. */}
+            <SelectValue>
+              {mode === "class" ? t("dashboard.byClass") : t("dashboard.byLevel")}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="class">{t("dashboard.byClass")}</SelectItem>
