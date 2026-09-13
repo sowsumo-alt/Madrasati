@@ -33,3 +33,20 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   SEDAD: "Mobile Money Sedad",
   BAKILY: "Mobile Money Bakily",
 };
+
+/**
+ * Logo de la marque, pour les modes de paiement qui en sont une.
+ *
+ * Espèces et virement bancaire n'y figurent pas : ce ne sont pas des marques,
+ * seulement des façons de payer. Les fichiers attendus sont décrits dans
+ * public/paiement/README.md.
+ *
+ * Un fichier absent n'est pas une erreur : l'écran retombe alors sur le seul
+ * libellé (voir le composant PaymentMethodLogo). Les logos peuvent donc être
+ * ajoutés un par un, sans que rien ne casse entre-temps.
+ */
+export const PAYMENT_METHOD_LOGOS: Partial<Record<PaymentMethod, string>> = {
+  MASRVI: "/paiement/masrvi.png",
+  SEDAD: "/paiement/sedad.png",
+  BAKILY: "/paiement/bakily.png",
+};

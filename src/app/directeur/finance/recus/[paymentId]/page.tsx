@@ -8,6 +8,7 @@ import { formatMRU, formatDate, formatLongDate, formatLongDateAr, formatAmount }
 import Link from "next/link";
 import { PrintButton } from "@/components/ui/print-button";
 import { PdfButton } from "@/components/ui/pdf-button";
+import { PaymentMethodLogo } from "@/components/ui/payment-method-logo";
 import { buttonVariants } from "@/components/ui/button";
 import { GraduationCap, MessageCircle, ArrowLeft } from "lucide-react";
 import { getTranslations } from "@/lib/i18n/server";
@@ -198,7 +199,10 @@ export default async function ReceiptPage({
           </div>
           <div className="mt-2 flex items-center justify-between text-xs text-foreground/50">
             <span>{t("finance.method")}</span>
-            <span>{methodLabel}</span>
+            <span className="flex items-center gap-1.5">
+              <PaymentMethodLogo method={payment.method} />
+              {methodLabel}
+            </span>
           </div>
         </div>
 

@@ -34,6 +34,7 @@ import {
 } from "./actions";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { PAYMENT_METHOD_LABELS } from "@/lib/payment-methods";
+import { PaymentMethodLogo } from "@/components/ui/payment-method-logo";
 
 export interface StudentClassOption {
   id: string;
@@ -347,7 +348,10 @@ export function StudentFormDialog({
                     <SelectContent>
                       {Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => (
                         <SelectItem key={value} value={value}>
-                          {label}
+                          <span className="flex items-center gap-2">
+                            <PaymentMethodLogo method={value} />
+                            {label}
+                          </span>
                         </SelectItem>
                       ))}
                     </SelectContent>

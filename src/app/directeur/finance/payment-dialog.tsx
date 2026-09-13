@@ -26,6 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PAYMENT_METHODS } from "@/lib/payment-methods";
+import { PaymentMethodLogo } from "@/components/ui/payment-method-logo";
 import { paymentSchema, type PaymentFormValues } from "./schema";
 import { recordPayment } from "./actions";
 import { formatMRU } from "@/lib/format";
@@ -122,7 +123,10 @@ export function PaymentDialog({ target, onOpenChange }: PaymentDialogProps) {
                 <SelectContent>
                   {PAYMENT_METHODS.map((value) => (
                     <SelectItem key={value} value={value}>
-                      {t(`finance.method.${value}` as const)}
+                      <span className="flex items-center gap-2">
+                        <PaymentMethodLogo method={value} />
+                        {t(`finance.method.${value}` as const)}
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>
