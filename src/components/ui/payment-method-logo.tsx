@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PAYMENT_METHOD_LOGOS, isPaymentMethod } from "@/lib/payment-methods";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +25,16 @@ export function PaymentMethodLogo({
   className?: string;
 }) {
   const [state, setState] = useState<"loading" | "loaded" | "failed">("loading");
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  // Sur une page préparée par le serveur (le reçu), l'image finit souvent de
+  // charger avant que React ne prenne la main : onLoad ne se déclenche alors
+  // jamais, et le logo restait caché pour de bon. On relit donc son état dès
+  // que le composant est en place.
+  useEffect(() => {
+    const img = imgRef.current;
+    if (img?.complete) setState(img.naturalWidth > 0 ? "loaded" : "failed");
+  }, []);
 
   const src = isPaymentMethod(method) ? PAYMENT_METHOD_LOGOS[method] : undefined;
   if (!src || state === "failed") return null;
@@ -32,6 +42,7 @@ export function PaymentMethodLogo({
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
+      ref={imgRef}
       src={src}
       alt=""
       aria-hidden
@@ -43,7 +54,7 @@ export function PaymentMethodLogo({
       // directeur à chaque ouverture de la liste.
       className={cn(
         "shrink-0 rounded-sm object-contain",
-        state === "loaded" ? "h-4 w-4" : "hidden",
+        state === "loaded" ? "h-5 w-5" : "hidden",
         className,
       )}
     />
