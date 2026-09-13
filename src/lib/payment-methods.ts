@@ -10,6 +10,7 @@
 export const PAYMENT_METHODS = [
   "CASH",
   "BANK_TRANSFER",
+  "CHEQUE",
   "MASRVI",
   "SEDAD",
   "BAKILY",
@@ -29,6 +30,7 @@ export function isPaymentMethod(value: string): value is PaymentMethod {
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   CASH: "Espèces",
   BANK_TRANSFER: "Virement bancaire",
+  CHEQUE: "Chèque",
   MASRVI: "Mobile Money Masrvi",
   SEDAD: "Mobile Money Sedad",
   BAKILY: "Mobile Money Bakily",
