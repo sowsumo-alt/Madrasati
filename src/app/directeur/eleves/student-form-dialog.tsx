@@ -42,8 +42,8 @@ import {
   findDuplicateStudents,
   type DuplicateStudent,
 } from "./actions";
-import { FormSection } from "./student-form/form-section";
-import { FormField, IconInput } from "./student-form/form-field";
+import { FormSection } from "@/components/forms/form-section";
+import { FormField, IconInput } from "@/components/forms/form-field";
 import { PhotoAvatarPicker } from "./student-form/photo-avatar-picker";
 import { STATUS_KEYS, STUDENT_STATUSES } from "./students-list/student-status";
 

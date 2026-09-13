@@ -10,6 +10,7 @@ export function FormField({
   htmlFor,
   required = false,
   error,
+  hint,
   className,
   children,
 }: {
@@ -17,6 +18,8 @@ export function FormField({
   htmlFor?: string;
   required?: boolean;
   error?: string;
+  /** Aide discrète sous le champ, masquée quand une erreur s'affiche. */
+  hint?: string;
   className?: string;
   children: ReactNode;
 }) {
@@ -31,7 +34,11 @@ export function FormField({
         )}
       </Label>
       {children}
-      {error && <p className="text-xs text-danger">{error}</p>}
+      {error ? (
+        <p className="text-xs text-danger">{error}</p>
+      ) : (
+        hint && <p className="text-xs text-foreground/50">{hint}</p>
+      )}
     </div>
   );
 }

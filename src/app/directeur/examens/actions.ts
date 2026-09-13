@@ -6,6 +6,7 @@ import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { CURRENT_YEAR } from "@/lib/school-year";
 import { examGroupKey } from "@/lib/exam-groups";
+import { parseTime } from "@/lib/exams";
 import {
   examSchema,
   examEditSchema,
@@ -21,6 +22,20 @@ export interface CreateExamResult {
   created: number;
   /** Classes qui avaient déjà cet examen, et pour lesquelles rien n'a été refait. */
   alreadyPlanned: string[];
+}
+
+/** Détails d'un examen, communs à la création et à la modification. */
+function examDetails(data: ExamEditValues) {
+  return {
+    title: data.title,
+    kind: data.kind,
+    term: data.term,
+    date: new Date(data.date),
+    startMinutes: parseTime(data.startTime),
+    durationMinutes: Number(data.durationMinutes),
+    instructions: data.instructions || null,
+    maxScore: data.maxScore,
+  };
 }
 
 /**
@@ -66,7 +81,7 @@ export async function createExam(values: ExamFormValues): Promise<CreateExamResu
     );
   }
 
-  const date = new Date(data.date);
+  const details = examDetails(data);
 
   // Un examen déjà planifié (même titre, même jour, même matière, même classe)
   // n'est pas recréé : le directeur qui revient sur le formulaire pour ajouter
@@ -77,7 +92,7 @@ export async function createExam(values: ExamFormValues): Promise<CreateExamResu
       subjectId: data.subjectId,
       classId: { in: classIds },
       title: data.title,
-      date,
+      date: details.date,
     },
     select: { classId: true },
   });
@@ -92,11 +107,7 @@ export async function createExam(values: ExamFormValues): Promise<CreateExamResu
         academicYearId: year.id,
         classId: c.id,
         subjectId: data.subjectId,
-        title: data.title,
-        term: data.term,
-        date,
-        durationMinutes: data.durationMinutes ? Number(data.durationMinutes) : null,
-        maxScore: data.maxScore,
+        ...details,
       })),
     });
   }
@@ -172,13 +183,7 @@ export async function updateExam(
 
   await prisma.exam.updateMany({
     where: { id: { in: ids }, schoolId: user.schoolId },
-    data: {
-      title: data.title,
-      term: data.term,
-      date: new Date(data.date),
-      durationMinutes: data.durationMinutes ? Number(data.durationMinutes) : null,
-      maxScore: data.maxScore,
-    },
+    data: examDetails(data),
   });
 
   revalidatePath("/directeur/examens");

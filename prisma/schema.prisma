@@ -473,8 +473,11 @@ model Exam {
   title          String // ex: "Devoir surveillé n°1"
   term           String // "Trimestre 1" | "Trimestre 2" | "Trimestre 3"
   date           DateTime
+  startMinutes   Int? // heure de début en minutes depuis minuit, heure de l'école (480 = 08:00)
   durationMinutes Int?
   maxScore       Float    @default(20)
+  kind           String? // "DEVOIR" | "CONTROLE" | "INTERROGATION" | "COMPOSITION"
+  instructions   String? // description et consignes, 500 caractères au plus
   createdAt      DateTime @default(now())
 
   grades Grade[]
