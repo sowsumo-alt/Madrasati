@@ -19,6 +19,11 @@ import {
   ShieldAlert,
   Briefcase,
   UserSearch,
+  HandCoins,
+  FileChartColumn,
+  Bell,
+  UserCog,
+  CalendarRange,
 } from "lucide-react";
 
 export interface NavItem {
@@ -27,6 +32,8 @@ export interface NavItem {
   icon: typeof LayoutDashboard;
   /** Fonctionnalité du plan requise — absent si incluse dans toutes les formules. */
   feature?: Feature;
+  /** Annoncée mais pas encore développée : mène à une page « Bientôt disponible ». */
+  soon?: boolean;
 }
 
 export interface NavGroup {
@@ -35,6 +42,9 @@ export interface NavGroup {
   items: NavItem[];
 }
 
+// Menu de la maquette de septembre 2026. Enseignants, RH et Statistiques n'y
+// figuraient pas : ils restent sous Administration, pour qu'aucune page qui
+// fonctionne ne disparaisse du menu.
 const directorNavGroups: NavGroup[] = [
   {
     items: [{ href: "/directeur", labelKey: "nav.dashboard", icon: LayoutDashboard }],
@@ -66,15 +76,32 @@ const directorNavGroups: NavGroup[] = [
   },
   {
     labelKey: "nav.category.finance",
-    items: [{ href: "/directeur/finance", labelKey: "nav.finance", icon: Wallet }],
+    items: [
+      { href: "/directeur/finance", labelKey: "nav.payments", icon: Wallet },
+      // Même écran que Paiements, ouvert directement sur les frais non soldés.
+      { href: "/directeur/finance?statut=impayes", labelKey: "nav.unpaid", icon: HandCoins },
+      {
+        href: "/directeur/rapports-financiers",
+        labelKey: "nav.financialReports",
+        icon: FileChartColumn,
+        soon: true,
+      },
+    ],
+  },
+  {
+    labelKey: "nav.category.communication",
+    items: [
+      { href: "/directeur/communication", labelKey: "nav.messages", icon: MessageCircle },
+      { href: "/directeur/parents", labelKey: "nav.parents", icon: Contact },
+      { href: "/directeur/notifications", labelKey: "nav.notifications", icon: Bell, soon: true },
+    ],
   },
   {
     labelKey: "nav.category.admin",
     items: [
       { href: "/directeur/enseignants", labelKey: "nav.teachers", icon: BookUser },
       { href: "/directeur/rh", labelKey: "nav.hr", icon: Briefcase, feature: "hrPayroll" },
-      { href: "/directeur/parents", labelKey: "nav.parents", icon: Contact },
-      { href: "/directeur/communication", labelKey: "nav.communication", icon: MessageCircle },
+      { href: "/directeur/utilisateurs", labelKey: "nav.users", icon: UserCog, soon: true },
       {
         href: "/directeur/statistiques",
         labelKey: "nav.statistics",
@@ -82,6 +109,8 @@ const directorNavGroups: NavGroup[] = [
         feature: "advancedStats",
       },
       { href: "/directeur/parametres", labelKey: "nav.settings", icon: Settings },
+      // Les années scolaires se gèrent dans une section de Paramètres.
+      { href: "/directeur/parametres#annees", labelKey: "nav.schoolYear", icon: CalendarRange },
     ],
   },
 ];

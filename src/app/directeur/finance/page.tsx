@@ -9,8 +9,13 @@ const DEFAULT_REMINDER =
 const DEFAULT_REMINDER_AR =
   "مرحبًا {parentName}،\n\nنذكركم بأن مبلغ {amount} أوقية موريتانية الخاص بالرسوم الدراسية لـ {studentName} لا يزال معلقًا، وتاريخ الاستحقاق هو {date}. يرجى التكرم بتسوية وضعيتكم.\n\n{schoolName}";
 
-export default async function FinancePage() {
+export default async function FinancePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ statut?: string }>;
+}) {
   const user = await requireRole(ROLES.DIRECTOR);
+  const { statut } = await searchParams;
 
   const [fees, students, school, template] = await Promise.all([
     prisma.fee.findMany({
@@ -75,6 +80,11 @@ export default async function FinancePage() {
 
   return (
     <FinanceView
+      // « Paiements » et « Impayés » du menu ouvrent ce même écran, chacun
+      // avec son filtre : la clé remonte la vue quand l'adresse change, sans
+      // quoi le filtre du premier affichage restait en place.
+      key={statut ?? "tous"}
+      initialStatus={statut === "impayes" ? "UNPAID" : "ALL"}
       fees={rows}
       students={studentOptions}
       schoolName={school?.name ?? "Madrasati"}

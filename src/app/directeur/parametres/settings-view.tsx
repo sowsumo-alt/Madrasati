@@ -199,7 +199,8 @@ export function SettingsView({
         trialDaysLeft={trialDaysLeft}
       />
 
-      <Card>
+      {/* Cible de « Année scolaire » dans le menu (#annees). */}
+      <Card id="annees" className="scroll-mt-24">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-sm">{t("settings.years")}</CardTitle>
           <Button size="sm" variant="secondary" onClick={() => setYearDialogOpen(true)}>

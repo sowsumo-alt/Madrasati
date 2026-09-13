@@ -58,7 +58,10 @@ const STATUS_VARIANT: Record<string, BadgeProps["variant"]> = {
 // Le statut affiché et le retard sont calculés dans lib/fee-status.ts,
 // hors de cet écran, pour être verrouillés par des tests.
 
-const STATUS_FILTERS = ["ALL", "PENDING", "PARTIAL", "PAID", "OVERDUE"] as const;
+// UNPAID regroupe tout ce qui n'est pas soldé (en attente, partiel, en retard) :
+// c'est la liste qu'ouvre « Impayés » dans le menu.
+const STATUS_FILTERS = ["ALL", "UNPAID", "PENDING", "PARTIAL", "PAID", "OVERDUE"] as const;
+export type FinanceStatusFilter = (typeof STATUS_FILTERS)[number];
 
 /**
  * Ancienneté d'un impayé, en jours puis en mois. Calculée sur les dates
@@ -84,19 +87,22 @@ export function FinanceView({
   schoolName,
   reminderTemplate,
   reminderTemplateAr,
+  initialStatus = "ALL",
 }: {
   fees: FeeRow[];
   students: FeeStudentOption[];
   schoolName: string;
   reminderTemplate: string;
   reminderTemplateAr?: string;
+  /** Filtre au premier affichage (voir le lien « Impayés » du menu). */
+  initialStatus?: FinanceStatusFilter;
 }) {
   const { t } = useLanguage();
   const router = useRouter();
   const schoolFr = schoolSignatureFr(schoolName);
   const schoolAr = schoolSignatureAr(schoolName);
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>("ALL");
+  const [statusFilter, setStatusFilter] = useState<FinanceStatusFilter>(initialStatus);
   const [letter, setLetter] = useState<string | null>(null);
   const [feeFormOpen, setFeeFormOpen] = useState(false);
   const [paymentTarget, setPaymentTarget] = useState<{
@@ -144,7 +150,9 @@ export function FinanceView({
       const name = `${f.student.firstName} ${f.student.lastName}`.toLowerCase();
       const matchesQuery = !q || name.includes(q) || f.label.toLowerCase().includes(q);
       const status = feeDisplayStatus(f);
-      const matchesStatus = statusFilter === "ALL" || status === statusFilter;
+      const matchesStatus =
+        statusFilter === "ALL" ||
+        (statusFilter === "UNPAID" ? status !== "PAID" : status === statusFilter);
       const matchesInitial = matchesLetter(
         `${f.student.firstName} ${f.student.lastName}`,
         letter,
@@ -202,7 +210,11 @@ export function FinanceView({
                   : "bg-surface-muted text-foreground/60 hover:text-foreground"
               }`}
             >
-              {s === "ALL" ? t("common.all") : t(STATUS_KEYS[s])}
+              {s === "ALL"
+                ? t("common.all")
+                : s === "UNPAID"
+                  ? t("finance.filterUnsettled")
+                  : t(STATUS_KEYS[s])}
             </button>
           ))}
         </div>

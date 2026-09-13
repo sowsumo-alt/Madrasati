@@ -69,6 +69,20 @@
 
   --font-sans: var(--font-inter);
   --radius-md: var(--radius);
+
+  /* Très grands écrans (1760 px) : le tableau de bord y retrouve quatre tuiles
+     par rangée malgré sa colonne de droite. Un point de rupture nommé se
+     range après 2xl, là où une valeur arbitraire (min-[1760px]) était
+     écrasée par lui. */
+  --breakpoint-3xl: 110rem;
+}
+
+/* Ombre douce des cartes du tableau de bord : un léger contact et un halo
+   diffus, plutôt que le trait sec de shadow-sm. */
+@utility shadow-soft {
+  box-shadow:
+    0 1px 2px rgb(16 24 40 / 0.04),
+    0 8px 24px -12px rgb(16 24 40 / 0.1);
 }
 
 body {

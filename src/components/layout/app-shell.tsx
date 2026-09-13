@@ -3,15 +3,16 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { signOut } from "next-auth/react";
-import { Bell, LogOut, Menu, Search, X, Lock } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Bell, Menu, Search, X } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { Logo } from "@/components/brand/logo";
-import { LanguageToggle } from "./language-toggle";
-import { navGroupsByRole, type NavKey, type NavItem } from "./nav-items";
-import { planHasFeature, type Plan } from "@/lib/plans";
+import type { Plan } from "@/lib/plans";
 import type { TranslationKey } from "@/lib/i18n/dictionaries";
+import { Sidebar } from "./sidebar";
+import { LanguageMenu } from "./language-menu";
+import { FullscreenButton } from "./fullscreen-button";
+import { UserMenu } from "./user-menu";
+import type { NavKey } from "./nav-items";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -31,23 +32,9 @@ interface AppShellProps {
 }
 
 /**
- * Un directeur voit les fonctionnalités non incluses dans son plan, grisées
- * avec un cadenas (invitation à mettre à niveau) — c'est lui le décideur de
- * l'abonnement. Un enseignant ou un parent ne voit rien de tout ça : les
- * entrées correspondantes disparaissent purement et simplement du menu.
+ * Cadre de l'application : barre latérale verte pleine hauteur (tiroir sur
+ * mobile), en-tête avec recherche, cloche, plein écran, langue et compte.
  */
-function visibleNavItems(items: NavItem[], plan: Plan, navKey: NavKey) {
-  if (navKey !== "director") {
-    return items
-      .filter((item) => !item.feature || planHasFeature(plan, item.feature))
-      .map((item) => ({ item, locked: false }));
-  }
-  return items.map((item) => ({
-    item,
-    locked: Boolean(item.feature) && !planHasFeature(plan, item.feature!),
-  }));
-}
-
 export function AppShell({
   children,
   navKey,
@@ -65,7 +52,6 @@ export function AppShell({
   const { t } = useLanguage();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const navGroups = navGroupsByRole[navKey];
 
   function onSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -74,169 +60,96 @@ export function AppShell({
     setMobileOpen(false);
   }
 
-  const navContent = (
-    <>
-      <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-4">
-        {navGroups.map((group, groupIndex) => (
-          <div key={group.labelKey ?? `group-${groupIndex}`} className="space-y-1">
-            {group.labelKey && (
-              <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-accent-300/80">
-                {t(group.labelKey)}
-              </p>
-            )}
-            {visibleNavItems(group.items, plan, navKey).map(({ item, locked }) => {
-              const active =
-                pathname === item.href ||
-                (item.href !== "/directeur" &&
-                  item.href !== "/enseignant" &&
-                  item.href !== "/parent" &&
-                  pathname.startsWith(item.href));
-              const Icon = item.icon;
-              const href = locked
-                ? `/directeur/fonctionnalite-verrouillee?feature=${item.feature}`
-                : item.href;
-              return (
-                <Link
-                  key={item.href}
-                  href={href}
-                  onClick={() => setMobileOpen(false)}
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg border-s-[3px] px-3 py-2.5 text-sm transition-colors",
-                    locked
-                      ? "border-transparent font-medium text-white/40 hover:bg-white/5 hover:text-white/60"
-                      : active
-                        ? "border-accent-400 bg-primary-600 font-semibold text-white shadow-sm"
-                        : "border-transparent font-medium text-white/70 hover:bg-white/10 hover:text-white",
-                  )}
-                >
-                  <Icon className="h-4.5 w-4.5 shrink-0" strokeWidth={2} />
-                  {t(item.labelKey)}
-                  {locked && <Lock className="ms-auto h-3.5 w-3.5 shrink-0" strokeWidth={2} />}
-                </Link>
-              );
-            })}
-          </div>
-        ))}
-      </nav>
-      <div className="border-t border-white/10 px-3 py-3">
-        <p className="truncate px-3 pb-2 text-xs text-white/50" title={schoolName}>
-          {schoolName}
-        </p>
-        <button
-          onClick={() => signOut({ callbackUrl: "/login" })}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white/70 transition-colors hover:bg-white/10 hover:text-white"
-        >
-          <LogOut className="h-4.5 w-4.5" strokeWidth={2} />
-          {t("nav.logout")}
-        </button>
-      </div>
-    </>
-  );
-
   return (
     <div className="min-h-screen bg-background">
-      <header className="no-print fixed inset-x-0 top-0 z-40 flex h-16 items-center gap-3 border-b border-border bg-surface px-3 shadow-[0_1px_0_0_var(--accent-500)] sm:gap-4 sm:px-4">
-        <Link href="/" className="flex shrink-0 items-center gap-2">
-          <Logo className="h-9 w-9" />
-          <span className="hidden text-xl font-bold tracking-tight text-primary-800 sm:inline">
-            Madrasati
-          </span>
-        </Link>
-
-        <button
-          onClick={() => setMobileOpen((v) => !v)}
-          className="shrink-0 rounded-lg p-2 text-foreground/60 transition-colors hover:bg-surface-muted lg:hidden"
-          aria-label="Ouvrir le menu"
-        >
-          <Menu className="h-5 w-5" />
-        </button>
-
-        {searchHref && (
-          <form onSubmit={onSearch} className="hidden flex-1 md:block">
-            <div className="relative w-full max-w-xl">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/35" />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={t("common.search")}
-                aria-label={t("common.search")}
-                className="h-10 w-full rounded-full border border-border bg-background pl-11 pr-11 text-sm text-foreground transition-colors placeholder:text-foreground/40 focus:border-primary-500 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary-500"
-              />
-              <button
-                type="submit"
-                aria-label={t("common.search")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-foreground/50 transition-colors hover:text-primary-700"
-              >
-                <Search className="h-4 w-4" />
-              </button>
-            </div>
-          </form>
-        )}
-
-        <div className="ml-auto flex items-center gap-2 sm:gap-3">
-          <LanguageToggle />
-          <Link
-            href={alertHref}
-            title={alertLabel}
-            aria-label={alertLabel}
-            className="relative rounded-lg p-2 text-foreground/60 transition-colors hover:bg-surface-muted"
-          >
-            <Bell className="h-5 w-5" />
-            {alertCount > 0 && (
-              <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-semibold text-white">
-                {alertCount > 99 ? "99+" : alertCount}
-              </span>
-            )}
-          </Link>
-          <Link
-            href="/mon-compte"
-            title="Mon compte"
-            className="flex items-center gap-2"
-          >
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-700 text-sm font-semibold text-white ring-2 ring-accent-200">
-              {userName.charAt(0).toUpperCase()}
-            </span>
-            <span className="hidden flex-col leading-tight sm:flex">
-              <span className="text-sm font-semibold text-foreground">
-                {userName}
-              </span>
-              <span className="text-xs text-foreground/50">{t(roleKey as TranslationKey)}</span>
-            </span>
-          </Link>
-        </div>
-      </header>
-
       {/* Barre latérale — bureau */}
-      <aside className="no-print fixed inset-y-0 left-0 top-16 z-30 hidden w-64 flex-col bg-primary-700 lg:flex">
-        {navContent}
+      <aside className="no-print fixed inset-y-0 start-0 z-40 hidden w-64 bg-gradient-to-b from-primary-800 via-primary-800 to-primary-900 lg:block">
+        <Sidebar navKey={navKey} plan={plan} />
       </aside>
 
       {/* Barre latérale — tiroir mobile */}
       {mobileOpen && (
         <div className="no-print fixed inset-0 z-50 lg:hidden">
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={() => setMobileOpen(false)}
-          />
-          <aside className="absolute inset-y-0 left-0 flex w-64 flex-col bg-primary-700">
-            <div className="flex items-center justify-between px-4 py-4">
-              <span className="text-base font-bold tracking-tight text-white">
-                Madrasati
-              </span>
-              <button
-                onClick={() => setMobileOpen(false)}
-                className="text-white/70 hover:text-white"
-                aria-label="Fermer le menu"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            {navContent}
+          <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
+          <aside className="absolute inset-y-0 start-0 w-72 max-w-[85vw] bg-gradient-to-b from-primary-800 to-primary-900 shadow-xl">
+            <button
+              onClick={() => setMobileOpen(false)}
+              className="absolute end-3 top-6 z-10 rounded-lg p-1.5 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+              aria-label={t("header.closeMenu")}
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <Sidebar navKey={navKey} plan={plan} onNavigate={() => setMobileOpen(false)} />
           </aside>
         </div>
       )}
 
-      <div className="pt-16 lg:pl-64 print:pt-0 print:pl-0">
+      <div className="lg:ps-64 print:ps-0">
+        <header className="no-print sticky top-0 z-30 border-b border-border/70 bg-background/85 backdrop-blur-md">
+          <div className="flex h-[4.5rem] items-center gap-3 px-4 sm:px-6 lg:px-8">
+            <button
+              onClick={() => setMobileOpen(true)}
+              className="shrink-0 rounded-lg p-2 text-foreground/70 transition-colors hover:bg-surface-muted lg:hidden"
+              aria-label={t("header.openMenu")}
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+            <Link href="/" className="flex shrink-0 items-center gap-2 lg:hidden">
+              <Logo className="h-8 w-8" />
+              <span className="hidden text-lg font-bold tracking-tight text-primary-800 sm:inline">
+                Madrasati
+              </span>
+            </Link>
+
+            {searchHref && (
+              // À partir de lg seulement : sur tablette, entre le logo et les
+              // boutons, le champ était réduit à « Rechercher u… ».
+              <form onSubmit={onSearch} className="hidden min-w-0 flex-1 lg:block">
+                <div className="relative max-w-xl">
+                  <Search className="pointer-events-none absolute start-4 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/40" />
+                  <input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder={t("header.searchPlaceholder")}
+                    aria-label={t("common.search")}
+                    className="h-11 w-full rounded-full border border-border bg-surface pe-11 ps-11 text-sm text-foreground shadow-sm transition-colors placeholder:text-foreground/40 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                  <button
+                    type="submit"
+                    aria-label={t("common.search")}
+                    className="absolute end-3.5 top-1/2 -translate-y-1/2 text-foreground/50 transition-colors hover:text-primary-700"
+                  >
+                    <Search className="h-4 w-4" />
+                  </button>
+                </div>
+              </form>
+            )}
+
+            <div className="ms-auto flex items-center gap-1 sm:gap-2.5">
+              <Link
+                href={alertHref}
+                title={alertLabel}
+                aria-label={alertLabel}
+                className="relative rounded-lg p-2 text-foreground/60 transition-colors hover:bg-surface-muted hover:text-foreground"
+              >
+                <Bell className="h-5 w-5" />
+                {alertCount > 0 && (
+                  <span className="absolute end-0.5 top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-danger px-1 text-[10px] font-semibold text-white ring-2 ring-background">
+                    {alertCount > 99 ? "99+" : alertCount}
+                  </span>
+                )}
+              </Link>
+              <FullscreenButton />
+              <LanguageMenu />
+              <UserMenu
+                userName={userName}
+                roleLabel={t(roleKey as TranslationKey)}
+                schoolName={schoolName}
+              />
+            </div>
+          </div>
+        </header>
+
         {/* La clé force le remontage à chaque navigation : l'animation
             d'entrée rejoue sur chaque nouvelle page, pas seulement au
             premier chargement. */}

@@ -69,6 +69,25 @@ const timeFormatter = new Intl.DateTimeFormat("fr-FR", {
   timeZone: TIME_ZONE,
 });
 
+/** Ex: 08:42 — l'heure de l'école. */
+export function formatTime(date: Date | string) {
+  return timeFormatter.format(new Date(date));
+}
+
+/**
+ * Date dans la langue de l'interface (fr, en ou ar), au fuseau des écoles. En
+ * arabe, les chiffres restent latins (u-nu-latn), comme sur tout le reste de
+ * l'application.
+ */
+export function formatDateIn(
+  locale: string,
+  date: Date | string,
+  options: Intl.DateTimeFormatOptions,
+) {
+  const tag = locale === "ar" ? "ar-u-nu-latn" : locale;
+  return new Intl.DateTimeFormat(tag, { ...options, timeZone: TIME_ZONE }).format(new Date(date));
+}
+
 /**
  * Horodatage court pour un fil d'activité : l'heure si c'est aujourd'hui,
  * « Hier », puis la date pour tout ce qui est plus ancien.
