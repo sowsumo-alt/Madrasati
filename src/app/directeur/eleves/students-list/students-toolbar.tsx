@@ -92,7 +92,7 @@ export function StudentsToolbar({
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-2 lg:flex lg:shrink-0">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:flex lg:shrink-0">
         <Select value={classFilter} onValueChange={onClassFilterChange}>
           <SelectTrigger className="lg:w-44" aria-label={t("students.allClasses")}>
             <SelectValue>{classLabel}</SelectValue>

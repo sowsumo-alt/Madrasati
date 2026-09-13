@@ -12,7 +12,7 @@ export default async function StudentsPage({
   const user = await requireRole(ROLES.DIRECTOR);
   const { q, new: openNew } = await searchParams;
 
-  const [students, classes, school] = await Promise.all([
+  const [students, classes, school, currentYear] = await Promise.all([
     prisma.student.findMany({
       where: { schoolId: user.schoolId },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
@@ -34,26 +34,38 @@ export default async function StudentsPage({
       where: { id: user.schoolId },
       select: { name: true },
     }),
+    prisma.academicYear.findFirst({
+      where: { schoolId: user.schoolId, isCurrent: true },
+      select: { label: true },
+    }),
   ]);
 
-  const rows: StudentRow[] = students.map((s) => ({
-    id: s.id,
-    firstName: s.firstName,
-    lastName: s.lastName,
-    dateOfBirth: s.dateOfBirth ? s.dateOfBirth.toISOString() : null,
-    gender: s.gender,
-    status: s.status,
-    classId: s.classId,
-    className: s.classRoom?.name ?? null,
-    photoUrl: s.photoUrl,
-    parent: s.parentLinks[0]
-      ? {
-          firstName: s.parentLinks[0].parent.firstName,
-          lastName: s.parentLinks[0].parent.lastName,
-          phone: s.parentLinks[0].parent.phone,
-        }
-      : null,
-  }));
+  const rows: StudentRow[] = students.map((s) => {
+    const parent = s.parentLinks[0]?.parent;
+    return {
+      id: s.id,
+      firstName: s.firstName,
+      lastName: s.lastName,
+      dateOfBirth: s.dateOfBirth ? s.dateOfBirth.toISOString() : null,
+      gender: s.gender,
+      status: s.status,
+      classId: s.classId,
+      className: s.classRoom?.name ?? null,
+      photoUrl: s.photoUrl,
+      placeOfBirth: s.placeOfBirth,
+      nationality: s.nationality,
+      motherName: s.motherName,
+      enrollmentDate: s.enrollmentDate.toISOString(),
+      parent: parent
+        ? {
+            firstName: parent.firstName,
+            lastName: parent.lastName,
+            phone: parent.phone,
+            address: parent.address,
+          }
+        : null,
+    };
+  });
 
   return (
     <StudentsView
@@ -63,6 +75,7 @@ export default async function StudentsPage({
       students={rows}
       classes={classes}
       schoolName={school?.name ?? "Madrasati"}
+      currentYearLabel={currentYear?.label ?? null}
       initialQuery={q ?? ""}
       autoOpenNew={openNew === "1"}
     />

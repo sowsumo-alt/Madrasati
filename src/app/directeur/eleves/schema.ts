@@ -11,7 +11,10 @@ export const studentSchema = z
     dateOfBirth: z.string().trim().optional().or(z.literal("")),
     // Obligatoire depuis la maquette de septembre 2026 : la répartition
     // filles / garçons des statistiques n'a de sens que si chaque élève en a un.
-    gender: z.string().refine((v) => v === "M" || v === "F", "Choisissez le genre de l'élève"),
+    // `includes` et non `v === "M" || v === "F"` : TypeScript lirait ce test
+    // comme un garde de type et restreindrait le champ à "M" | "F", alors que
+    // le formulaire démarre forcément vide.
+    gender: z.string().refine((v) => ["M", "F"].includes(v), "Choisissez le genre de l'élève"),
     placeOfBirth: optionalText(120),
     nationality: optionalText(60),
     // Obligatoire : un élève sans classe n'apparaît dans aucun appel, aucun
