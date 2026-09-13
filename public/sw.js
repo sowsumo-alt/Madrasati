@@ -14,7 +14,8 @@
 //   dupliquer ou perdre un enregistrement d'appel, de note ou de paiement à
 //   cause du cache.
 
-const CACHE_NAME = "madrasati-shell-v1";
+// Changer ce nom purge l'ancien cache à l'activation (voir « activate »).
+const CACHE_NAME = "madrasati-shell-v2";
 const OFFLINE_URL = "/offline.html";
 
 const PRECACHE_URLS = [
@@ -57,8 +58,14 @@ self.addEventListener("fetch", (event) => {
         (cached) =>
           cached ||
           fetch(request).then((response) => {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+            // Seules les réponses valides sont gardées : une erreur passagère
+            // (404 pendant une mise en ligne, panne du serveur) mise en cache
+            // serait resservie pour toujours, et la page qui a besoin de ce
+            // fichier ne se chargerait plus jamais sur cet appareil.
+            if (response.ok) {
+              const copy = response.clone();
+              caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+            }
             return response;
           }),
       ),

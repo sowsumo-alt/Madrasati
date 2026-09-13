@@ -143,6 +143,9 @@ export const dictionaries = {
     "students.importNoRows": "Aucune ligne trouvée dans le fichier.",
     "students.importReadError": "Impossible de lire ce fichier. Vérifiez le format .xlsx.",
     "common.error": "Une erreur est survenue.",
+    "error.title": "Cette page n'a pas pu s'afficher.",
+    "error.hint": "Rechargez la page. Si l'application vient d'être mise à jour, cela suffit à tout remettre en ordre.",
+    "error.reload": "Recharger la page",
 
     "finance.title": "Finance",
     "finance.subtitle": "Suivez les frais de scolarité et les paiements.",
@@ -774,6 +777,9 @@ export const dictionaries = {
     "students.importNoRows": "No rows found in the file.",
     "students.importReadError": "Could not read this file. Check the .xlsx format.",
     "common.error": "Something went wrong.",
+    "error.title": "This page couldn't be displayed.",
+    "error.hint": "Reload the page. If the app was just updated, that's all it takes.",
+    "error.reload": "Reload the page",
 
     "finance.title": "Finance",
     "finance.subtitle": "Track tuition fees and payments.",
@@ -1403,6 +1409,9 @@ export const dictionaries = {
     "students.importNoRows": "لم يُعثر على أي سطر في الملف.",
     "students.importReadError": "تعذّرت قراءة هذا الملف. تحقّق من صيغة ‎.xlsx‎.",
     "common.error": "حدث خطأ ما.",
+    "error.title": "تعذّر عرض هذه الصفحة.",
+    "error.hint": "أعد تحميل الصفحة. إذا تم تحديث التطبيق للتو، فهذا يكفي لإصلاح الأمر.",
+    "error.reload": "إعادة تحميل الصفحة",
 
     "finance.title": "المالية",
     "finance.subtitle": "تابع الرسوم الدراسية والمدفوعات.",
