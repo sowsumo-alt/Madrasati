@@ -225,6 +225,12 @@ export async function saveGrades(examId: string, entries: GradeEntry[]) {
   });
   const allowedIds = new Set(studentsInClass.map((s) => s.id));
 
+  // Toutes les notes sont validées avant qu'une seule ne soit écrite.
+  // Auparavant la boucle validait et écrivait élève par élève : une note hors
+  // barème au dixième rang laissait les neuf premières enregistrées, puis
+  // levait une erreur. Le directeur voyait « une erreur est survenue » sans
+  // savoir que la moitié de sa saisie était déjà partie en base.
+  const writes = [];
   for (const entry of entries) {
     if (!allowedIds.has(entry.studentId)) continue;
 
@@ -233,20 +239,21 @@ export async function saveGrades(examId: string, entries: GradeEntry[]) {
       throw new Error(`Chaque note doit être comprise entre 0 et ${exam.maxScore}.`);
     }
 
-    await prisma.grade.upsert({
-      where: { examId_studentId: { examId, studentId: entry.studentId } },
-      create: {
-        examId,
-        studentId: entry.studentId,
-        score: entry.isAbsent ? null : parsed,
-        isAbsent: entry.isAbsent,
-      },
-      update: {
-        score: entry.isAbsent ? null : parsed,
-        isAbsent: entry.isAbsent,
-      },
-    });
+    const score = entry.isAbsent ? null : parsed;
+    writes.push(
+      prisma.grade.upsert({
+        where: { examId_studentId: { examId, studentId: entry.studentId } },
+        create: { examId, studentId: entry.studentId, score, isAbsent: entry.isAbsent },
+        update: { score, isAbsent: entry.isAbsent },
+      }),
+    );
   }
+
+  // Une seule transaction plutôt qu'un aller-retour par élève : la saisie
+  // d'une classe de quarante déclenchait quarante allers-retours vers la base,
+  // et la base est désormais hébergée loin de la Mauritanie — chaque aller
+  // -retour se paie. Soit toute la classe est enregistrée, soit rien.
+  if (writes.length > 0) await prisma.$transaction(writes);
 
   // La moyenne et le compteur « notes saisies » de la page Examens sont
   // recalculés à chaque rendu : revalider suffit à les mettre à jour, sans que
