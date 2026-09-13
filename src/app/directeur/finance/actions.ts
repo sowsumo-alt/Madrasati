@@ -5,7 +5,14 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { generateReceiptNumber, runWithReceipt } from "@/lib/receipts";
-import { feeSchema, paymentSchema, type FeeFormValues, type PaymentFormValues } from "./schema";
+import {
+  feeEditSchema,
+  feeSchema,
+  paymentSchema,
+  type FeeEditValues,
+  type FeeFormValues,
+  type PaymentFormValues,
+} from "./schema";
 
 export async function createFee(values: FeeFormValues) {
   const user = await requireRole(ROLES.DIRECTOR);
@@ -35,6 +42,45 @@ export async function createFee(values: FeeFormValues) {
       dueDate: new Date(data.dueDate),
       status: "PENDING",
     },
+  });
+
+  revalidatePath("/directeur/finance");
+  revalidatePath("/directeur");
+}
+
+/**
+ * Corrige un frais : libellé, montant ou échéance. Le statut enregistré est
+ * recalculé sur les paiements déjà reçus — ramener le montant sous ce qui a
+ * été versé solde le frais, sans créer de dette négative.
+ */
+export async function updateFee(feeId: string, values: FeeEditValues) {
+  const user = await requireRole(ROLES.DIRECTOR);
+  const data = feeEditSchema.parse(values);
+
+  const fee = await prisma.fee.findFirst({
+    where: { id: feeId, schoolId: user.schoolId },
+    select: { id: true },
+  });
+  if (!fee) throw new Error("Frais introuvable.");
+
+  // Même transaction que l'enregistrement d'un paiement : un versement reçu
+  // pendant la correction ne doit pas laisser un statut calculé sur un total
+  // déjà dépassé.
+  await prisma.$transaction(async (tx) => {
+    const totalPaid = await tx.payment.aggregate({
+      where: { feeId: fee.id },
+      _sum: { amount: true },
+    });
+    const paid = totalPaid._sum.amount ?? 0;
+    await tx.fee.update({
+      where: { id: fee.id },
+      data: {
+        label: data.label,
+        amount: data.amount,
+        dueDate: new Date(data.dueDate),
+        status: paid >= data.amount ? "PAID" : paid > 0 ? "PARTIAL" : "PENDING",
+      },
+    });
   });
 
   revalidatePath("/directeur/finance");

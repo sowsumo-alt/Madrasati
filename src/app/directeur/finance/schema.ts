@@ -9,6 +9,10 @@ export const feeSchema = z.object({
 });
 export type FeeFormValues = z.infer<typeof feeSchema>;
 
+/** Correction d'un frais existant : l'élève ne change pas. */
+export const feeEditSchema = feeSchema.omit({ studentId: true });
+export type FeeEditValues = z.infer<typeof feeEditSchema>;
+
 export const paymentSchema = z.object({
   amount: z.coerce.number().int().positive("Le montant doit être positif"),
   method: z.enum(PAYMENT_METHODS),

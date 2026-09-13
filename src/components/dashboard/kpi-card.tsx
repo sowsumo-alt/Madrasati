@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { TrendingUp, type LucideIcon } from "lucide-react";
+import { TrendingDown, TrendingUp, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Sparkline } from "@/components/charts/sparkline";
 import { ProgressRing } from "@/components/charts/progress-ring";
@@ -28,6 +28,8 @@ interface KpiCardProps {
   hint?: string;
   /** Progression : flèche montante et texte en vert. */
   hintPositive?: boolean;
+  /** Recul : flèche descendante et texte en rouge. */
+  hintNegative?: boolean;
   /** Mini-courbe d'évolution, du plus ancien au plus récent. */
   trend?: number[];
   /** Pourcentage affiché en anneau, à la place de la mini-courbe. */
@@ -49,6 +51,7 @@ export function KpiCard({
   tone,
   hint,
   hintPositive = false,
+  hintNegative = false,
   trend,
   ring,
   href,
@@ -79,10 +82,17 @@ export function KpiCard({
             <p
               className={cn(
                 "flex min-w-0 items-center gap-1 text-xs",
-                hintPositive ? "font-medium text-emerald-600" : "text-foreground/45",
+                hintPositive
+                  ? "font-medium text-emerald-600"
+                  : hintNegative
+                    ? "font-medium text-red-600"
+                    : "text-foreground/45",
               )}
             >
               {hintPositive && <TrendingUp className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />}
+              {!hintPositive && hintNegative && (
+                <TrendingDown className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+              )}
               <span className="truncate">{hint}</span>
             </p>
           )}
