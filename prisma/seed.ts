@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { currentAcademicYear } from "../src/lib/school-setup";
 
 const prisma = new PrismaClient();
 
@@ -250,15 +251,24 @@ async function main() {
       phone: "+22245123456",
       email: "contact@ecole-demo.mr",
       currency: "MRU",
+      // Ecole de demonstration immediatement utilisable : le statut par
+      // defaut est « en attente d activation », qui coupe l acces a tous les
+      // comptes. Il faut le lever ici, sinon la graine produit une ecole ou
+      // personne ne peut se connecter.
+      subscriptionStatus: "active",
     },
   });
 
+  // Annee scolaire calculee a la date du jour, jamais ecrite en dur : une
+  // annee figee finit par etre echue, et la graine produisait alors une ecole
+  // accueillie par le bandeau « votre annee scolaire est terminee ».
+  const year = currentAcademicYear();
   const academicYear = await prisma.academicYear.create({
     data: {
       schoolId: school.id,
-      label: "2025-2026",
-      startDate: new Date("2025-09-01"),
-      endDate: new Date("2026-06-30"),
+      label: year.label,
+      startDate: year.startDate,
+      endDate: year.endDate,
       isCurrent: true,
     },
   });
