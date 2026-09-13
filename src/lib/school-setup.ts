@@ -135,8 +135,10 @@ export function currentAcademicYear(today = new Date()) {
       : today.getFullYear() - 1;
   return {
     label: `${startYear}-${startYear + 1}`,
-    startDate: new Date(startYear, 8, 1),
-    endDate: new Date(startYear + 1, 5, 30),
+    // En UTC : créée à minuit heure locale, la date glissait à la veille
+    // (23 h UTC) sur un ordinateur réglé à l'heure de Londres ou de Paris.
+    startDate: new Date(Date.UTC(startYear, 8, 1)),
+    endDate: new Date(Date.UTC(startYear + 1, 5, 30)),
   };
 }
 

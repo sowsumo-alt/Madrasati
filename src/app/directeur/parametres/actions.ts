@@ -147,8 +147,9 @@ export async function createNextAcademicYear() {
         data: {
           schoolId: user.schoolId,
           label,
-          startDate: new Date(nextStart, 8, 1),
-          endDate: new Date(nextStart + 1, 5, 30),
+          // En UTC, comme currentAcademicYear (src/lib/school-setup.ts).
+          startDate: new Date(Date.UTC(nextStart, 8, 1)),
+          endDate: new Date(Date.UTC(nextStart + 1, 5, 30)),
           isCurrent: true,
         },
       });

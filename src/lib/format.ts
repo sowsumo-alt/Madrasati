@@ -13,10 +13,21 @@ export function formatAmount(amount: number) {
   return mruFormatter.format(amount);
 }
 
+/**
+ * Fuseau des écoles : la Mauritanie, en UTC toute l'année (pas d'heure d'été).
+ *
+ * Fixé plutôt que laissé à l'appareil : le serveur tourne en UTC, et un
+ * navigateur réglé sur un autre fuseau écrivait la même date autrement —
+ * « 31 août 2026 » d'un côté, « 01 sept. 2026 » de l'autre. React voyait la
+ * différence et devait refaire la page (erreur #418 sur Paramètres).
+ */
+const TIME_ZONE = "Africa/Nouakchott";
+
 const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
   day: "2-digit",
   month: "short",
   year: "numeric",
+  timeZone: TIME_ZONE,
 });
 
 export function formatDate(date: Date | string) {
@@ -27,6 +38,7 @@ const longDateFormatter = new Intl.DateTimeFormat("fr-FR", {
   day: "numeric",
   month: "long",
   year: "numeric",
+  timeZone: TIME_ZONE,
 });
 
 /** Ex: 18 mai 2025 — utilisé dans les en-têtes de page. */
@@ -38,6 +50,7 @@ const longDateFormatterAr = new Intl.DateTimeFormat("ar", {
   day: "numeric",
   month: "long",
   year: "numeric",
+  timeZone: TIME_ZONE,
 });
 
 /**
@@ -53,6 +66,7 @@ export function formatLongDateAr(date: Date | string) {
 const timeFormatter = new Intl.DateTimeFormat("fr-FR", {
   hour: "2-digit",
   minute: "2-digit",
+  timeZone: TIME_ZONE,
 });
 
 /**
@@ -62,10 +76,13 @@ const timeFormatter = new Intl.DateTimeFormat("fr-FR", {
 export function formatEventTime(date: Date | string) {
   const d = new Date(date);
   const now = new Date();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  // Minuit à Nouakchott, c'est-à-dire minuit UTC (voir TIME_ZONE).
+  const startOfToday = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
   if (d >= startOfToday) return timeFormatter.format(d);
   const startOfYesterday = new Date(startOfToday);
-  startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+  startOfYesterday.setUTCDate(startOfYesterday.getUTCDate() - 1);
   if (d >= startOfYesterday) return "Hier";
   return formatDate(d);
 }
