@@ -28,6 +28,18 @@ export function familyLabel(
   return customFamilyName(parent) ?? defaultTemplate.replace("{name}", parent.lastName.trim());
 }
 
+/**
+ * Nom de famille des enfants déduit du nom de la famille : « Famille BA » ->
+ * « BA ». Sert à préremplir le nom de chaque enfant, qui reste modifiable.
+ */
+export function familySurname(familyName: string): string {
+  return familyName
+    .trim()
+    .replace(/^(famille|family|عائلة|آل)\s+/iu, "")
+    .replace(/\s+(family)$/iu, "")
+    .trim();
+}
+
 export interface FamilyFeeAmounts {
   amount: number;
   totalPaid: number;

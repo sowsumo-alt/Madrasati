@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import {
   ArrowLeft,
   CalendarDays,
@@ -67,6 +67,9 @@ export default async function ReceiptPage({
   });
 
   if (!payment) notFound();
+  // Part d'un paiement familial : le parent a reçu un seul reçu pour tous ses
+  // enfants, c'est celui-là qu'on montre.
+  if (payment.familyPaymentId) redirect(`/directeur/finance/recus/famille/${payment.familyPaymentId}`);
 
   const parent = payment.student.parentLinks[0]?.parent ?? null;
   const { t, locale } = await getTranslations();

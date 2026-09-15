@@ -5,6 +5,7 @@ import {
   checkFamilyParts,
   familyBalance,
   familyLabel,
+  familySurname,
   familyTotal,
   parseAmount,
 } from "../src/lib/family";
@@ -13,6 +14,14 @@ test("le nom saisi de la famille l'emporte, sinon « Famille » + nom du parent"
   assert.equal(familyLabel({ familyName: "Famille BA", lastName: "Ba" }, "Famille {name}"), "Famille BA");
   assert.equal(familyLabel({ familyName: "  ", lastName: "Sow" }, "Famille {name}"), "Famille Sow");
   assert.equal(familyLabel({ familyName: null, lastName: "Sow" }, "عائلة {name}"), "عائلة Sow");
+});
+
+test("le nom des enfants se déduit du nom de la famille", () => {
+  assert.equal(familySurname("Famille BA"), "BA");
+  assert.equal(familySurname("  famille   Ould Ahmed "), "Ould Ahmed");
+  assert.equal(familySurname("Sow family"), "Sow");
+  assert.equal(familySurname("عائلة با"), "با");
+  assert.equal(familySurname("Diallo"), "Diallo");
 });
 
 test("le total familial additionne les montants de chaque enfant", () => {
