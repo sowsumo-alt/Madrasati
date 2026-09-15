@@ -1,27 +1,26 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { MessageCircle, Search, Users2, Plus, Pencil, Trash2, AlertTriangle } from "lucide-react";
+import { MessagesSquare, Plus, Send, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
-  buildWhatsAppUrl,
   fillTemplateChecked,
-  extractVariables,
-  describeVariable,
   withArabic,
   schoolSignatureFr,
   schoolSignatureAr,
 } from "@/lib/whatsapp";
 import { formatLongDate, formatLongDateAr } from "@/lib/format";
+import { useLanguage } from "@/lib/i18n/language-provider";
 import { TemplateDialog, type TemplateEditTarget } from "./template-dialog";
 import { deleteTemplate } from "./actions";
-import { useLanguage } from "@/lib/i18n/language-provider";
+import { RecipientsPanel, type RecipientKind } from "./message/recipients-panel";
+import { TemplateGrid } from "./message/template-grid";
+import { MessageComposer } from "./message/message-composer";
+import { SendQueueDialog } from "./message/send-queue-dialog";
+import { PreviewDialog } from "./message/preview-dialog";
 
 export interface RecipientChild {
   name: string;
@@ -57,28 +56,42 @@ export function CommunicationView({
 }) {
   const router = useRouter();
   const { t } = useLanguage();
+  const composerRef = useRef<HTMLDivElement>(null);
+
   const [query, setQuery] = useState("");
-  const [kindFilter, setKindFilter] = useState<"ALL" | "PARENT" | "TEACHER">("ALL");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [kindFilter, setKindFilter] = useState<RecipientKind>("ALL");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [templateId, setTemplateId] = useState<string | null>(null);
+  const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
-  /** Variables du modèle choisi qu'on n'a pas pu renseigner : bloque l'envoi. */
+  /**
+   * Le directeur a retouché le texte : on cesse alors de le régénérer à
+   * chaque changement de destinataire, sinon sa correction disparaissait au
+   * clic suivant.
+   */
+  const [messageEdited, setMessageEdited] = useState(false);
+  /** Variables du modèle qu'on n'a pas pu renseigner : elles bloquent l'envoi. */
   const [missingVars, setMissingVars] = useState<string[]>([]);
   /**
-   * Valeurs saisies à la main par le directeur pour les variables que
-   * l'application ne connaît pas (le motif d'une alerte, la date d'une
-   * réunion). Sans ce champ, ces modèles restaient bloqués définitivement :
-   * le message invitait à « modifier le texte à la main », mais retoucher le
-   * texte ne débloquait jamais le bouton d'envoi.
+   * Valeurs saisies à la main pour les variables que l'application ne connaît
+   * pas (le motif d'une alerte, la date d'une réunion). Sans ce champ, ces
+   * modèles restaient bloqués : le message invitait à corriger le texte, mais
+   * le corriger ne débloquait jamais l'envoi.
    */
   const [manualVars, setManualVars] = useState<Record<string, string>>({});
 
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<TemplateEditTarget | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TemplateRow | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [queueOpen, setQueueOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
-  const selected = recipients.find((r) => r.id === selectedId) ?? null;
+  const selected = useMemo(
+    () => recipients.filter((r) => selectedIds.has(r.id)),
+    [recipients, selectedIds],
+  );
+  const first = selected[0] ?? null;
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -87,16 +100,17 @@ export function CommunicationView({
       const matchesQuery =
         !q ||
         r.name.toLowerCase().includes(q) ||
+        r.phone.includes(q) ||
         r.children.some((c) => c.name.toLowerCase().includes(q));
       return matchesKind && matchesQuery;
     });
   }, [recipients, query, kindFilter]);
 
   /**
-   * Remplit les variables du modèle avec les données du destinataire choisi,
-   * et remonte celles qui restent vides. Un montant, une moyenne ou un motif
-   * manquant doit bloquer l'envoi : un parent qui reçoit « frais de scolarité
-   * de  MRU » comprend surtout que l'école ne maîtrise pas ses outils.
+   * Remplit les variables d'un modèle avec les données du destinataire, et
+   * remonte celles qui restent vides. Un montant ou une moyenne manquante doit
+   * bloquer l'envoi : un parent qui reçoit « frais de scolarité de  MRU »
+   * comprend surtout que l'école ne maîtrise pas ses outils.
    */
   function applyTemplate(
     tpl: TemplateRow,
@@ -105,21 +119,17 @@ export function CommunicationView({
   ) {
     const today = new Date();
     const child = recipient?.children[0] ?? null;
-    // Une saisie manuelle non vide l'emporte : c'est elle qui permet de
-    // compléter un motif ou une date que l'application ne peut pas deviner.
-    const filled = <T extends Record<string, string>>(values: T) => {
-      const out: Record<string, string> = { ...values };
-      for (const [key, value] of Object.entries(manual)) {
-        if (value.trim()) out[key] = value.trim();
-      }
-      return out;
-    };
-    const base = filled({
+    // Une saisie manuelle non vide l'emporte : c'est elle qui complète un
+    // motif ou une date que l'application ne peut pas deviner.
+    const base: Record<string, string> = {
       parentName: recipient?.name ?? "",
       teacherName: recipient?.name ?? "",
       studentName: child?.name ?? "",
       amount: child?.outstanding ?? "",
-    });
+    };
+    for (const [key, value] of Object.entries(manual)) {
+      if (value.trim()) base[key] = value.trim();
+    }
 
     const fr = fillTemplateChecked(tpl.body, {
       date: formatLongDate(today),
@@ -137,26 +147,35 @@ export function CommunicationView({
     return {
       text: withArabic(fr.text, ar?.text),
       // Les deux langues portent les mêmes variables : on cumule pour ne
-      // manquer aucun trou, même si un modèle arabe a été modifié à part.
+      // manquer aucun trou, même si le modèle arabe a été modifié à part.
       missing: [...new Set([...fr.missing, ...(ar?.missing ?? [])])],
     };
   }
 
-  function handlePickTemplate(tpl: TemplateRow) {
+  function pickTemplate(tpl: TemplateRow) {
     setTemplateId(tpl.id);
     // Changer de modèle repart d'une page blanche : le motif saisi pour une
     // alerte n'a aucun sens dans une invitation à une réunion.
     setManualVars({});
-    const { text, missing } = applyTemplate(tpl, selected);
+    setMessageEdited(false);
+    if (!subject.trim()) setSubject(tpl.title);
+    const { text, missing } = applyTemplate(tpl, first);
     setMessage(text);
     setMissingVars(missing);
   }
 
-  function handlePickRecipient(recipient: Recipient) {
-    setSelectedId(recipient.id);
-    const tpl = templates.find((t) => t.id === templateId);
-    if (!tpl) return;
-    const { text, missing } = applyTemplate(tpl, recipient, manualVars);
+  function toggleRecipient(recipient: Recipient) {
+    const next = new Set(selectedIds);
+    if (next.has(recipient.id)) next.delete(recipient.id);
+    else next.add(recipient.id);
+    setSelectedIds(next);
+
+    const tpl = templates.find((x) => x.id === templateId);
+    if (!tpl || messageEdited) return;
+    // Le texte affiché est celui du premier destinataire ; les autres reçoivent
+    // le leur au moment de l'envoi.
+    const preview = recipients.find((r) => next.has(r.id)) ?? null;
+    const { text, missing } = applyTemplate(tpl, preview, manualVars);
     setMessage(text);
     setMissingVars(missing);
   }
@@ -165,21 +184,40 @@ export function CommunicationView({
   function handleManualVar(name: string, value: string) {
     const next = { ...manualVars, [name]: value };
     setManualVars(next);
-    const tpl = templates.find((t) => t.id === templateId);
+    const tpl = templates.find((x) => x.id === templateId);
     if (!tpl) return;
-    const { text, missing } = applyTemplate(tpl, selected, next);
+    const { text, missing } = applyTemplate(tpl, first, next);
     setMessage(text);
     setMissingVars(missing);
+    setMessageEdited(false);
   }
 
-  async function handleDelete() {
+  function resetComposer() {
+    setTemplateId(null);
+    setSubject("");
+    setMessage("");
+    setMessageEdited(false);
+    setMissingVars([]);
+    setManualVars({});
+    composerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  /** Message final d'un destinataire : l'objet devient la première ligne, en gras. */
+  function messageFor(recipient: Recipient) {
+    const tpl = templates.find((x) => x.id === templateId);
+    const body = tpl && !messageEdited ? applyTemplate(tpl, recipient, manualVars).text : message;
+    const title = subject.trim();
+    return title ? `*${title}*\n\n${body}` : body;
+  }
+
+  async function handleDeleteTemplate() {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
       await deleteTemplate(deleteTarget.id);
       toast.success(t("comm.templateDeleted"));
-      setDeleteTarget(null);
       if (templateId === deleteTarget.id) setTemplateId(null);
+      setDeleteTarget(null);
       router.refresh();
     } catch {
       toast.error(t("common.error"));
@@ -188,244 +226,119 @@ export function CommunicationView({
     }
   }
 
-  // Un modèle dont il manque une variable ne part pas, même si le texte
-  // paraît complet : c'est exactement ainsi qu'un montant vide se glissait
-  // jusque chez le parent.
-  const blocked = missingVars.length > 0;
-  const canSend = Boolean(selected && message.trim()) && !blocked;
-
-  const selectedTemplate = templates.find((t) => t.id === templateId) ?? null;
-  const usesAmount = selectedTemplate
-    ? extractVariables(selectedTemplate.body).includes("amount")
-    : false;
+  const canSend = selected.length > 0 && message.trim().length > 0 && missingVars.length === 0;
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-xl font-semibold text-foreground">Communication</h1>
-        <p className="mt-1 text-sm text-foreground/60">{t("comm.subtitle")}</p>
-      </div>
-
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,320px)_1fr]">
-        {/* Destinataires */}
-        <Card className="flex flex-col">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-sm">
-              <Users2 className="h-4 w-4 text-foreground/40" />
-              Destinataire
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-1 flex-col gap-3 p-4 pt-0">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/40" />
-              <Input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Rechercher…"
-                className="pl-9"
-              />
+      {/* Entête illustrée de la maquette : ce que fait l'écran, et l'action principale. */}
+      <section className="relative overflow-hidden rounded-2xl border border-border/80 bg-surface p-5 shadow-soft sm:p-6">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 end-0 hidden w-1/2 bg-gradient-to-l from-primary-50/70 to-transparent lg:block"
+        />
+        <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-4">
+            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-600">
+              <MessagesSquare className="h-7 w-7" strokeWidth={1.75} />
+            </span>
+            <div className="min-w-0">
+              <h1 className="text-2xl font-bold tracking-tight text-foreground">{t("comm.title")}</h1>
+              <p className="mt-1 text-sm text-foreground/60">{t("comm.subtitle")}</p>
             </div>
+          </div>
 
-            <div className="flex gap-1.5">
-              {(["ALL", "PARENT", "TEACHER"] as const).map((k) => (
-                <button
-                  key={k}
-                  onClick={() => setKindFilter(k)}
-                  className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-                    kindFilter === k
-                      ? "bg-primary-700 text-white"
-                      : "bg-surface-muted text-foreground/60 hover:text-foreground"
-                  }`}
-                >
-                  {k === "ALL" ? "Tous" : k === "PARENT" ? "Parents" : "Enseignants"}
-                </button>
-              ))}
-            </div>
+          <div className="flex items-center gap-6">
+            <span aria-hidden className="relative hidden h-20 w-36 xl:block">
+              <Sparkles className="absolute start-0 top-2 h-4 w-4 text-accent-400" />
+              <Send className="absolute start-9 top-3 h-14 w-14 -rotate-12 fill-primary-100 text-primary-700" strokeWidth={1.25} />
+              <Sparkles className="absolute end-1 top-0 h-3.5 w-3.5 text-accent-300" />
+              <Sparkles className="absolute end-6 bottom-1 h-3 w-3 text-primary-300" />
+            </span>
+            <Button className="shrink-0 shadow-sm" onClick={resetComposer}>
+              <Plus className="h-4 w-4" />
+              {t("comm.newMessage")}
+            </Button>
+          </div>
+        </div>
+      </section>
 
-            <div className="max-h-96 flex-1 overflow-y-auto rounded-lg border border-border">
-              {filtered.length === 0 ? (
-                <p className="px-3 py-8 text-center text-xs text-foreground/40">{t("comm.noRecipient")}</p>
-              ) : (
-                filtered.map((r) => (
-                  <button
-                    key={r.id}
-                    onClick={() => handlePickRecipient(r)}
-                    className={`flex w-full flex-col items-start gap-0.5 border-b border-border px-3 py-2.5 text-left transition-colors last:border-b-0 ${
-                      selectedId === r.id ? "bg-primary-50" : "hover:bg-surface-muted"
-                    }`}
-                  >
-                    <span className="flex items-center gap-2 text-sm font-medium text-foreground">
-                      {r.name}
-                      <Badge variant={r.kind === "PARENT" ? "neutral" : "success"}>
-                        {r.kind === "PARENT" ? "Parent" : "Enseignant"}
-                      </Badge>
-                    </span>
-                    <span className="text-xs text-foreground/50">
-                      {r.children.length > 0
-                        ? r.children.map((c) => c.name).join(", ")
-                        : r.phone}
-                    </span>
-                  </button>
-                ))
-              )}
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,21rem)_minmax(0,1fr)]">
+        <RecipientsPanel
+          recipients={filtered}
+          selectedIds={selectedIds}
+          onToggle={toggleRecipient}
+          query={query}
+          onQueryChange={setQuery}
+          kind={kindFilter}
+          onKindChange={setKindFilter}
+        />
 
-        {/* Message */}
-        <div className="space-y-5">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-sm">{t("comm.templates")}</CardTitle>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => {
-                  setEditTarget(null);
-                  setDialogOpen(true);
-                }}
-              >
-                <Plus className="h-4 w-4" />
-                Nouveau
-              </Button>
-            </CardHeader>
-            <CardContent className="p-4 pt-0">
-              <div className="flex flex-wrap gap-2">
-                {templates.map((tpl) => (
-                  <div
-                    key={tpl.id}
-                    className={`group flex items-center gap-1 rounded-lg border px-1 py-1 transition-colors ${
-                      templateId === tpl.id
-                        ? "border-primary-500 bg-primary-50"
-                        : "border-border hover:bg-surface-muted"
-                    }`}
-                  >
-                    <button
-                      onClick={() => handlePickTemplate(tpl)}
-                      className="px-2 py-1 text-sm text-foreground"
-                    >
-                      {tpl.title}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setEditTarget({ id: tpl.id, title: tpl.title, body: tpl.body, bodyAr: tpl.bodyAr });
-                        setDialogOpen(true);
-                      }}
-                      title={t("comm.editTemplate")}
-                      className="flex h-6 w-6 items-center justify-center rounded text-foreground/40 hover:bg-surface-muted hover:text-foreground"
-                    >
-                      <Pencil className="h-3 w-3" />
-                    </button>
-                    <button
-                      onClick={() => setDeleteTarget(tpl)}
-                      title={t("comm.deleteTemplate")}
-                      className="flex h-6 w-6 items-center justify-center rounded text-foreground/40 hover:bg-red-50 hover:text-danger"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+        <div className="min-w-0 space-y-5">
+          <TemplateGrid
+            templates={templates}
+            selectedId={templateId}
+            onPick={pickTemplate}
+            onCreate={() => {
+              setEditTarget(null);
+              setTemplateDialogOpen(true);
+            }}
+            onEdit={(tpl) => {
+              setEditTarget({ id: tpl.id, title: tpl.title, body: tpl.body, bodyAr: tpl.bodyAr });
+              setTemplateDialogOpen(true);
+            }}
+            onDelete={setDeleteTarget}
+          />
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">
-                Message
-                {selected && (
-                  <span className="ml-2 font-normal text-foreground/50">
-                    pour {selected.name}
-                  </span>
-                )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 p-4 pt-0">
-              <textarea
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                rows={7}
-                placeholder={t("comm.messagePlaceholder")}
-                className="w-full rounded-lg border border-border bg-surface p-3 text-sm leading-relaxed text-foreground placeholder:text-foreground/40 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
-              />
-
-              {!selected && (
-                <p className="text-xs text-foreground/50">{t("comm.pickRecipientFirst")}</p>
-              )}
-
-              {blocked && (
-                <div className="space-y-2.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5">
-                  <div className="flex items-start gap-2.5">
-                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-                  <div className="text-xs text-amber-900">
-                    <p className="font-medium">
-                      {usesAmount && missingVars.includes("amount")
-                        ? "Impossible d'envoyer ce rappel : aucun frais en attente trouvé pour cet élève."
-                        : "Impossible d'envoyer ce message : une information manque."}
-                    </p>
-                    <p className="mt-1 text-amber-800/80">
-                      Non renseigné :{" "}
-                      {missingVars.map((v) => describeVariable(v)).join(", ")}.
-                      Renseignez {missingVars.length > 1 ? "ces champs" : "ce champ"} pour
-                      débloquer l&apos;envoi — le message se met à jour à chaque frappe.
-                    </p>
-                  </div>
-                  </div>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {missingVars.map((name) => (
-                      <label key={name} className="block text-xs">
-                        <span className="mb-1 block font-medium capitalize text-amber-900">
-                          {describeVariable(name)}
-                        </span>
-                        <Input
-                          value={manualVars[name] ?? ""}
-                          onChange={(e) => handleManualVar(name, e.target.value)}
-                          placeholder={describeVariable(name)}
-                          className="h-9 bg-surface text-sm"
-                        />
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="flex justify-end">
-                {canSend ? (
-                  <a
-                    href={buildWhatsAppUrl(selected!.phone, message)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 rounded-lg bg-primary-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-800"
-                  >
-                    <MessageCircle className="h-4 w-4" />
-                    {t("comm.openWhatsApp")}
-                  </a>
-                ) : (
-                  <Button disabled>
-                    <MessageCircle className="h-4 w-4" />
-                    {t("comm.openWhatsApp")}
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          <div ref={composerRef}>
+            <MessageComposer
+              recipients={recipients}
+              selectedIds={selectedIds}
+              onToggleRecipient={toggleRecipient}
+              subject={subject}
+              onSubjectChange={setSubject}
+              message={message}
+              onMessageChange={(value) => {
+                setMessage(value);
+                setMessageEdited(true);
+              }}
+              missingVars={missingVars}
+              manualVars={manualVars}
+              onManualVar={handleManualVar}
+              canSend={canSend}
+              reachableCount={selected.filter((r) => r.phone.trim()).length}
+              onPreview={() => setPreviewOpen(true)}
+              onSend={() => setQueueOpen(true)}
+            />
+          </div>
         </div>
       </div>
 
       <TemplateDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
+        open={templateDialogOpen}
+        onOpenChange={setTemplateDialogOpen}
         editTarget={editTarget}
+      />
+      <SendQueueDialog
+        open={queueOpen}
+        onOpenChange={setQueueOpen}
+        recipients={selected}
+        messageFor={messageFor}
+      />
+      <PreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        text={first ? messageFor(first) : message}
+        recipientName={first?.name ?? null}
       />
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
         title={t("comm.deleteTemplateTitle")}
-        description="Le modèle sera retiré de la liste. Vos messages déjà envoyés ne sont pas affectés."
-        confirmLabel="Supprimer"
+        description={t("comm.deleteTemplateHint")}
+        confirmLabel={t("comm.deleteTemplate")}
         variant="danger"
         loading={deleting}
-        onConfirm={handleDelete}
+        onConfirm={handleDeleteTemplate}
       />
     </div>
   );
