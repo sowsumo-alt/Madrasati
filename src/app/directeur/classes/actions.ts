@@ -134,6 +134,26 @@ export async function updateSubject(subjectId: string, values: SubjectFormValues
   revalidatePath("/directeur/classes");
 }
 
+/**
+ * Supprime une matière qui n'a encore servi à aucun examen. Une matière déjà
+ * évaluée porte des notes : la supprimer effacerait ces notes des bulletins,
+ * on la désactive donc à la place (voir setSubjectActive).
+ */
+export async function deleteSubject(subjectId: string) {
+  const user = await requireRole(ROLES.DIRECTOR);
+  const subject = await prisma.subject.findFirst({
+    where: { id: subjectId, schoolId: user.schoolId },
+    include: { _count: { select: { exams: true } } },
+  });
+  if (!subject) throw new Error("Matière introuvable.");
+  if (subject._count.exams > 0) {
+    throw new Error("Cette matière a déjà des examens : désactivez-la plutôt.");
+  }
+
+  await prisma.subject.delete({ where: { id: subjectId } });
+  revalidatePath("/directeur/classes");
+}
+
 export async function setSubjectActive(subjectId: string, isActive: boolean) {
   const user = await requireRole(ROLES.DIRECTOR);
   await prisma.subject.updateMany({
