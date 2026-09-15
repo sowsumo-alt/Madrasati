@@ -7,9 +7,9 @@
   --surface-muted: #eef1ee;
   /* Contour des cartes, tableaux et champs. Assombri en septembre 2026 :
      l'ancien #dfe4e0 se distinguait à peine du blanc (contraste 1,3:1) et
-     les écrans chargés paraissaient délavés. Celui-ci reste doux (1,6:1)
-     mais dessine nettement chaque bloc, y compris en 70 % d'opacité. */
-  --border: #c2cdc6;
+     les écrans chargés paraissaient délavés. Celui-ci reste doux — 1,8:1
+     à pleine opacité, 1,5:1 à 70 % — mais dessine nettement chaque bloc. */
+  --border: #b9c6bf;
 
   /* Vert forêt profond — identité Madrasati (ancrée sur #0B5E38) */
   --primary-50: #eaf6f0;
