@@ -79,6 +79,7 @@ export function StudentsView({
   schoolName,
   currentYearLabel,
   initialQuery = "",
+  initialClassFilter = "ALL",
   autoOpenNew = false,
 }: {
   students: StudentRow[];
@@ -87,6 +88,8 @@ export function StudentsView({
   currentYearLabel: string | null;
   /** Terme envoyé par la recherche globale de l'en-tête (?q=…). */
   initialQuery?: string;
+  /** Classe présélectionnée (?classe=…), depuis la page Classes. */
+  initialClassFilter?: ClassFilter;
   /** Ouvre directement le formulaire d'inscription (?new=1), depuis le menu "Inscription". */
   autoOpenNew?: boolean;
 }) {
@@ -94,7 +97,7 @@ export function StudentsView({
   const { t } = useLanguage();
   const [query, setQuery] = useState(initialQuery);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
-  const [classFilter, setClassFilter] = useState<ClassFilter>("ALL");
+  const [classFilter, setClassFilter] = useState<ClassFilter>(initialClassFilter);
   const [letter, setLetter] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(() => new Set());

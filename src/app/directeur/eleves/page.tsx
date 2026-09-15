@@ -7,10 +7,10 @@ import { CURRENT_YEAR } from "@/lib/school-year";
 export default async function StudentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; new?: string }>;
+  searchParams: Promise<{ q?: string; new?: string; classe?: string }>;
 }) {
   const user = await requireRole(ROLES.DIRECTOR);
-  const { q, new: openNew } = await searchParams;
+  const { q, new: openNew, classe } = await searchParams;
 
   const [students, classes, school, currentYear] = await Promise.all([
     prisma.student.findMany({
@@ -71,12 +71,14 @@ export default async function StudentsPage({
     <StudentsView
       // Remonte la vue quand la recherche globale change de terme, sinon
       // l'état local garderait l'ancien filtre.
-      key={q ?? ""}
+      key={`${q ?? ""}|${classe ?? ""}`}
       students={rows}
       classes={classes}
       schoolName={school?.name ?? "Madrasati"}
       currentYearLabel={currentYear?.label ?? null}
       initialQuery={q ?? ""}
+      // « Voir les élèves » depuis la fiche d'une classe (?classe=<id>).
+      initialClassFilter={classe && classes.some((c) => c.id === classe) ? classe : "ALL"}
       autoOpenNew={openNew === "1"}
     />
   );

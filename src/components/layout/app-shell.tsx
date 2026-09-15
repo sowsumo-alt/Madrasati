@@ -62,6 +62,14 @@ export function AppShell({
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Fond illustré (feuillage, toque et livres) fixé à l'écran : il
+          reste en place pendant le défilement et commence au bord de la
+          barre latérale. */}
+      <div
+        aria-hidden
+        className="no-print pointer-events-none fixed inset-0 bg-[url(/backgrounds/app-bg.webp)] bg-cover bg-center lg:start-64"
+      />
+
       {/* Barre latérale — bureau */}
       <aside className="no-print fixed inset-y-0 start-0 z-40 hidden w-64 bg-gradient-to-b from-primary-800 via-primary-800 to-primary-900 lg:block">
         <Sidebar navKey={navKey} plan={plan} />
@@ -84,8 +92,8 @@ export function AppShell({
         </div>
       )}
 
-      <div className="lg:ps-64 print:ps-0">
-        <header className="no-print sticky top-0 z-30 border-b border-border/70 bg-background/85 backdrop-blur-md">
+      <div className="relative lg:ps-64 print:ps-0">
+        <header className="no-print sticky top-0 z-30 bg-background/40 backdrop-blur-md">
           <div className="flex h-[4.5rem] items-center gap-3 px-4 sm:px-6 lg:px-8">
             <button
               onClick={() => setMobileOpen(true)}

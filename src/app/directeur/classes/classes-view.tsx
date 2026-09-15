@@ -1,13 +1,18 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, BookOpen, Sparkles, AlertTriangle } from "lucide-react";
+import { BookOpen, Plus, RefreshCw, Sparkles, UsersRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import {
+  classTone,
+  mainTeacherCount,
+  matchesClassFilters,
+  type ClassFilter,
+} from "@/lib/classes-list";
+import { useLanguage } from "@/lib/i18n/language-provider";
 import {
   ClassFormDialog,
   type ClassEditTarget,
@@ -19,10 +24,15 @@ import {
   type AssignmentTeacher,
   type ClassAssignmentsTarget,
 } from "./class-assignments-dialog";
-import { useLanguage } from "@/lib/i18n/language-provider";
 import { SubjectFormDialog, type SubjectEditTarget } from "./subject-form-dialog";
 import { StandardClassesDialog } from "./standard-classes-dialog";
-import { deleteClass, setSubjectActive } from "./actions";
+import { deleteClass, deleteSubject, setSubjectActive } from "./actions";
+import { SectionPanel, sectionButton } from "./classes-list/section-panel";
+import { ClassesKpis } from "./classes-list/classes-kpis";
+import { ClassesToolbar } from "./classes-list/classes-toolbar";
+import { ClassesTable, type ClassTableRow } from "./classes-list/classes-table";
+import { ClassDetailSheet } from "./classes-list/class-detail-sheet";
+import { SubjectsTable } from "./classes-list/subjects-table";
 
 export interface ClassRow {
   id: string;
@@ -40,25 +50,51 @@ export interface SubjectRow {
   nameAr: string | null;
   coefficient: number;
   isActive: boolean;
+  /** Examens déjà passés dans cette matière : au-delà de zéro, on la
+   *  désactive plutôt que de la supprimer (voir deleteSubject). */
+  examCount: number;
 }
 
 export function ClassesView({
   classes,
   subjects,
   teachers,
+  studentTotal,
 }: {
   classes: ClassRow[];
   subjects: SubjectRow[];
   teachers: ClassTeacherOption[];
+  /** Élèves actifs de l'école, classés ou non. */
+  studentTotal: number;
 }) {
   const router = useRouter();
   const { t } = useLanguage();
+
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<ClassFilter>("ALL");
 
   const [classFormOpen, setClassFormOpen] = useState(false);
   const [classEditTarget, setClassEditTarget] = useState<ClassEditTarget | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ClassRow | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [detailId, setDetailId] = useState<string | null>(null);
   const [assignmentsClassId, setAssignmentsClassId] = useState<string | null>(null);
+
+  const [subjectFormOpen, setSubjectFormOpen] = useState(false);
+  const [subjectEditTarget, setSubjectEditTarget] = useState<SubjectEditTarget | null>(null);
+  const [subjectDeleteTarget, setSubjectDeleteTarget] = useState<SubjectRow | null>(null);
+  const [subjectDeleteLoading, setSubjectDeleteLoading] = useState(false);
+  const [standardClassesOpen, setStandardClassesOpen] = useState(false);
+
+  // La couleur suit la place dans la liste complète, pas dans la liste
+  // filtrée : une classe garde sa teinte pendant une recherche.
+  const tableRows: ClassTableRow[] = useMemo(
+    () => classes.map((row, index) => ({ row, tone: classTone(index) })),
+    [classes],
+  );
+  const visibleRows = tableRows.filter(({ row }) => matchesClassFilters(row, query, filter));
+  const detailTarget = tableRows.find(({ row }) => row.id === detailId) ?? null;
+
   const assignmentsClass = classes.find((c) => c.id === assignmentsClassId) ?? null;
   const assignmentsTarget: ClassAssignmentsTarget | null = assignmentsClass
     ? {
@@ -71,14 +107,24 @@ export function ClassesView({
       }
     : null;
 
-  const [subjectFormOpen, setSubjectFormOpen] = useState(false);
-  const [subjectEditTarget, setSubjectEditTarget] = useState<SubjectEditTarget | null>(null);
-  const [standardClassesOpen, setStandardClassesOpen] = useState(false);
-
-  const assignmentSubjects: AssignmentSubject[] = subjects
-    .filter((s) => s.isActive)
-    .map((s) => ({ id: s.id, name: s.name }));
+  const activeSubjects = subjects.filter((s) => s.isActive);
+  const assignmentSubjects: AssignmentSubject[] = activeSubjects.map((s) => ({ id: s.id, name: s.name }));
   const assignmentTeachers: AssignmentTeacher[] = teachers;
+
+  function openClassForm(row: ClassRow | null) {
+    setClassEditTarget(
+      row
+        ? {
+            id: row.id,
+            name: row.name,
+            level: row.level,
+            capacity: row.capacity,
+            mainTeacherId: row.mainTeacher?.id ?? null,
+          }
+        : null,
+    );
+    setClassFormOpen(true);
+  }
 
   async function handleDelete() {
     if (!deleteTarget) return;
@@ -95,234 +141,149 @@ export function ClassesView({
     }
   }
 
-  async function handleToggleSubject(subject: SubjectRow) {
+  async function handleSubjectDelete() {
+    const subject = subjectDeleteTarget;
+    if (!subject) return;
+    setSubjectDeleteLoading(true);
     try {
-      await setSubjectActive(subject.id, !subject.isActive);
+      if (subject.examCount > 0) {
+        await setSubjectActive(subject.id, false);
+        toast.success(t("classes.subjectDeactivated"));
+      } else {
+        await deleteSubject(subject.id);
+        toast.success(t("classes.subjectDeleted"));
+      }
+      setSubjectDeleteTarget(null);
+      router.refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t("common.error"));
+    } finally {
+      setSubjectDeleteLoading(false);
+    }
+  }
+
+  async function handleReactivate(subject: SubjectRow) {
+    try {
+      await setSubjectActive(subject.id, true);
+      toast.success(t("classes.subjectReactivated"));
       router.refresh();
     } catch {
       toast.error(t("common.error"));
     }
   }
 
-  return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-xl font-semibold text-foreground">{t("classes.title")}</h1>
-        <p className="mt-1 text-sm text-foreground/60">{t("classes.subtitle")}</p>
-      </div>
+  const deactivating = (subjectDeleteTarget?.examCount ?? 0) > 0;
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Classes</CardTitle>
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => setStandardClassesOpen(true)}
-            >
-              <Sparkles className="h-4 w-4" />
-              Classes automatiques
+  return (
+    <div className="space-y-6">
+      <SectionPanel
+        icon={UsersRound}
+        title={t("classes.classesTitle")}
+        subtitle={t("classes.classesSubtitle")}
+        titleAs="h1"
+        actions={
+          <>
+            <Button variant="secondary" className={sectionButton.secondary} onClick={() => setStandardClassesOpen(true)}>
+              <RefreshCw className="h-4 w-4 text-primary-600" />
+              {t("classes.autoShort")}
             </Button>
-            <Button
-              size="sm"
-              onClick={() => {
-                setClassEditTarget(null);
-                setClassFormOpen(true);
-              }}
-            >
+            <Button className={sectionButton.primary} onClick={() => openClassForm(null)}>
               <Plus className="h-4 w-4" />
               {t("classes.newClass")}
             </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
+          </>
+        }
+      >
+        <div className="mt-5 space-y-4">
+          <ClassesKpis
+            values={{
+              classes: classes.length,
+              students: studentTotal,
+              mainTeachers: mainTeacherCount(classes),
+              subjects: activeSubjects.length,
+            }}
+          />
+
           {classes.length === 0 ? (
-            <div className="px-5 py-12 text-center">
-              <p className="text-sm text-foreground/50">{t("classes.empty")}</p>
+            <div className="rounded-2xl bg-primary-50/60 px-5 py-12 text-center">
+              <p className="text-sm text-foreground/60">{t("classes.empty")}</p>
               <p className="mt-1 text-sm text-foreground/50">{t("classes.emptyHint")}</p>
-              <Button
-                className="mt-4"
-                onClick={() => setStandardClassesOpen(true)}
-              >
-                <Sparkles className="h-4 w-4" />{t("classes.autoCreate")}</Button>
+              <Button className="mt-4" onClick={() => setStandardClassesOpen(true)}>
+                <Sparkles className="h-4 w-4" />
+                {t("classes.autoCreate")}
+              </Button>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-surface-muted/60 text-left text-xs font-medium uppercase tracking-wide text-foreground/50">
-                    <th className="px-5 py-3">Classe</th>
-                    <th className="px-5 py-3">Niveau</th>
-                    <th className="px-5 py-3">{t("classes.students")}</th>
-                    <th className="px-5 py-3">Prof. principal</th>
-                    <th className="px-5 py-3">{t("classes.subjects")}</th>
-                    <th className="px-5 py-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {classes.map((c) => {
-                    // Une classe sans matière ne peut recevoir ni note, ni
-                    // examen, ni bulletin ; sans professeur principal, personne
-                    // n'en est responsable. Le directeur doit voir lesquelles
-                    // ne sont pas prêtes avant la rentrée, pas le jour même.
-                    const missing = [
-                      c.assignments.length === 0 ? "aucune matière" : null,
-                      !c.mainTeacher ? "pas de prof. principal" : null,
-                    ].filter(Boolean) as string[];
-
-                    return (
-                    <tr key={c.id} className="hover:bg-surface-muted/40">
-                      <td className="px-5 py-3 font-medium text-foreground">
-                        {c.name}
-                        {missing.length > 0 && (
-                          <span
-                            title={`Configuration incomplète : ${missing.join(", ")}.`}
-                            className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 align-middle text-[11px] font-medium text-amber-800"
-                          >
-                            <AlertTriangle className="h-3 w-3" />{t("classes.incomplete")}</span>
-                        )}
-                      </td>
-                      <td className="px-5 py-3 text-foreground/70">{c.level}</td>
-                      <td className="px-5 py-3 text-foreground/70">
-                        {c.studentCount} / {c.capacity}
-                      </td>
-                      <td className="px-5 py-3 text-foreground/70">
-                        {c.mainTeacher ? (
-                          `${c.mainTeacher.firstName} ${c.mainTeacher.lastName}`
-                        ) : (
-                          <span className="text-foreground/40">{t("classes.none")}</span>
-                        )}
-                      </td>
-                      <td className="px-5 py-3 text-foreground/70">
-                        {c.assignments.length} matière(s)
-                      </td>
-                      <td className="px-5 py-3">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            title={t("classes.subjectsAndTeachers")}
-                            onClick={() => setAssignmentsClassId(c.id)}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-primary-700 transition-colors hover:bg-primary-50"
-                          >
-                            <BookOpen className="h-4 w-4" />
-                          </button>
-                          <button
-                            title="Modifier"
-                            onClick={() => {
-                              setClassEditTarget({
-                                id: c.id,
-                                name: c.name,
-                                level: c.level,
-                                capacity: c.capacity,
-                                mainTeacherId: c.mainTeacher?.id ?? null,
-                              });
-                              setClassFormOpen(true);
-                            }}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground/60 transition-colors hover:bg-surface-muted"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                          <button
-                            title="Supprimer"
-                            onClick={() => setDeleteTarget(c)}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground/60 transition-colors hover:bg-red-50 hover:text-danger"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            <>
+              <ClassesToolbar query={query} onQueryChange={setQuery} filter={filter} onFilterChange={setFilter} />
+              {visibleRows.length === 0 ? (
+                <p className="rounded-2xl bg-primary-50/60 px-5 py-10 text-center text-sm text-foreground/55">
+                  {t("classes.noMatch")}
+                </p>
+              ) : (
+                <ClassesTable
+                  rows={visibleRows}
+                  onEdit={openClassForm}
+                  onView={(row) => setDetailId(row.id)}
+                  onDelete={setDeleteTarget}
+                />
+              )}
+            </>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </SectionPanel>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>{t("classes.subjects")}</CardTitle>
+      <SectionPanel
+        icon={BookOpen}
+        title={t("classes.subjects")}
+        subtitle={t("classes.subjectsSubtitle")}
+        actions={
           <Button
-            size="sm"
+            className={sectionButton.primary}
             onClick={() => {
               setSubjectEditTarget(null);
               setSubjectFormOpen(true);
             }}
           >
-            <Plus className="h-4 w-4" />{t("classes.newSubject")}</Button>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-surface-muted/60 text-left text-xs font-medium uppercase tracking-wide text-foreground/50">
-                  <th className="px-5 py-3">{t("classes.subject")}</th>
-                  <th className="px-5 py-3">Coefficient</th>
-                  <th className="px-5 py-3">Statut</th>
-                  <th className="px-5 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {subjects.map((s) => (
-                  <tr key={s.id} className="hover:bg-surface-muted/40">
-                    <td className="px-5 py-3 font-medium text-foreground">
-                      {s.name}
-                      {s.nameAr && (
-                        <span
-                          className="ml-2 font-normal text-foreground/50"
-                          dir="rtl"
-                          lang="ar"
-                        >
-                          {s.nameAr}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-5 py-3 text-foreground/70">{s.coefficient}</td>
-                    <td className="px-5 py-3">
-                      <Badge variant={s.isActive ? "success" : "neutral"}>
-                        {s.isActive ? "Active" : "Inactive"}
-                      </Badge>
-                    </td>
-                    <td className="px-5 py-3">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          title="Modifier"
-                          onClick={() => {
-                            setSubjectEditTarget(s);
-                            setSubjectFormOpen(true);
-                          }}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground/60 transition-colors hover:bg-surface-muted"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </button>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => handleToggleSubject(s)}
-                        >
-                          {s.isActive ? "Désactiver" : "Activer"}
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+            <Plus className="h-4 w-4" />
+            {t("classes.newSubject")}
+          </Button>
+        }
+      >
+        <div className="mt-4">
+          {subjects.length === 0 ? (
+            <p className="rounded-2xl bg-primary-50/60 px-5 py-10 text-center text-sm text-foreground/55">
+              {t("classes.subjectsEmpty")}
+            </p>
+          ) : (
+            <SubjectsTable
+              subjects={subjects}
+              onEdit={(s) => {
+                setSubjectEditTarget(s);
+                setSubjectFormOpen(true);
+              }}
+              onDelete={setSubjectDeleteTarget}
+              onReactivate={handleReactivate}
+            />
+          )}
+        </div>
+      </SectionPanel>
 
+      <ClassDetailSheet
+        target={detailTarget}
+        onClose={() => setDetailId(null)}
+        onManageSubjects={(row) => {
+          setDetailId(null);
+          setAssignmentsClassId(row.id);
+        }}
+      />
       <ClassFormDialog
         open={classFormOpen}
         onOpenChange={setClassFormOpen}
         teachers={teachers}
         editTarget={classEditTarget}
       />
-      <StandardClassesDialog
-        open={standardClassesOpen}
-        onOpenChange={setStandardClassesOpen}
-      />
+      <StandardClassesDialog open={standardClassesOpen} onOpenChange={setStandardClassesOpen} />
       <ClassAssignmentsDialog
         target={assignmentsTarget}
         onOpenChange={(open) => !open && setAssignmentsClassId(null)}
@@ -338,11 +299,21 @@ export function ClassesView({
         open={Boolean(deleteTarget)}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
         title={t("classes.deleteTitle")}
-        description="Cette action est irréversible. Impossible si des élèves y sont encore inscrits."
-        confirmLabel="Supprimer"
+        description={t("classes.deleteHint")}
+        confirmLabel={t("classes.deleteClass")}
         variant="danger"
         loading={deleteLoading}
         onConfirm={handleDelete}
+      />
+      <ConfirmDialog
+        open={Boolean(subjectDeleteTarget)}
+        onOpenChange={(open) => !open && setSubjectDeleteTarget(null)}
+        title={deactivating ? t("classes.deactivateSubjectTitle") : t("classes.deleteSubjectTitle")}
+        description={deactivating ? t("classes.deactivateSubjectHint") : t("classes.deleteSubjectHint")}
+        confirmLabel={deactivating ? t("classes.deactivate") : t("classes.deleteSubject")}
+        variant={deactivating ? "primary" : "danger"}
+        loading={subjectDeleteLoading}
+        onConfirm={handleSubjectDelete}
       />
     </div>
   );

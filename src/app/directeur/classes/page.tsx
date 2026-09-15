@@ -7,7 +7,7 @@ import { CURRENT_YEAR } from "@/lib/school-year";
 export default async function ClassesPage() {
   const user = await requireRole(ROLES.DIRECTOR);
 
-  const [classes, subjects, teachers] = await Promise.all([
+  const [classes, subjects, teachers, studentTotal] = await Promise.all([
     prisma.classRoom.findMany({
       where: { schoolId: user.schoolId, ...CURRENT_YEAR },
       orderBy: { name: "asc" },
@@ -25,12 +25,14 @@ export default async function ClassesPage() {
     prisma.subject.findMany({
       where: { schoolId: user.schoolId },
       orderBy: { name: "asc" },
+      include: { _count: { select: { exams: true } } },
     }),
     prisma.teacher.findMany({
       where: { schoolId: user.schoolId, status: "ACTIVE" },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
       select: { id: true, firstName: true, lastName: true },
     }),
+    prisma.student.count({ where: { schoolId: user.schoolId, status: "ACTIVE" } }),
   ]);
 
   const classRows: ClassRow[] = classes.map((c) => ({
@@ -54,7 +56,15 @@ export default async function ClassesPage() {
     nameAr: s.nameAr,
     coefficient: s.coefficient,
     isActive: s.isActive,
+    examCount: s._count.exams,
   }));
 
-  return <ClassesView classes={classRows} subjects={subjectRows} teachers={teachers} />;
+  return (
+    <ClassesView
+      classes={classRows}
+      subjects={subjectRows}
+      teachers={teachers}
+      studentTotal={studentTotal}
+    />
+  );
 }
