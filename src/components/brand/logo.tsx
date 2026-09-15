@@ -1,7 +1,8 @@
 /**
- * Marque Madrasati : blason officiel (toque, colonnes, livre, laurier),
- * extrait du logo fourni et exporté en PNG transparent. Lisible aussi bien
- * sur fond clair que sur les bandeaux vert foncé de la marque.
+ * Marque Madrasati : l'emblème du logo officiel (toque de diplômé, M et
+ * livre ouvert), découpé du fichier de marque et exporté en PNG transparent.
+ * Le halo blanc du fichier d'origine a été retiré pour que l'emblème reste net
+ * sur les bandeaux vert foncé comme sur fond clair.
  */
 import Image from "next/image";
 
@@ -16,8 +17,8 @@ export function Logo({
     <Image
       src="/logo-crest.png"
       alt={alt}
-      width={600}
-      height={600}
+      width={256}
+      height={256}
       className={`object-contain ${className ?? ""}`}
     />
   );

@@ -15,7 +15,7 @@
 //   cause du cache.
 
 // Changer ce nom purge l'ancien cache à l'activation (voir « activate »).
-const CACHE_NAME = "madrasati-shell-v2";
+const CACHE_NAME = "madrasati-shell-v3";
 const OFFLINE_URL = "/offline.html";
 
 const PRECACHE_URLS = [
