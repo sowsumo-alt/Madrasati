@@ -61,6 +61,7 @@ model School {
   exams         Exam[]
   fees          Fee[]
   payments      Payment[]
+  familyPayments FamilyPayment[]
   attendance    AttendanceRecord[]
   templates     MessageTemplate[]
   holidays      Holiday[]
@@ -297,9 +298,14 @@ model Parent {
   email        String?
   address      String?
   relationship String? // "père" | "mère" | "tuteur"
+  // Nom affiché de la famille, ex: « Famille BA ». Facultatif : une famille
+  // est simplement ce parent et les enfants qui lui sont rattachés ; sans nom
+  // saisi, elle s'affiche « Famille » + le nom du parent (voir src/lib/family.ts).
+  familyName   String?
   createdAt    DateTime @default(now())
 
-  studentLinks StudentParent[]
+  studentLinks   StudentParent[]
+  familyPayments FamilyPayment[]
 
   @@index([schoolId])
   @@map("parents")
@@ -549,11 +555,44 @@ model Payment {
   paidAt         DateTime @default(now())
   recordedByUserId String?
   note           String?
+  // Part d'un paiement familial (un seul reçu pour plusieurs enfants) ; null
+  // pour un paiement ordinaire, fait pour un seul enfant.
+  familyPaymentId String?
+  familyPayment   FamilyPayment? @relation(fields: [familyPaymentId], references: [id], onDelete: SetNull)
 
   @@unique([schoolId, receiptNumber])
   @@index([schoolId])
   @@index([studentId])
+  @@index([familyPaymentId])
   @@map("payments")
+}
+
+// Paiement familial : un seul versement du parent pour plusieurs enfants.
+// Chaque part reste un Payment ordinaire, rattaché au frais et à l'élève
+// qu'elle solde — les frais, impayés, statistiques et reçus individuels
+// continuent donc de fonctionner à l'identique. Cette table ne porte que ce
+// qui est commun : le reçu unique, le total et le mode de paiement.
+model FamilyPayment {
+  id               String   @id @default(cuid())
+  schoolId         String
+  school           School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  parentId         String?
+  parent           Parent?  @relation(fields: [parentId], references: [id], onDelete: SetNull)
+  // Même numérotation que les reçus individuels (REC-2026-0012) ; ses parts
+  // portent ce numéro suivi de leur rang (REC-2026-0012-1, -2…).
+  receiptNumber    String
+  total            Int // MRU, somme des parts
+  method           String
+  paidAt           DateTime @default(now())
+  recordedByUserId String?
+  note             String?
+
+  payments Payment[]
+
+  @@unique([schoolId, receiptNumber])
+  @@index([schoolId])
+  @@index([parentId])
+  @@map("family_payments")
 }
 
 // ---------------------------------------------------------------------------

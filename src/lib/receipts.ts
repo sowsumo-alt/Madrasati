@@ -42,16 +42,27 @@ export async function generateReceiptNumber(
   // suffirait pas : passé REC-2026-9999, « REC-2026-10000 » se classerait
   // avant « REC-2026-9999 ». Le filtre par expression régulière écarte tout
   // numéro d'une autre forme, qui ferait échouer la conversion en entier.
+  //
+  // Les parts d'un paiement familial (« REC-2026-0012-1 », « -2 »…) comptent
+  // aussi : elles portent le numéro du reçu familial, qui ne doit jamais être
+  // redonné à un paiement ordinaire. Le reçu familial lui-même vit dans une
+  // autre table, mais ses parts sont toujours ici, dans la même transaction.
   const rows = await tx.$queryRaw<{ max: number | null }[]>`
     SELECT MAX(CAST(split_part("receiptNumber", '-', 3) AS INTEGER)) AS max
     FROM payments
     WHERE "schoolId" = ${schoolId}
-      AND "receiptNumber" ~ ${`^${prefix}[0-9]+$`}
+      AND "receiptNumber" ~ ${`^${prefix}[0-9]+(-[0-9]+)?$`}
   `;
 
   const lastNumber = rows[0]?.max ?? 0;
   const next = lastNumber + 1 + attempt;
   return `${prefix}${String(next).padStart(4, "0")}`;
+}
+
+/** Numéro de la part n° `rank` (à partir de 1) d'un paiement familial :
+ *  « REC-2026-0012 » -> « REC-2026-0012-2 ». */
+export function familyPartReceiptNumber(familyReceiptNumber: string, rank: number) {
+  return `${familyReceiptNumber}-${rank}`;
 }
 
 const MAX_RECEIPT_ATTEMPTS = 5;

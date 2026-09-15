@@ -18,8 +18,7 @@ import {
 import { FormSection } from "@/components/forms/form-section";
 import { FormField, IconInput } from "@/components/forms/form-field";
 import { StudentAvatar } from "@/components/students/student-avatar";
-import { PaymentMethodIcon } from "@/components/payments/payment-method-label";
-import { PAYMENT_METHODS } from "@/lib/payment-methods";
+import { PaymentMethodPicker } from "@/components/payments/payment-method-picker";
 import { formatMRU } from "@/lib/format";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import type { TranslationKey } from "@/lib/i18n/dictionaries";
@@ -226,28 +225,7 @@ export function PaymentDialog({
                     *
                   </span>
                 </p>
-                <div role="radiogroup" aria-label={t("finance.method")} className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {PAYMENT_METHODS.map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      role="radio"
-                      aria-checked={method === m}
-                      onClick={() => setValue("method", m)}
-                      className={cn(
-                        "flex min-w-0 items-center gap-2.5 rounded-xl border px-3 py-2.5 text-start transition-colors",
-                        method === m
-                          ? "border-primary-500 bg-primary-50 text-primary-900 ring-1 ring-primary-500"
-                          : "border-border bg-surface text-foreground/80 hover:bg-surface-muted",
-                      )}
-                    >
-                      <PaymentMethodIcon method={m} />
-                      <span className="min-w-0 truncate text-sm font-medium">
-                        {t(`finance.methodShort.${m}` as TranslationKey)}
-                      </span>
-                    </button>
-                  ))}
-                </div>
+                <PaymentMethodPicker value={method} onChange={(m) => setValue("method", m)} />
               </div>
 
               <FormField
