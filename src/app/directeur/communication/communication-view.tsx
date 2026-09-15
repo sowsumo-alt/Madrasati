@@ -234,7 +234,7 @@ export function CommunicationView({
       <section className="relative overflow-hidden rounded-2xl border border-border/80 bg-surface p-5 shadow-soft sm:p-6">
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-y-0 end-0 hidden w-1/2 bg-gradient-to-l from-primary-50/70 to-transparent lg:block"
+          className="pointer-events-none absolute inset-y-0 end-0 hidden w-1/2 bg-gradient-to-l from-primary-50/70 to-transparent lg:block rtl:bg-gradient-to-r"
         />
         <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-4">
@@ -262,7 +262,7 @@ export function CommunicationView({
         </div>
       </section>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,21rem)_minmax(0,1fr)]">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,19.5rem)_minmax(0,1fr)]">
         <RecipientsPanel
           recipients={filtered}
           selectedIds={selectedIds}

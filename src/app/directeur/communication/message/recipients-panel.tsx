@@ -96,11 +96,11 @@ export function RecipientsPanel({
                   aria-pressed={checked}
                   title={r.children.length > 0 ? r.children.map((c) => c.name).join(", ") : r.phone}
                   className={cn(
-                    "flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-start transition-colors",
+                    "flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-start transition-colors",
                     checked ? "bg-primary-50 ring-1 ring-primary-200" : "hover:bg-surface-muted/70",
                   )}
                 >
-                  <RecipientAvatar name={r.name} />
+                  <RecipientAvatar name={r.name} className="h-9 w-9 text-xs" />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-semibold text-foreground">{r.name}</span>
                     <span className="block truncate text-xs text-foreground/50">
@@ -114,7 +114,7 @@ export function RecipientsPanel({
                   ) : (
                     <span
                       className={cn(
-                        "shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium",
+                        "shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium",
                         isParent ? "bg-primary-50 text-primary-700" : "bg-blue-50 text-blue-700",
                       )}
                     >

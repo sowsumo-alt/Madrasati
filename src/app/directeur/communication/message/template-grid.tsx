@@ -87,21 +87,18 @@ export function TemplateGrid({
                   onClick={() => onPick(tpl)}
                   aria-pressed={active}
                   className={cn(
-                    "flex w-full min-w-0 items-center gap-2 rounded-xl border px-2.5 py-2.5 text-start transition-colors",
+                    "flex w-full min-w-0 items-center gap-2.5 rounded-xl border px-3 py-2.5 text-start transition-colors",
                     active
                       ? "border-primary-400 bg-primary-50 ring-1 ring-primary-300"
                       : "border-border bg-surface hover:border-primary-200 hover:bg-primary-50/50",
                   )}
                 >
-                  <span
-                    className={cn(
-                      "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg",
-                      active ? "bg-primary-700 text-white" : "bg-surface-muted text-foreground/60",
-                    )}
-                  >
-                    <Icon className="h-[15px] w-[15px]" />
+                  <Icon
+                    className={cn("h-[18px] w-[18px] shrink-0", active ? "text-primary-700" : "text-foreground/55")}
+                  />
+                  <span className="min-w-0 flex-1 text-[13px] font-medium leading-tight text-foreground [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] overflow-hidden">
+                    {tpl.title}
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">{tpl.title}</span>
                   <ChevronRight className="h-3.5 w-3.5 shrink-0 text-foreground/35 transition-opacity group-hover:opacity-0 group-focus-within:opacity-0 rtl:rotate-180" />
                 </button>
 
