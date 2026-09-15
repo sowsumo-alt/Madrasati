@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { PAYMENT_METHOD_LOGOS, isPaymentMethod } from "@/lib/payment-methods";
 import { cn } from "@/lib/utils";
 
@@ -20,9 +20,12 @@ import { cn } from "@/lib/utils";
 export function PaymentMethodLogo({
   method,
   className,
+  fallback = null,
 }: {
   method: string;
   className?: string;
+  /** Affiché tant que le logo n'est pas chargé, et à sa place s'il manque. */
+  fallback?: ReactNode;
 }) {
   const [state, setState] = useState<"loading" | "loaded" | "failed">("loading");
   const imgRef = useRef<HTMLImageElement>(null);
@@ -37,26 +40,29 @@ export function PaymentMethodLogo({
   }, []);
 
   const src = isPaymentMethod(method) ? PAYMENT_METHOD_LOGOS[method] : undefined;
-  if (!src || state === "failed") return null;
+  if (!src || state === "failed") return fallback;
 
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      ref={imgRef}
-      src={src}
-      alt=""
-      aria-hidden
-      onLoad={() => setState("loaded")}
-      onError={() => setState("failed")}
-      // L'image n'occupe aucune place tant qu'elle n'est pas réellement
-      // chargée : sans cela, un logo encore absent réservait un carré vide
-      // puis disparaissait, faisant sauter la ligne sous les yeux du
-      // directeur à chaque ouverture de la liste.
-      className={cn(
-        "shrink-0 rounded-sm object-contain",
-        state === "loaded" ? "h-5 w-5" : "hidden",
-        className,
-      )}
-    />
+    <>
+      {state !== "loaded" && fallback}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        ref={imgRef}
+        src={src}
+        alt=""
+        aria-hidden
+        onLoad={() => setState("loaded")}
+        onError={() => setState("failed")}
+        // L'image n'occupe aucune place tant qu'elle n'est pas réellement
+        // chargée : sans cela, un logo encore absent réservait un carré vide
+        // puis disparaissait, faisant sauter la ligne sous les yeux du
+        // directeur à chaque ouverture de la liste.
+        className={cn(
+          "shrink-0 rounded-sm object-contain",
+          state === "loaded" ? "h-5 w-5" : "hidden",
+          className,
+        )}
+      />
+    </>
   );
 }

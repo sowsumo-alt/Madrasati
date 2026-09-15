@@ -29,7 +29,11 @@ export function PaymentMethodIcon({
   if (isPaymentMethod(method) && PAYMENT_METHOD_LOGOS[method]) {
     return (
       <span className={cn("flex shrink-0 items-center justify-center bg-surface ring-1 ring-border", box)}>
-        <PaymentMethodLogo method={method} className={compact ? "h-4 w-4" : undefined} />
+        <PaymentMethodLogo
+          method={method}
+          className={compact ? "h-4 w-4" : undefined}
+          fallback={<Smartphone className={cn("text-foreground/50", compact ? "h-3.5 w-3.5" : "h-4 w-4")} />}
+        />
       </span>
     );
   }

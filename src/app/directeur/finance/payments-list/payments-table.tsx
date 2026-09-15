@@ -120,8 +120,11 @@ function RowMenu({ fee, actions }: { fee: FeeRow; actions: FeeRowActions }) {
   );
 }
 
-/** Date du dernier paiement, ou échéance annoncée comme telle pour un frais sans versement. */
-function FeeDate({ fee }: { fee: FeeRow }) {
+/**
+ * Date du dernier paiement, ou échéance annoncée comme telle pour un frais sans
+ * versement. `stacked` pose « Échéance » au-dessus de la date, pour une colonne étroite.
+ */
+function FeeDate({ fee, stacked = false }: { fee: FeeRow; stacked?: boolean }) {
   const { t } = useLanguage();
   const last = fee.payments[fee.payments.length - 1];
   if (last) {
@@ -132,9 +135,12 @@ function FeeDate({ fee }: { fee: FeeRow }) {
     );
   }
   return (
-    <span className="whitespace-nowrap">
-      <span className="text-foreground/45">{t("finance.dueOn")} </span>
-      <span dir="ltr" style={tabular}>
+    <span className={stacked ? "block" : "whitespace-nowrap"}>
+      <span className={cn("text-foreground/45", stacked && "block text-[11px] uppercase tracking-wide")}>
+        {t("finance.dueOn")}
+        {stacked ? "" : " "}
+      </span>
+      <span dir="ltr" className="whitespace-nowrap" style={tabular}>
         {formatDate(fee.dueDate)}
       </span>
     </span>
@@ -274,12 +280,12 @@ export function PaymentsTable({
               </th>
               <th className="px-3 py-3 text-start">{t("finance.student")}</th>
               <th className="hidden px-3 py-3 text-start xl:table-cell">{t("students.class")}</th>
-              <th className="hidden px-3 py-3 text-start xl:table-cell">{t("finance.colFeeType")}</th>
+              <th className="hidden min-w-[10rem] px-3 py-3 text-start xl:table-cell">{t("finance.colFeeType")}</th>
               <th className="px-3 py-3 text-start">{t("finance.amount")}</th>
               <th className="hidden px-3 py-3 text-start min-[90rem]:table-cell">{t("finance.colDate")}</th>
               <th className="px-3 py-3 text-start">{t("finance.status")}</th>
               <th className="hidden px-3 py-3 text-start min-[90rem]:table-cell">{t("finance.method")}</th>
-              <th className="px-4 py-3 text-end">{t("common.actions")}</th>
+              <th className="px-3 py-3 text-end">{t("common.actions")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border/70">
@@ -345,12 +351,12 @@ export function PaymentsTable({
                         {remainingText(fee)}
                       </span>
                     )}
-                    <span className="mt-0.5 block max-w-[12rem] truncate text-xs text-foreground/50 xl:hidden">
+                    <span className="mt-0.5 block max-w-[9rem] truncate text-xs text-foreground/50 xl:hidden">
                       {fee.label}
                     </span>
                   </td>
                   <td className="hidden px-3 py-3 text-foreground/70 min-[90rem]:table-cell">
-                    <FeeDate fee={fee} />
+                    <FeeDate fee={fee} stacked />
                   </td>
                   <td className="px-3 py-3">
                     <FeeStatusBadge status={fee.status} />
@@ -360,7 +366,7 @@ export function PaymentsTable({
                       </span>
                     )}
                     <span className="mt-1 block text-xs text-foreground/50 min-[90rem]:hidden">
-                      <FeeDate fee={fee} />
+                      <FeeDate fee={fee} stacked />
                     </span>
                   </td>
                   <td className="hidden px-3 py-3 min-[90rem]:table-cell">
@@ -370,7 +376,7 @@ export function PaymentsTable({
                       <span className="text-foreground/40">—</span>
                     )}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-3">
                     <RowButtons fee={fee} actions={actions} />
                   </td>
                 </tr>

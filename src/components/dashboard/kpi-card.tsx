@@ -34,6 +34,8 @@ interface KpiCardProps {
   trend?: number[];
   /** Pourcentage affiché en anneau, à la place de la mini-courbe. */
   ring?: number;
+  /** "icon" : l'anneau prend la place de la pastille d'icône, à gauche, et laisse toute la largeur au texte. */
+  ringPlacement?: "end" | "icon";
   href?: string;
   /** Décalage d'apparition en ms, pour faire entrer la grille en cascade. */
   delay?: number;
@@ -54,6 +56,7 @@ export function KpiCard({
   hintNegative = false,
   trend,
   ring,
+  ringPlacement = "end",
   href,
   delay = 0,
 }: KpiCardProps) {
@@ -61,14 +64,20 @@ export function KpiCard({
 
   const body = (
     <div className="flex items-center gap-3 @min-[15rem]:gap-4">
-      <span
-        className={cn(
-          "flex h-11 w-11 shrink-0 items-center justify-center rounded-full ring-4 @min-[15rem]:h-14 @min-[15rem]:w-14",
-          style.badge,
-        )}
-      >
-        <Icon className="h-5 w-5 @min-[15rem]:h-6 @min-[15rem]:w-6" strokeWidth={2} />
-      </span>
+      {ring != null && ringPlacement === "icon" ? (
+        <span className="shrink-0">
+          <ProgressRing value={ring} color={style.line} size={56} />
+        </span>
+      ) : (
+        <span
+          className={cn(
+            "flex h-11 w-11 shrink-0 items-center justify-center rounded-full ring-4 @min-[15rem]:h-14 @min-[15rem]:w-14",
+            style.badge,
+          )}
+        >
+          <Icon className="h-5 w-5 @min-[15rem]:h-6 @min-[15rem]:w-6" strokeWidth={2} />
+        </span>
+      )}
       <div className="min-w-0 flex-1">
         <p className="truncate text-[13px] text-foreground/60">{label}</p>
         <p
@@ -105,7 +114,7 @@ export function KpiCard({
           )}
         </div>
       </div>
-      {ring != null && (
+      {ring != null && ringPlacement === "end" && (
         <span className="hidden shrink-0 @min-[13rem]:block">
           <ProgressRing value={ring} color="#10b981" size={52} />
         </span>

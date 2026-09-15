@@ -40,7 +40,13 @@ export async function exportElementToPdf(element: HTMLElement, fileName: string)
       });
     },
   });
-  const imgData = canvas.toDataURL("image/png");
+
+  // JPEG et non PNG : jsPDF range un PNG sans le compresser, et une simple
+  // liste de neuf paiements pesait 10 Mo — bien trop pour partir sur WhatsApp
+  // avec une connexion lente. En JPEG, le même document tient en quelques
+  // centaines de kilo-octets, et la capture en double résolution garde le
+  // texte net.
+  const imgData = canvas.toDataURL("image/jpeg", 0.92);
 
   const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageWidth = pdf.internal.pageSize.getWidth();
@@ -50,12 +56,12 @@ export async function exportElementToPdf(element: HTMLElement, fileName: string)
 
   let heightLeft = imgHeight;
   let position = 0;
-  pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+  pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
   heightLeft -= pageHeight;
   while (heightLeft > 0) {
     position = heightLeft - imgHeight;
     pdf.addPage();
-    pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+    pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
     heightLeft -= pageHeight;
   }
 

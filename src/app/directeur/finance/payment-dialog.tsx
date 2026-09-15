@@ -87,6 +87,10 @@ export function PaymentDialog({
   }, [open, feeId, fees, reset]);
 
   function chooseStudent(id: string) {
+    // Radix Select signale une valeur vide quand la valeur affichée n'est pas
+    // (encore) parmi ses options : ignorée, sinon le frais choisi d'office
+    // pour l'élève était aussitôt effacé et le montant remis à zéro.
+    if (!id) return;
     setStudentId(id);
     const own = unsettled.filter((f) => f.student.id === id);
     const only = own.length === 1 ? own[0] : null;
@@ -96,6 +100,7 @@ export function PaymentDialog({
   }
 
   function chooseFee(id: string) {
+    if (!id) return;
     setChosenFeeId(id);
     setValue("amount", fees.find((f) => f.id === id)?.remaining ?? 0, { shouldValidate: true });
     setFeeError(null);

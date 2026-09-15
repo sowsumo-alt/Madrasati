@@ -1,88 +1,84 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
+import { flushSync } from "react-dom";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
-  Search,
+  ChevronRight,
+  Download,
+  FilePlus2,
+  HandCoins,
+  Loader2,
+  Percent,
   Plus,
-  Receipt,
+  ReceiptText,
   Wallet,
-  AlertCircle,
-  Banknote,
-  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge, type BadgeProps } from "@/components/ui/badge";
-import { StatTile } from "@/components/ui/stat-tile";
-import { WhatsAppLink } from "@/components/ui/whatsapp-link";
-import { formatMRU, formatAmount, formatDate, formatLongDate, formatLongDateAr } from "@/lib/format";
-import { fillTemplate, withArabic, schoolSignatureFr, schoolSignatureAr } from "@/lib/whatsapp";
-import { FeeFormDialog, type FeeStudentOption } from "./fee-form-dialog";
-import { PaymentDialog } from "./payment-dialog";
-import { useLanguage } from "@/lib/i18n/language-provider";
-import { AlphabetFilter, matchesLetter } from "@/components/ui/alphabet-filter";
-import { feeDisplayStatus, isLate, remainingOf } from "@/lib/fee-status";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { ListPagination } from "@/components/ui/list-pagination";
+import { AlphabetFilter, matchesLetter } from "@/components/ui/alphabet-filter";
+import { KpiCard } from "@/components/dashboard/kpi-card";
+import { formatAmount, formatDateIn, formatLongDate, formatLongDateAr, formatMRU } from "@/lib/format";
+import { buildWhatsAppUrl, fillTemplate, schoolSignatureAr, schoolSignatureFr, withArabic } from "@/lib/whatsapp";
+import type { FeeDisplayStatus } from "@/lib/fee-status";
+import { matchesFeeFilters, type FeeListFilters, type PaymentStatusFilter } from "@/lib/payments-list";
+import { exportElementToPdf } from "@/lib/pdf-export";
+import { useLanguage } from "@/lib/i18n/language-provider";
+import { FeeFormDialog, type FeeEditTarget, type FeeStudentOption } from "./fee-form-dialog";
+import { PaymentDialog } from "./payment-dialog";
 import { deleteFee } from "./actions";
-import type { TranslationKey } from "@/lib/i18n/dictionaries";
+import { PaymentsToolbar } from "./payments-list/payments-toolbar";
+import { PaymentsTable, type FeeRowActions } from "./payments-list/payments-table";
+import { PaymentsBulkBar } from "./payments-list/payments-bulk-bar";
+import { FeeDetailSheet } from "./payments-list/fee-detail-sheet";
+import { RemindersDialog } from "./payments-list/reminders-dialog";
+import { PaymentsReport } from "./payments-list/payments-report";
 
 export interface FeeRow {
   id: string;
   label: string;
   amount: number;
+  /** ISO */
   dueDate: string;
-  status: string;
   totalPaid: number;
-  student: { id: string; firstName: string; lastName: string; className: string | null };
-  parent: { firstName: string; lastName: string; phone: string } | null;
-  payments: { id: string; receiptNumber: string }[];
+  remaining: number;
+  /** Statut et retard calculés au rendu serveur (voir page.tsx). */
+  status: FeeDisplayStatus;
+  overdueDays: number;
+  student: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    photoUrl: string | null;
+    classId: string | null;
+    className: string | null;
+  };
+  parent: { firstName: string; lastName: string; phone: string; relationship: string | null } | null;
+  /** Du plus ancien au plus récent. */
+  payments: { id: string; receiptNumber: string; amount: number; method: string; paidAt: string }[];
 }
 
-const STATUS_KEYS: Record<string, TranslationKey> = {
-  PENDING: "finance.status.PENDING",
-  PARTIAL: "finance.status.PARTIAL",
-  PAID: "finance.status.PAID",
-  OVERDUE: "finance.status.OVERDUE",
-};
-
-const STATUS_VARIANT: Record<string, BadgeProps["variant"]> = {
-  PENDING: "neutral",
-  PARTIAL: "warning",
-  PAID: "success",
-  OVERDUE: "danger",
-};
-
-// Le statut affiché et le retard sont calculés dans lib/fee-status.ts,
-// hors de cet écran, pour être verrouillés par des tests.
-
-// UNPAID regroupe tout ce qui n'est pas soldé (en attente, partiel, en retard) :
-// c'est la liste qu'ouvre « Impayés » dans le menu.
-const STATUS_FILTERS = ["ALL", "UNPAID", "PENDING", "PARTIAL", "PAID", "OVERDUE"] as const;
-export type FinanceStatusFilter = (typeof STATUS_FILTERS)[number];
-
-/**
- * Ancienneté d'un impayé, en jours puis en mois. Calculée sur les dates
- * civiles pour que le compte ne dépende pas de l'heure de consultation.
- */
-function formatOverdue(dueDate: string, t: (key: TranslationKey) => string) {
-  const startOfDay = (d: Date) => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
-  const days = Math.round(
-    (startOfDay(new Date()) - startOfDay(new Date(dueDate))) / 86_400_000,
-  );
-  if (days <= 0) return "";
-  if (days === 1) return t("finance.overdueOneDay");
-  if (days < 31) return t("finance.overdueDays").replace("{n}", String(days));
-  const months = Math.floor(days / 30);
-  return months === 1
-    ? t("finance.overdueOneMonth")
-    : t("finance.overdueMonths").replace("{n}", String(months));
+export interface PaymentsKpis {
+  collected: number;
+  /** Encaissé chaque mois, sur les six derniers mois. */
+  collectedByMonth: number[];
+  /** Évolution du mois en cours sur le précédent, en %. */
+  collectedChange: number | null;
+  outstanding: number;
+  lateCount: number;
+  paymentCount: number;
+  paymentsByMonth: number[];
+  billed: number;
+  rate: number | null;
 }
+
+const PAGE_SIZE = 10;
 
 export function FinanceView({
   fees,
+  kpis,
   students,
   schoolName,
   reminderTemplate,
@@ -90,35 +86,148 @@ export function FinanceView({
   initialStatus = "ALL",
 }: {
   fees: FeeRow[];
+  kpis: PaymentsKpis;
   students: FeeStudentOption[];
   schoolName: string;
   reminderTemplate: string;
   reminderTemplateAr?: string;
   /** Filtre au premier affichage (voir le lien « Impayés » du menu). */
-  initialStatus?: FinanceStatusFilter;
+  initialStatus?: PaymentStatusFilter;
 }) {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const router = useRouter();
-  const schoolFr = schoolSignatureFr(schoolName);
-  const schoolAr = schoolSignatureAr(schoolName);
-  const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<FinanceStatusFilter>(initialStatus);
+  const [filters, setFilters] = useState<FeeListFilters>({
+    query: "",
+    classId: "ALL",
+    status: initialStatus,
+    method: "ALL",
+    from: "",
+    to: "",
+  });
+  const [panelOpen, setPanelOpen] = useState(false);
   const [letter, setLetter] = useState<string | null>(null);
-  const [feeFormOpen, setFeeFormOpen] = useState(false);
-  const [paymentTarget, setPaymentTarget] = useState<{
-    feeId: string;
-    studentName: string;
-    label: string;
-    remaining: number;
-  } | null>(null);
+  const [page, setPage] = useState(1);
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [feeForm, setFeeForm] = useState<{ edit: FeeEditTarget | null } | null>(null);
+  const [paymentFor, setPaymentFor] = useState<{ feeId: string | null } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<FeeRow | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [remindersOpen, setRemindersOpen] = useState(false);
+  const [exportRows, setExportRows] = useState<FeeRow[] | null>(null);
+
+  const classes = useMemo(() => {
+    const names = new Map<string, string>();
+    for (const f of fees) {
+      if (f.student.classId && f.student.className) names.set(f.student.classId, f.student.className);
+    }
+    return [...names.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, "fr"));
+  }, [fees]);
+
+  const filtered = useMemo(
+    () =>
+      fees.filter(
+        (f) =>
+          matchesFeeFilters(f, filters) &&
+          matchesLetter(`${f.student.firstName} ${f.student.lastName}`, letter),
+      ),
+    [fees, filters, letter],
+  );
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const pageRows = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const selectedFees = fees.filter((f) => selected.has(f.id));
+  const detailFee = fees.find((f) => f.id === detailId) ?? null;
+  const hasUnsettled = fees.some((f) => f.remaining > 0);
+
+  /** Tout changement de filtre ramène à la première page. */
+  function updateFilters(patch: Partial<FeeListFilters>) {
+    setFilters((prev) => ({ ...prev, ...patch }));
+    setPage(1);
+  }
+
+  const schoolFr = schoolSignatureFr(schoolName);
+  const schoolAr = schoolSignatureAr(schoolName);
+
+  function reminderUrl(fee: FeeRow): string | null {
+    if (!fee.parent || fee.remaining <= 0) return null;
+    const parentName = `${fee.parent.firstName} ${fee.parent.lastName}`;
+    const studentName = `${fee.student.firstName} ${fee.student.lastName}`;
+    const amount = formatAmount(fee.remaining);
+    const message = withArabic(
+      fillTemplate(reminderTemplate, {
+        parentName,
+        studentName,
+        amount,
+        date: formatLongDate(fee.dueDate),
+        schoolName: schoolFr,
+      }),
+      reminderTemplateAr &&
+        fillTemplate(reminderTemplateAr, {
+          parentName,
+          studentName,
+          amount,
+          date: formatLongDateAr(fee.dueDate),
+          schoolName: schoolAr,
+        }),
+    );
+    return buildWhatsAppUrl(fee.parent.phone, message);
+  }
+
+  function toggleRow(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function togglePage(checked: boolean) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (const f of pageRows) {
+        if (checked) next.add(f.id);
+        else next.delete(f.id);
+      }
+      return next;
+    });
+  }
+
+  function openEdit(fee: FeeRow) {
+    setDetailId(null);
+    setFeeForm({
+      edit: {
+        id: fee.id,
+        studentName: `${fee.student.firstName} ${fee.student.lastName}`,
+        className: fee.student.className,
+        label: fee.label,
+        amount: fee.amount,
+        dueDate: fee.dueDate,
+        totalPaid: fee.totalPaid,
+      },
+    });
+  }
+
+  function openPayment(fee: FeeRow | null) {
+    setDetailId(null);
+    setPaymentFor({ feeId: fee?.id ?? null });
+  }
+
+  const actions: FeeRowActions = {
+    onView: (fee) => setDetailId(fee.id),
+    onEdit: openEdit,
+    onRecordPayment: openPayment,
+    onDelete: setDeleteTarget,
+    reminderUrl,
+  };
 
   /**
    * Un frais déjà réglé n'est pas supprimable : ses paiements partiraient avec
    * lui (onDelete: Cascade), emportant des reçus déjà remis aux parents. Le
-   * bouton n'apparaît donc que tant qu'aucun paiement n'est rattaché — plutôt
-   * que de le proposer pour finir par un refus.
+   * menu ne le propose donc que tant qu'aucun paiement n'est rattaché.
    */
   async function handleDeleteFee() {
     if (!deleteTarget) return;
@@ -126,6 +235,11 @@ export function FinanceView({
     try {
       await deleteFee(deleteTarget.id);
       toast.success(t("finance.feeDeleted"));
+      setSelected((prev) => {
+        const next = new Set(prev);
+        next.delete(deleteTarget.id);
+        return next;
+      });
       setDeleteTarget(null);
       router.refresh();
     } catch (e) {
@@ -135,248 +249,213 @@ export function FinanceView({
     }
   }
 
-  const totalCollected = useMemo(
-    () => fees.reduce((sum, f) => sum + f.totalPaid, 0),
-    [fees],
-  );
-  const totalOutstanding = useMemo(
-    () => fees.reduce((sum, f) => sum + Math.max(f.amount - f.totalPaid, 0), 0),
-    [fees],
-  );
+  /**
+   * Export PDF de lignes données : toute la liste filtrée, ou la sélection.
+   * Le document n'est rendu, hors écran, que le temps de la capture — flushSync
+   * l'écrit dans la page avant que la capture ne le cherche.
+   */
+  async function exportPdf(rows: FeeRow[], suffix: string) {
+    if (rows.length === 0 || exportRows) return;
+    flushSync(() => setExportRows(rows));
+    try {
+      const element = document.getElementById("payments-report");
+      if (!element) throw new Error("report missing");
+      await exportElementToPdf(element, `paiements-${suffix}.pdf`);
+      toast.success(t("pdf.downloaded"));
+    } catch {
+      toast.error(t("pdf.failed"));
+    } finally {
+      setExportRows(null);
+    }
+  }
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return fees.filter((f) => {
-      const name = `${f.student.firstName} ${f.student.lastName}`.toLowerCase();
-      const matchesQuery = !q || name.includes(q) || f.label.toLowerCase().includes(q);
-      const status = feeDisplayStatus(f);
-      const matchesStatus =
-        statusFilter === "ALL" ||
-        (statusFilter === "UNPAID" ? status !== "PAID" : status === statusFilter);
-      const matchesInitial = matchesLetter(
-        `${f.student.firstName} ${f.student.lastName}`,
-        letter,
-      );
-      return matchesQuery && matchesStatus && matchesInitial;
-    });
-  }, [fees, query, statusFilter, letter]);
+  const lastMonth = kpis.collectedByMonth.length - 1;
+  const change = kpis.collectedChange;
+  const collectedHint =
+    change == null
+      ? t("finance.collectedThisMonth").replace("{amount}", formatAmount(kpis.collectedByMonth[lastMonth] ?? 0))
+      : `${change > 0 ? "+" : ""}${change}% ${t("finance.thisMonthShort")}`;
+  const paymentsThisMonth = kpis.paymentsByMonth[kpis.paymentsByMonth.length - 1] ?? 0;
+  const from = (currentPage - 1) * PAGE_SIZE + 1;
+  const to = Math.min(currentPage * PAGE_SIZE, filtered.length);
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-foreground">{t("finance.title")}</h1>
-          <p className="mt-1 text-sm text-foreground/60">{t("finance.subtitle")}</p>
+          <nav
+            aria-label={t("nav.category.finance")}
+            className="mb-1.5 flex items-center gap-1.5 text-xs text-foreground/50"
+          >
+            <span>{t("nav.category.finance")}</span>
+            <ChevronRight className="h-3.5 w-3.5 rtl:rotate-180" />
+            <span className="font-medium text-foreground/70">{t("nav.payments")}</span>
+          </nav>
+          <div className="flex items-center gap-3">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-600">
+              <Wallet className="h-6 w-6" />
+            </span>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-foreground">{t("nav.payments")}</h1>
+              <p className="mt-0.5 text-sm text-foreground/60">{t("finance.subtitlePayments")}</p>
+            </div>
+          </div>
         </div>
-        <Button onClick={() => setFeeFormOpen(true)}>
-          <Plus className="h-4 w-4" />
-          {t("finance.newFee")}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="secondary"
+            onClick={() => exportPdf(filtered, "liste")}
+            disabled={exportRows != null || filtered.length === 0}
+          >
+            {exportRows ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            {t("finance.exportPdf")}
+          </Button>
+          <Button variant="secondary" onClick={() => setFeeForm({ edit: null })}>
+            <FilePlus2 className="h-4 w-4" />
+            {t("finance.newFee")}
+          </Button>
+          <Button
+            className="shadow-sm"
+            onClick={() => openPayment(null)}
+            disabled={!hasUnsettled}
+            title={hasUnsettled ? undefined : t("finance.nothingToCollect")}
+          >
+            <Plus className="h-4 w-4" />
+            {t("finance.newPayment")}
+          </Button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <StatTile
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard
           label={t("finance.totalCollected")}
-          value={formatMRU(totalCollected)}
+          value={formatMRU(kpis.collected)}
           icon={Wallet}
-          tone="primary"
+          tone="emerald"
+          hint={collectedHint}
+          hintPositive={(change ?? 0) > 0}
+          hintNegative={(change ?? 0) < 0}
+          trend={kpis.collectedByMonth}
+          delay={40}
         />
-        <StatTile
+        <KpiCard
           label={t("finance.totalOutstanding")}
-          value={formatMRU(totalOutstanding)}
-          icon={AlertCircle}
-          tone="warning"
+          value={formatMRU(kpis.outstanding)}
+          icon={HandCoins}
+          tone="amber"
+          hint={
+            kpis.lateCount > 0
+              ? t("finance.lateCount").replace("{n}", String(kpis.lateCount))
+              : t("finance.nothingLate")
+          }
+          delay={80}
+        />
+        <KpiCard
+          label={t("finance.paymentsCount")}
+          value={String(kpis.paymentCount)}
+          icon={ReceiptText}
+          tone="blue"
+          hint={
+            paymentsThisMonth > 0
+              ? `+${paymentsThisMonth} ${t("finance.thisMonthShort")}`
+              : t("finance.noPaymentThisMonth")
+          }
+          hintPositive={paymentsThisMonth > 0}
+          trend={kpis.paymentsByMonth}
+          delay={120}
+        />
+        <KpiCard
+          label={t("finance.collectionRate")}
+          value={kpis.rate == null ? "—" : `${kpis.rate}%`}
+          icon={Percent}
+          tone="cyan"
+          hint={t("finance.rateOfBilled").replace("{amount}", formatMRU(kpis.billed))}
+          ring={kpis.rate ?? undefined}
+          ringPlacement="icon"
+          delay={160}
         />
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative flex-1 sm:max-w-xs">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/40" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={t("finance.searchPlaceholder")}
-            className="pl-9"
-          />
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          {STATUS_FILTERS.map((s) => (
-            <button
-              key={s}
-              onClick={() => setStatusFilter(s)}
-              className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-                statusFilter === s
-                  ? "bg-primary-700 text-white"
-                  : "bg-surface-muted text-foreground/60 hover:text-foreground"
-              }`}
-            >
-              {s === "ALL"
-                ? t("common.all")
-                : s === "UNPAID"
-                  ? t("finance.filterUnsettled")
-                  : t(STATUS_KEYS[s])}
-            </button>
-          ))}
-        </div>
-      </div>
+      <PaymentsToolbar
+        filters={filters}
+        onChange={updateFilters}
+        classes={classes}
+        panelOpen={panelOpen}
+        onPanelOpenChange={setPanelOpen}
+      />
 
-      {/* Meme acces par initiale que sur la page Eleves : la liste des frais
-          est la plus longue de l application, un frais par eleve et par
-          trimestre. */}
       <AlphabetFilter
         names={fees.map((f) => `${f.student.firstName} ${f.student.lastName}`)}
         value={letter}
-        onChange={setLetter}
+        onChange={(value) => {
+          setLetter(value);
+          setPage(1);
+        }}
       />
 
-      <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
+      <section className="overflow-hidden rounded-2xl border border-border/80 bg-surface shadow-soft">
+        {selected.size > 0 && (
+          <PaymentsBulkBar
+            count={selected.size}
+            exporting={exportRows != null}
+            onRemind={() => setRemindersOpen(true)}
+            onExport={() => exportPdf(selectedFees, "selection")}
+            onClear={() => setSelected(new Set())}
+          />
+        )}
         {filtered.length === 0 ? (
           <div className="px-5 py-16 text-center text-sm text-foreground/50">
             {fees.length === 0 ? t("finance.emptyList") : t("finance.noMatch")}
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-surface-muted/60 text-left text-xs font-medium uppercase tracking-wide text-foreground/50">
-                  <th className="px-5 py-3">{t("finance.student")}</th>
-                  <th className="px-5 py-3">{t("finance.label")}</th>
-                  <th className="px-5 py-3">{t("finance.amount")}</th>
-                  <th className="px-5 py-3">{t("finance.dueDate")}</th>
-                  <th className="px-5 py-3">{t("finance.status")}</th>
-                  <th className="px-5 py-3 text-right">{t("common.actions")}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filtered.map((f) => {
-                  const status = feeDisplayStatus(f);
-                  const remaining = remainingOf(f);
-                  const lastReceipt = f.payments[f.payments.length - 1];
-                  const reminderMessage = f.parent
-                    ? withArabic(
-                        fillTemplate(reminderTemplate, {
-                          parentName: `${f.parent.firstName} ${f.parent.lastName}`,
-                          studentName: `${f.student.firstName} ${f.student.lastName}`,
-                          amount: formatAmount(remaining),
-                          date: formatLongDate(f.dueDate),
-                          schoolName: schoolFr,
-                        }),
-                        reminderTemplateAr &&
-                          fillTemplate(reminderTemplateAr, {
-                            parentName: `${f.parent.firstName} ${f.parent.lastName}`,
-                            studentName: `${f.student.firstName} ${f.student.lastName}`,
-                            amount: formatAmount(remaining),
-                            date: formatLongDateAr(f.dueDate),
-                            schoolName: schoolAr,
-                          }),
-                      )
-                    : "";
-
-                  return (
-                    <tr key={f.id} className="hover:bg-surface-muted/40">
-                      <td className="px-5 py-3 font-medium text-foreground">
-                        {f.student.firstName} {f.student.lastName}
-                        {f.student.className && (
-                          <span className="ml-1.5 text-xs font-normal text-foreground/40">
-                            {f.student.className}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-5 py-3 text-foreground/70">{f.label}</td>
-                      <td className="px-5 py-3 text-foreground/70">
-                        {formatMRU(f.amount)}
-                        {/* Sans cette ligne, la colonne affichait le montant
-                            facturé et rien d'autre : un versement partiel
-                            n'y laissait aucune trace, et c'est le reste dû —
-                            pas le montant d'origine — que le directeur doit
-                            réclamer. */}
-                        {f.totalPaid > 0 && remaining > 0 && (
-                          <span className="mt-0.5 block whitespace-nowrap text-xs">
-                            <span className="font-medium text-warning">
-                              {t("finance.remainingIs").replace("{amount}", formatMRU(remaining))}
-                            </span>
-                            <span className="text-foreground/45">
-                              {" · "}
-                              {t("finance.alreadyPaid").replace("{amount}", formatMRU(f.totalPaid))}
-                            </span>
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-5 py-3 text-foreground/70">
-                        {formatDate(f.dueDate)}
-                      </td>
-                      <td className="px-5 py-3">
-                        <Badge variant={STATUS_VARIANT[status]}>
-                          {t(STATUS_KEYS[status])}
-                        </Badge>
-                        {/* Une échéance d'octobre dernier et une d'avant-hier
-                            portaient le même badge : l'ancienneté du retard est
-                            ce qui dit laquelle relancer en premier. Affiché
-                            aussi sur un frais partiellement réglé, qui reste en
-                            retard sans porter le badge « Impayé ». */}
-                        {isLate(f) && (
-                          <span className="ml-1.5 whitespace-nowrap text-xs text-danger">
-                            {formatOverdue(f.dueDate, t)}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-5 py-3">
-                        <div className="flex items-center justify-end gap-1">
-                          {status !== "PAID" && f.parent && (
-                            <WhatsAppLink
-                              phone={f.parent.phone}
-                              message={reminderMessage}
-                              title={t("finance.sendReminder")}
-                            />
-                          )}
-                          {status !== "PAID" && (
-                            <button
-                              title={t("finance.recordPayment")}
-                              onClick={() =>
-                                setPaymentTarget({
-                                  feeId: f.id,
-                                  studentName: `${f.student.firstName} ${f.student.lastName}`,
-                                  label: f.label,
-                                  remaining,
-                                })
-                              }
-                              className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground/60 transition-colors hover:bg-surface-muted"
-                            >
-                              <Banknote className="h-4 w-4" />
-                            </button>
-                          )}
-                          {lastReceipt && (
-                            <Link
-                              href={`/directeur/finance/recus/${lastReceipt.id}`}
-                              target="_blank"
-                              title={t("finance.viewReceipt")}
-                              className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground/60 transition-colors hover:bg-surface-muted"
-                            >
-                              <Receipt className="h-4 w-4" />
-                            </Link>
-                          )}
-                          {f.payments.length === 0 && (
-                            <button
-                              title={t("finance.deleteFee")}
-                              onClick={() => setDeleteTarget(f)}
-                              className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground/60 transition-colors hover:bg-red-50 hover:text-danger"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <>
+            <PaymentsTable
+              rows={pageRows}
+              selected={selected}
+              onToggleRow={toggleRow}
+              onTogglePage={togglePage}
+              actions={actions}
+            />
+            <ListPagination
+              page={currentPage}
+              pageCount={pageCount}
+              summary={t("finance.showing")
+                .replace("{from}", String(from))
+                .replace("{to}", String(to))
+                .replace("{total}", String(filtered.length))}
+              previousLabel={t("students.previousPage")}
+              nextLabel={t("students.nextPage")}
+              onPageChange={setPage}
+            />
+          </>
         )}
-      </div>
+      </section>
 
-      <FeeFormDialog open={feeFormOpen} onOpenChange={setFeeFormOpen} students={students} />
-      <PaymentDialog target={paymentTarget} onOpenChange={(open) => !open && setPaymentTarget(null)} />
+      <FeeDetailSheet
+        fee={detailFee}
+        onClose={() => setDetailId(null)}
+        onEdit={openEdit}
+        onRecordPayment={openPayment}
+        reminderUrl={reminderUrl}
+      />
+      <FeeFormDialog
+        open={feeForm != null}
+        onOpenChange={(open) => !open && setFeeForm(null)}
+        students={students}
+        editTarget={feeForm?.edit ?? null}
+      />
+      <PaymentDialog
+        open={paymentFor != null}
+        onOpenChange={(open) => !open && setPaymentFor(null)}
+        fees={fees}
+        feeId={paymentFor?.feeId ?? null}
+      />
+      <RemindersDialog
+        open={remindersOpen}
+        onOpenChange={setRemindersOpen}
+        fees={selectedFees}
+        reminderUrl={reminderUrl}
+      />
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
@@ -385,10 +464,7 @@ export function FinanceView({
           deleteTarget
             ? t("finance.deleteFeeHint")
                 .replace("{label}", deleteTarget.label)
-                .replace(
-                  "{student}",
-                  `${deleteTarget.student.firstName} ${deleteTarget.student.lastName}`,
-                )
+                .replace("{student}", `${deleteTarget.student.firstName} ${deleteTarget.student.lastName}`)
                 .replace("{amount}", formatMRU(deleteTarget.amount))
             : undefined
         }
@@ -397,6 +473,16 @@ export function FinanceView({
         loading={deleting}
         onConfirm={handleDeleteFee}
       />
+
+      {exportRows && (
+        <div aria-hidden className="pointer-events-none fixed top-0" style={{ left: -12000 }}>
+          <PaymentsReport
+            rows={exportRows}
+            schoolName={schoolName}
+            generatedOn={formatDateIn(locale, new Date(), { day: "numeric", month: "long", year: "numeric" })}
+          />
+        </div>
+      )}
     </div>
   );
 }
