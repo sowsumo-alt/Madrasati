@@ -105,3 +105,15 @@ export function formatEventTime(date: Date | string) {
   if (d >= startOfYesterday) return "Hier";
   return formatDate(d);
 }
+
+/**
+ * Numéro lisible : « +222 46 52 38 96 » plutôt que « +22246523896 ».
+ * Un numéro mauritanien tient en huit chiffres après l'indicatif ; tout
+ * autre format est rendu tel quel, sans rien inventer.
+ */
+export function formatPhone(phone: string): string {
+  const compact = phone.replace(/\s/g, "");
+  const local = compact.startsWith("+222") ? compact.slice(4) : null;
+  if (!local || !/^\d{8}$/.test(local)) return phone;
+  return `+222 ${local.slice(0, 2)} ${local.slice(2, 4)} ${local.slice(4, 6)} ${local.slice(6)}`;
+}

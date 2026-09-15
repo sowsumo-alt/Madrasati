@@ -1,16 +1,34 @@
 import Image from "next/image";
+import Link from "next/link";
 import { notFound } from "next/navigation";
+import {
+  ArrowLeft,
+  CalendarDays,
+  Check,
+  GraduationCap,
+  Info,
+  Phone,
+  UserRound,
+  Users,
+  Wallet,
+} from "lucide-react";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { FEATURES, schoolHasFeature } from "@/lib/plans";
-import { formatMRU, formatDate, formatLongDate, formatLongDateAr, formatAmount } from "@/lib/format";
-import Link from "next/link";
+import {
+  formatMRU,
+  formatDateIn,
+  formatLongDate,
+  formatLongDateAr,
+  formatAmount,
+  formatPhone,
+} from "@/lib/format";
 import { PrintButton } from "@/components/ui/print-button";
 import { PdfButton } from "@/components/ui/pdf-button";
 import { PaymentMethodLogo } from "@/components/ui/payment-method-logo";
+import { WhatsAppIcon } from "@/components/brand/whatsapp-icon";
 import { buttonVariants } from "@/components/ui/button";
-import { GraduationCap, MessageCircle, ArrowLeft } from "lucide-react";
 import { getTranslations } from "@/lib/i18n/server";
 import type { TranslationKey } from "@/lib/i18n/dictionaries";
 import {
@@ -37,7 +55,7 @@ export default async function ReceiptPage({
   const payment = await prisma.payment.findFirst({
     where: { id: paymentId, schoolId: user.schoolId },
     include: {
-      fee: true,
+      fee: { include: { payments: { select: { amount: true } } } },
       student: {
         include: {
           classRoom: { select: { name: true } },
@@ -51,8 +69,13 @@ export default async function ReceiptPage({
   if (!payment) notFound();
 
   const parent = payment.student.parentLinks[0]?.parent ?? null;
-  const { t } = await getTranslations();
+  const { t, locale } = await getTranslations();
   const methodLabel = t(`finance.method.${payment.method}` as TranslationKey);
+
+  // Reste dû après ce versement : un reçu qui n'annonce que le montant reçu
+  // laisse croire au parent que tout est soldé.
+  const totalPaid = payment.fee.payments.reduce((sum, p) => sum + p.amount, 0);
+  const remaining = Math.max(payment.fee.amount - totalPaid, 0);
 
   const confirmationTemplate = await prisma.messageTemplate.findFirst({
     where: { schoolId: user.schoolId, key: "PAYMENT_CONFIRMATION" },
@@ -82,140 +105,192 @@ export default async function ReceiptPage({
       )
     : "";
 
+  const label = "text-xs font-semibold uppercase tracking-wider text-foreground/45";
+
   return (
-    <div className="mx-auto max-w-xl px-4 py-10">
+    <div className="mx-auto max-w-5xl">
       {/* Le reçu s'ouvre juste après une inscription : sans ce retour, le
           directeur se retrouve sur une page sans issue vers sa liste. */}
-      <div className="no-print mb-4">
+      <div className="no-print mb-6 flex flex-wrap items-center justify-between gap-3">
         <Link
           href="/directeur/eleves"
-          className="inline-flex items-center gap-1.5 text-sm text-foreground/50 transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-2 text-sm font-medium text-foreground/55 transition-colors hover:text-foreground"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
           {t("finance.backToStudents")}
         </Link>
-      </div>
 
-      <div className="no-print mb-6 flex flex-wrap justify-end gap-2">
-        <PdfButton
-          elementId="recu-card"
-          fileName={`Recu-${payment.receiptNumber}.pdf`}
-          labelKey={parent ? "finance.sendReceiptPdf" : "finance.downloadReceiptPdf"}
-          parentPhone={parent?.phone ?? null}
-          message={confirmationMessage}
-        />
-        {parent && (
-          <a
-            href={buildWhatsAppUrl(parent.phone, confirmationMessage)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={buttonVariants({ variant: "secondary" })}
-          >
-            <MessageCircle className="h-4 w-4" />
-            Confirmer sur WhatsApp
-          </a>
-        )}
-        <PrintButton label={t("finance.printReceipt")} />
+        <div className="flex flex-wrap items-center gap-2 [&_a]:h-11 [&_button]:h-11">
+          <PdfButton
+            elementId="recu-card"
+            fileName={`Recu-${payment.receiptNumber}.pdf`}
+            labelKey={parent ? "finance.sendReceiptPdf" : "finance.downloadReceiptPdf"}
+            parentPhone={parent?.phone ?? null}
+            message={confirmationMessage}
+          />
+          {parent && (
+            <a
+              href={buildWhatsAppUrl(parent.phone, confirmationMessage)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={buttonVariants({ variant: "secondary" })}
+            >
+              <WhatsAppIcon className="h-4 w-4 text-emerald-600" />
+              {t("finance.confirmOnWhatsApp")}
+            </a>
+          )}
+          <PrintButton label={t("finance.printReceipt")} />
+        </div>
       </div>
 
       <div
         id="recu-card"
-        className="rounded-xl border border-border bg-surface p-8 shadow-sm print:border-0 print:shadow-none"
+        className="mx-auto max-w-3xl rounded-2xl border border-border/80 bg-surface p-6 shadow-soft sm:p-8 print:max-w-none print:border-0 print:shadow-none"
       >
-        <div className="flex items-start justify-between border-b border-border pb-6">
-          <div className="flex items-center gap-3 text-primary-800">
-            {payment.school.logoUrl ? (
-              <Image
-                src={payment.school.logoUrl}
-                alt=""
-                width={320}
-                height={320}
-                unoptimized
-                className="h-12 w-12 rounded object-contain"
-              />
-            ) : (
-              <GraduationCap className="h-7 w-7" strokeWidth={2} />
-            )}
-            <div>
-              <p className="text-base font-semibold leading-tight">
-                {payment.school.name}
-              </p>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-center gap-4">
+            <span className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-50 text-primary-600">
+              {payment.school.logoUrl ? (
+                <Image
+                  src={payment.school.logoUrl}
+                  alt=""
+                  width={320}
+                  height={320}
+                  unoptimized
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <GraduationCap className="h-10 w-10" strokeWidth={1.75} />
+              )}
+            </span>
+            <div className="min-w-0">
+              <p className="text-2xl font-bold leading-tight text-primary-900">{payment.school.name}</p>
               {payment.school.address && (
-                <p className="text-xs text-foreground/50">
-                  {payment.school.address}
-                </p>
+                <p className="mt-0.5 text-sm text-primary-700/80">{payment.school.address}</p>
               )}
               {payment.school.phone && (
-                <p className="text-xs text-foreground/50">
-                  {payment.school.phone}
+                <p className="mt-1 flex items-center gap-1.5 text-sm text-primary-700">
+                  <Phone className="h-4 w-4" />
+                  <span dir="ltr">{formatPhone(payment.school.phone)}</span>
                 </p>
               )}
             </div>
           </div>
-          <div className="text-right">
-            <p className="text-xs font-medium uppercase tracking-wide text-foreground/40">
+
+          <div className="sm:text-end">
+            <span className="inline-flex rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary-700">
               {t("finance.receiptTitle")}
-            </p>
-            <p className="text-sm font-semibold text-foreground">
+            </span>
+            <p
+              className="mt-2 text-2xl font-bold text-foreground"
+              style={{ fontVariantNumeric: "tabular-nums" }}
+              dir="ltr"
+            >
               {payment.receiptNumber}
             </p>
-            <p className="text-xs text-foreground/50">
-              {formatDate(payment.paidAt)}
-            </p>
+            <p className="mt-0.5 text-sm text-foreground/50">{formatDateIn(locale, payment.paidAt, { day: "numeric", month: "short", year: "numeric" })}</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-6 py-6">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-foreground/40">
+        <div className="my-6 border-t border-border/70" />
+
+        <div className="grid gap-6 sm:grid-cols-2 sm:divide-x sm:divide-border/70 rtl:sm:divide-x-reverse">
+          <div className="sm:pe-6">
+            <p className={`flex items-center gap-2 ${label}`}>
+              <Users className="h-4 w-4 text-primary-600" />
               {t("finance.student")}
             </p>
-            <p className="mt-1 text-sm font-medium text-foreground">
+            <p className="mt-1.5 text-lg font-bold text-foreground">
               {payment.student.firstName} {payment.student.lastName}
             </p>
-            <p className="text-xs text-foreground/50">
+            <p className="text-sm text-foreground/55">
               {payment.student.classRoom?.name ?? t("students.noClass")}
             </p>
           </div>
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-foreground/40">
-              {t("students.parentSection")}
+          <div className="sm:ps-6">
+            <p className={`flex items-center gap-2 ${label}`}>
+              <UserRound className="h-4 w-4 text-primary-600" />
+              {t("finance.parentOrGuardian")}
             </p>
-            <p className="mt-1 text-sm font-medium text-foreground">
+            <p className="mt-1.5 text-lg font-bold text-foreground">
               {parent ? `${parent.firstName} ${parent.lastName}` : "—"}
             </p>
             {parent && (
-              <p className="text-xs text-foreground/50">{parent.phone}</p>
+              <p className="flex items-center gap-1.5 text-sm text-foreground/55">
+                <Phone className="h-3.5 w-3.5 text-primary-600" />
+                <span dir="ltr">{formatPhone(parent.phone)}</span>
+              </p>
             )}
           </div>
         </div>
 
-        <div className="rounded-lg bg-surface-muted px-4 py-3">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-foreground/70">{payment.fee.label}</span>
-            <span className="font-medium text-foreground">
-              {formatMRU(payment.amount)}
-            </span>
+        <div className="mt-6 rounded-xl bg-primary-50/60 p-4 sm:p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex min-w-0 items-start gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface text-primary-600 shadow-sm">
+                <CalendarDays className="h-[18px] w-[18px]" />
+              </span>
+              <div className="min-w-0">
+                <p className="font-semibold text-foreground">{payment.fee.label}</p>
+                <p className="mt-0.5 text-sm text-foreground/55">
+                  {payment.note?.trim() || t("finance.noPaymentNote")}
+                </p>
+              </div>
+            </div>
+            <p
+              className="whitespace-nowrap text-xl font-bold text-foreground"
+              style={{ fontVariantNumeric: "tabular-nums" }}
+            >
+              {formatMRU(payment.fee.amount)}
+            </p>
           </div>
-          <div className="mt-2 flex items-center justify-between text-xs text-foreground/50">
-            <span>{t("finance.method")}</span>
-            <span className="flex items-center gap-1.5">
-              <PaymentMethodLogo method={payment.method} />
+
+          <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white">
+              <Check className="h-3 w-3" strokeWidth={3} />
+            </span>
+            <span className="text-sm text-foreground/60">{t("finance.method")}</span>
+            <span className="inline-flex items-center gap-1.5 rounded-lg bg-surface px-2.5 py-1 text-sm font-medium text-foreground shadow-sm">
+              <PaymentMethodLogo method={payment.method} className="h-4 w-4" />
               {methodLabel}
             </span>
           </div>
         </div>
 
-        <div className="mt-6 flex items-center justify-between border-t border-border pt-6">
-          <span className="text-sm font-semibold text-foreground">
-            {t("finance.paidAmount")}
-          </span>
-          <span className="text-xl font-semibold text-primary-800">
-            {formatMRU(payment.amount)}
-          </span>
+        <div className="mt-6 border-t border-border/70 pt-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="flex items-center gap-3 text-lg font-bold text-foreground">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
+                <Wallet className="h-[18px] w-[18px]" />
+              </span>
+              {t("finance.paidAmount")}
+            </p>
+            <p
+              className="text-3xl font-bold text-primary-800"
+              style={{ fontVariantNumeric: "tabular-nums" }}
+            >
+              {formatMRU(payment.amount)}
+            </p>
+          </div>
+
+          {/* Versement partiel : le reste dû est écrit, pour qu'un reçu ne
+              passe jamais pour un solde de tout compte. */}
+          {remaining > 0 && (
+            <p className="mt-2 text-end text-sm font-medium text-amber-700">
+              {t("finance.remainingIs").replace("{amount}", formatMRU(remaining))}
+            </p>
+          )}
         </div>
 
-        <p className="mt-8 text-center text-xs text-foreground/40">
+        <div className="mt-6 flex items-start gap-3 rounded-xl bg-primary-50/60 p-4">
+          <Info className="mt-0.5 h-5 w-5 shrink-0 text-primary-600" />
+          <div>
+            <p className="text-sm font-semibold text-primary-900">{t("finance.thankYou")}</p>
+            <p className="mt-0.5 text-sm text-foreground/60">{t("finance.receiptSuccess")}</p>
+          </div>
+        </div>
+
+        <p data-pdf-show className="mt-6 hidden text-center text-xs text-foreground/40 print:block">
           {t("finance.receiptFooter")}
         </p>
       </div>
