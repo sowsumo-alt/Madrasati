@@ -1085,6 +1085,7 @@ export const dictionaries = {
     "family.colBalance": "Situation",
     "family.dueAmount": "Reste {amount}",
     "family.noFees": "Aucun frais",
+    "family.receiptFeeCol": "Frais",
 
     "students.createClassFirst": "Créez d'abord une classe dans « Classes ».",
     "students.duplicateTitle": "Un élève portant ce nom est déjà inscrit.",
@@ -2178,6 +2179,7 @@ export const dictionaries = {
     "family.colBalance": "Balance",
     "family.dueAmount": "{amount} due",
     "family.noFees": "No fees",
+    "family.receiptFeeCol": "Fee",
 
     "students.createClassFirst": "Create a class in “Classes” first.",
     "students.duplicateTitle": "A student with this name is already enrolled.",
@@ -3266,6 +3268,7 @@ export const dictionaries = {
     "family.colBalance": "الوضعية",
     "family.dueAmount": "المتبقي {amount}",
     "family.noFees": "لا رسوم",
+    "family.receiptFeeCol": "الرسوم",
 
     "students.createClassFirst": "أنشئ قسمًا أولًا من «الأقسام».",
     "students.duplicateTitle": "يوجد تلميذ مسجّل بهذا الاسم بالفعل.",

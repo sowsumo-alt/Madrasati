@@ -7,10 +7,10 @@ import { CURRENT_YEAR } from "@/lib/school-year";
 export default async function StudentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; new?: string; classe?: string }>;
+  searchParams: Promise<{ q?: string; new?: string; classe?: string; famille?: string }>;
 }) {
   const user = await requireRole(ROLES.DIRECTOR);
-  const { q, new: openNew, classe } = await searchParams;
+  const { q, new: openNew, classe, famille } = await searchParams;
 
   const [students, classes, school, currentYear] = await Promise.all([
     prisma.student.findMany({
@@ -20,7 +20,9 @@ export default async function StudentsPage({
         classRoom: { select: { name: true } },
         parentLinks: {
           where: { isPrimary: true },
-          include: { parent: true },
+          // Le nombre d'enfants du parent : à partir de deux, c'est une
+          // famille que l'on peut afficher d'un clic.
+          include: { parent: { include: { _count: { select: { studentLinks: true } } } } },
           take: 1,
         },
       },
@@ -58,10 +60,13 @@ export default async function StudentsPage({
       enrollmentDate: s.enrollmentDate.toISOString(),
       parent: parent
         ? {
+            id: parent.id,
             firstName: parent.firstName,
             lastName: parent.lastName,
             phone: parent.phone,
             address: parent.address,
+            familyName: parent.familyName,
+            familySize: parent._count.studentLinks,
           }
         : null,
     };
@@ -71,7 +76,7 @@ export default async function StudentsPage({
     <StudentsView
       // Remonte la vue quand la recherche globale change de terme, sinon
       // l'état local garderait l'ancien filtre.
-      key={`${q ?? ""}|${classe ?? ""}`}
+      key={`${q ?? ""}|${classe ?? ""}|${famille ?? ""}`}
       students={rows}
       classes={classes}
       schoolName={school?.name ?? "Madrasati"}
@@ -80,6 +85,8 @@ export default async function StudentsPage({
       // « Voir les élèves » depuis la fiche d'une classe (?classe=<id>).
       initialClassFilter={classe && classes.some((c) => c.id === classe) ? classe : "ALL"}
       autoOpenNew={openNew === "1"}
+      // Enfants d'une même famille (?famille=<parentId>), depuis sa fiche.
+      initialFamilyFilter={famille && rows.some((r) => r.parent?.id === famille) ? famille : null}
     />
   );
 }

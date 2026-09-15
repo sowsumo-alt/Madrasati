@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { AlertTriangle, ChevronRight, Plus, Upload } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { AlertTriangle, ChevronRight, Plus, Upload, Users } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { FamilyFilterBanner } from "@/components/family/family-filter-banner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AlphabetFilter, matchesLetter } from "@/components/ui/alphabet-filter";
 import { useLanguage } from "@/lib/i18n/language-provider";
@@ -42,10 +44,14 @@ export interface StudentRow {
   motherName: string | null;
   enrollmentDate: string;
   parent: {
+    id: string;
     firstName: string;
     lastName: string;
     phone: string;
     address: string | null;
+    familyName: string | null;
+    /** Enfants rattachés à ce parent : sa famille, à partir de deux. */
+    familySize: number;
   } | null;
 }
 
@@ -80,6 +86,7 @@ export function StudentsView({
   currentYearLabel,
   initialQuery = "",
   initialClassFilter = "ALL",
+  initialFamilyFilter = null,
   autoOpenNew = false,
 }: {
   students: StudentRow[];
@@ -90,6 +97,8 @@ export function StudentsView({
   initialQuery?: string;
   /** Classe présélectionnée (?classe=…), depuis la page Classes. */
   initialClassFilter?: ClassFilter;
+  /** Famille présélectionnée (?famille=<parentId>). */
+  initialFamilyFilter?: string | null;
   /** Ouvre directement le formulaire d'inscription (?new=1), depuis le menu "Inscription". */
   autoOpenNew?: boolean;
 }) {
@@ -99,6 +108,7 @@ export function StudentsView({
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
   const [classFilter, setClassFilter] = useState<ClassFilter>(initialClassFilter);
   const [letter, setLetter] = useState<string | null>(null);
+  const [familyFilter, setFamilyFilter] = useState<string | null>(initialFamilyFilter);
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [formOpen, setFormOpen] = useState(false);
@@ -132,9 +142,14 @@ export function StudentsView({
         classFilter === "ALL" ||
         (classFilter === "NONE" ? s.className == null : s.classId === classFilter);
       const matchesInitial = matchesLetter(`${s.firstName} ${s.lastName}`, letter);
-      return matchesQuery && matchesStatus && matchesClass && matchesInitial;
+      const matchesFamily = !familyFilter || s.parent?.id === familyFilter;
+      return matchesQuery && matchesStatus && matchesClass && matchesInitial && matchesFamily;
     });
-  }, [students, query, statusFilter, classFilter, letter]);
+  }, [students, query, statusFilter, classFilter, letter, familyFilter]);
+
+  const familyParent = familyFilter
+    ? (students.find((s) => s.parent?.id === familyFilter)?.parent ?? null)
+    : null;
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
@@ -263,12 +278,34 @@ export function StudentsView({
             <Upload className="h-4 w-4" />
             {t("students.importExcel")}
           </Button>
+          {/* Parcours à part, pour plusieurs enfants d'une même famille :
+              « Nouvel élève » garde exactement le formulaire d'un seul enfant. */}
+          <Link
+            href="/directeur/familles/inscription"
+            title={t("family.enrollButtonHint")}
+            className={buttonVariants({ variant: "secondary", className: "h-11 px-4" })}
+          >
+            <Users className="h-4 w-4" />
+            {t("family.enrollButton")}
+          </Link>
           <Button className="h-11 px-5 shadow-sm" onClick={openCreate}>
             <Plus className="h-4 w-4" />
             {t("students.new")}
           </Button>
         </div>
       </div>
+
+      {familyFilter && familyParent && (
+        <FamilyFilterBanner
+          parentId={familyFilter}
+          parent={familyParent}
+          clearLabelKey="family.clearStudents"
+          onClear={() => {
+            setFamilyFilter(null);
+            setPage(1);
+          }}
+        />
+      )}
 
       <StudentsToolbar
         query={query}
@@ -343,6 +380,10 @@ export function StudentsView({
               onView={(s) => setProfileId(s.id)}
               onEdit={openEdit}
               onToggleStatus={setConfirmTarget}
+              onFamily={(parentId) => {
+                setFamilyFilter(parentId);
+                setPage(1);
+              }}
               schoolName={schoolName}
             />
             <StudentsPagination

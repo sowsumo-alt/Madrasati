@@ -27,6 +27,7 @@ import type { TranslationKey } from "@/lib/i18n/dictionaries";
 import { cn } from "@/lib/utils";
 import type { StudentRow } from "../students-view";
 import { StudentAvatar } from "./student-avatar";
+import { FamilyBadge } from "@/components/family/family-badge";
 import { STATUS_KEYS, STATUS_VARIANT } from "./student-status";
 
 function IconButton({
@@ -62,6 +63,7 @@ export function StudentsTable({
   onView,
   onEdit,
   onToggleStatus,
+  onFamily,
   schoolName,
 }: {
   rows: StudentRow[];
@@ -71,6 +73,8 @@ export function StudentsTable({
   onView: (student: StudentRow) => void;
   onEdit: (student: StudentRow) => void;
   onToggleStatus: (student: StudentRow) => void;
+  /** Filtre la liste sur la famille de ce parent. */
+  onFamily: (parentId: string) => void;
   schoolName: string;
 }) {
   const { t } = useLanguage();
@@ -165,6 +169,7 @@ export function StudentsTable({
                       <span className="block text-xs text-foreground/50" dir="ltr">
                         {s.parent.phone}
                       </span>
+                      <FamilyBadge parent={s.parent} onClick={() => onFamily(s.parent!.id)} />
                     </>
                   ) : (
                     <span className="text-foreground/40">{t("students.noParent")}</span>
