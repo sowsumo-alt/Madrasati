@@ -238,6 +238,7 @@ export function ClassesView({
         icon={BookOpen}
         title={t("classes.subjects")}
         subtitle={t("classes.subjectsSubtitle")}
+        size="sm"
         actions={
           <Button
             className={sectionButton.primary}
@@ -251,7 +252,7 @@ export function ClassesView({
           </Button>
         }
       >
-        <div className="mt-4">
+        <div className="mt-3">
           {subjects.length === 0 ? (
             <p className="rounded-2xl bg-primary-50/60 px-5 py-10 text-center text-sm text-foreground/55">
               {t("classes.subjectsEmpty")}

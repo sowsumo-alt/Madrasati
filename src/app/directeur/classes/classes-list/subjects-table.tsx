@@ -82,7 +82,7 @@ function StatusPill({ active }: { active: boolean }) {
 }
 
 const th = "px-4 py-2 text-start text-xs font-semibold uppercase tracking-wide text-primary-700";
-const td = "px-4 py-1.5 first:rounded-s-xl last:rounded-e-xl";
+const td = "px-4 py-1 first:rounded-s-xl last:rounded-e-xl";
 
 /** Tableau des matières de l'école ; une carte par matière sur téléphone. */
 export function SubjectsTable({ subjects, ...handlers }: SubjectHandlers & { subjects: SubjectRow[] }) {

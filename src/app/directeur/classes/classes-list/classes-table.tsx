@@ -63,10 +63,10 @@ function useIncomplete(row: ClassRow) {
   return { label: t("classes.incomplete"), title: t("classes.incompleteTitle").replace("{items}", items) };
 }
 
-function NameCell({ row, tone }: ClassTableRow) {
+function NameCell({ row, tone, nowrap = false }: ClassTableRow & { nowrap?: boolean }) {
   const incomplete = useIncomplete(row);
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className={cn("flex items-center gap-2", nowrap ? "flex-nowrap" : "flex-wrap")}>
       <ClassPill name={row.name} tone={tone} />
       {incomplete && <IncompleteBadge {...incomplete} />}
     </div>
@@ -75,7 +75,7 @@ function NameCell({ row, tone }: ClassTableRow) {
 
 function StudentsCell({ row }: { row: ClassRow }) {
   return (
-    <span className="inline-flex items-center gap-2.5 text-slate-700">
+    <span className="inline-flex items-center gap-2.5 whitespace-nowrap text-slate-700">
       <UsersRound className="h-[18px] w-[18px] shrink-0 text-primary-600" />
       <span dir="ltr" style={{ fontVariantNumeric: "tabular-nums" }}>
         {row.studentCount} / {row.capacity}
@@ -105,7 +105,7 @@ function SubjectsCell({ row }: { row: ClassRow }) {
   const { t } = useLanguage();
   const count = row.assignments.length;
   return (
-    <span className="inline-flex items-center gap-2.5 text-slate-700">
+    <span className="inline-flex items-center gap-2.5 whitespace-nowrap text-slate-700">
       <BookOpen className={cn("h-[18px] w-[18px] shrink-0", count > 0 ? "text-primary-700" : "text-slate-500")} />
       {t("classes.subjectCount").replace("{count}", String(count))}
     </span>
@@ -117,21 +117,22 @@ const td = "px-4 py-2 first:rounded-s-xl last:rounded-e-xl";
 
 /**
  * Tableau des classes : une ligne blanche par classe sur fond vert d'eau.
- * Sur téléphone, chaque classe devient une carte.
+ * Sous 1280 px, où les six colonnes ne tiennent plus, chaque classe devient
+ * une carte (deux par ligne sur tablette).
  */
 export function ClassesTable({ rows, ...handlers }: RowHandlers & { rows: ClassTableRow[] }) {
   const { t } = useLanguage();
 
   return (
-    <>
-      <div className="hidden overflow-x-auto rounded-2xl bg-primary-50/60 px-1 pb-1 md:block">
+    <div>
+      <div className="hidden overflow-x-auto rounded-2xl bg-primary-50/60 px-1 pb-1 xl:block">
         <table className="w-full min-w-[42rem] border-separate border-spacing-y-[3px] text-sm">
           <thead>
             <tr>
-              <th className={cn(th, "xl:w-[18%]")}>{t("classes.colClass")}</th>
-              <th className={cn(th, "hidden w-[11%] xl:table-cell")}>{t("classes.colLevel")}</th>
-              <th className={cn(th, "xl:w-[14%]")}>{t("classes.students")}</th>
-              <th className={cn(th, "xl:w-[22%]")}>{t("classes.colMainTeacher")}</th>
+              <th className={cn(th, "min-[90rem]:w-[18%]")}>{t("classes.colClass")}</th>
+              <th className={cn(th, "min-[90rem]:w-[11%]")}>{t("classes.colLevel")}</th>
+              <th className={cn(th, "min-[90rem]:w-[14%]")}>{t("classes.students")}</th>
+              <th className={cn(th, "min-[90rem]:w-[22%]")}>{t("classes.colMainTeacher")}</th>
               <th className={th}>{t("classes.subjects")}</th>
               <th className={cn(th, "text-end")}>{t("common.actions")}</th>
             </tr>
@@ -140,9 +141,9 @@ export function ClassesTable({ rows, ...handlers }: RowHandlers & { rows: ClassT
             {rows.map(({ row, tone }) => (
               <tr key={row.id} className="bg-surface transition-colors hover:bg-primary-50/30">
                 <td className={td}>
-                  <NameCell row={row} tone={tone} />
+                  <NameCell row={row} tone={tone} nowrap />
                 </td>
-                <td className={cn(td, "hidden text-slate-700 xl:table-cell")}>{row.level}</td>
+                <td className={cn(td, "text-slate-700")}>{row.level}</td>
                 <td className={td}>
                   <StudentsCell row={row} />
                 </td>
@@ -161,7 +162,7 @@ export function ClassesTable({ rows, ...handlers }: RowHandlers & { rows: ClassT
         </table>
       </div>
 
-      <ul className="space-y-2.5 md:hidden">
+      <ul className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:hidden">
         {rows.map(({ row, tone }) => (
           <li key={row.id} className="rounded-2xl border border-border/60 bg-surface p-4">
             <div className="flex items-start justify-between gap-3">
@@ -176,6 +177,6 @@ export function ClassesTable({ rows, ...handlers }: RowHandlers & { rows: ClassT
           </li>
         ))}
       </ul>
-    </>
+    </div>
   );
 }

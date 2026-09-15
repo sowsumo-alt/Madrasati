@@ -68,7 +68,7 @@ export function ClassesKpis({ values }: { values: ClassesKpisValues }) {
             </span>
             <div className="min-w-0">
               <p className={cn("text-xl font-bold leading-tight", style.value)}>{values[key]}</p>
-              <p className={cn("truncate text-sm", style.label)}>{t(label)}</p>
+              <p className={cn("line-clamp-2 text-sm leading-snug", style.label)}>{t(label)}</p>
             </div>
           </div>
         );

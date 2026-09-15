@@ -64,10 +64,11 @@ export function AppShell({
     <div className="min-h-screen bg-background">
       {/* Fond illustré (feuillage, toque et livres) fixé à l'écran : il
           reste en place pendant le défilement et commence au bord de la
-          barre latérale. */}
+          barre latérale ; retourné en arabe, pour que le feuillage reste du
+          côté opposé à la barre. */}
       <div
         aria-hidden
-        className="no-print pointer-events-none fixed inset-0 bg-[url(/backgrounds/app-bg.webp)] bg-cover bg-center lg:start-64"
+        className="no-print pointer-events-none fixed inset-0 bg-[url(/backgrounds/app-bg.webp)] bg-cover bg-center lg:start-64 rtl:-scale-x-100"
       />
 
       {/* Barre latérale — bureau */}

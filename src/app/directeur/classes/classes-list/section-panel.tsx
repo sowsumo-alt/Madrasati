@@ -11,6 +11,7 @@ export function SectionPanel({
   subtitle,
   actions,
   titleAs: Title = "h2",
+  size = "md",
   className,
   children,
 }: {
@@ -19,27 +20,43 @@ export function SectionPanel({
   subtitle: string;
   actions?: ReactNode;
   titleAs?: "h1" | "h2";
+  /** Pastille d'icône plus petite pour une section secondaire. */
+  size?: "md" | "sm";
   className?: string;
   children: ReactNode;
 }) {
   return (
     <section
       className={cn(
-        "rounded-3xl border border-white/80 bg-surface/85 p-4 shadow-[0_10px_40px_-18px_rgba(7,54,34,0.25)] backdrop-blur-sm sm:p-5",
+        "rounded-3xl border border-white/80 bg-surface/85 p-4 shadow-[0_10px_40px_-18px_rgba(7,54,34,0.25)] backdrop-blur-sm sm:px-5 sm:pb-4 sm:pt-5",
         className,
       )}
     >
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="flex min-w-0 items-center gap-4">
-          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-50 to-primary-100/80 text-primary-800 shadow-sm">
-            <Icon className="h-7 w-7" fill="currentColor" strokeWidth={1.25} />
+          <span
+            className={cn(
+              "flex shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-50 to-primary-100/80 text-primary-800 shadow-sm",
+              size === "md" ? "h-14 w-14" : "h-12 w-12",
+            )}
+          >
+            <Icon className={size === "md" ? "h-7 w-7" : "h-6 w-6"} fill="currentColor" strokeWidth={1.25} />
           </span>
           <div className="min-w-0">
-            <Title className="text-2xl font-bold tracking-tight text-primary-900">{title}</Title>
+            <Title
+              className={cn(
+                "font-bold tracking-tight text-primary-900",
+                size === "md" ? "text-2xl" : "text-xl",
+              )}
+            >
+              {title}
+            </Title>
             <p className="mt-0.5 text-sm text-slate-500">{subtitle}</p>
           </div>
         </div>
-        {actions && <div className="flex flex-wrap gap-2.5">{actions}</div>}
+        {actions && (
+          <div className="grid shrink-0 gap-2.5 sm:flex sm:flex-wrap [&>*]:w-full sm:[&>*]:w-auto">{actions}</div>
+        )}
       </div>
       {children}
     </section>

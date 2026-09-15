@@ -41,7 +41,9 @@ export function ClassesToolbar({
           aria-label={t("classes.filter.ALL")}
           className="h-10.5 rounded-xl border-border/60 bg-surface px-4 text-sm text-primary-900/80 sm:w-56"
         >
-          <SelectValue />
+          {/* Libellé rendu par nous : Radix ne l'affiche qu'une fois la page
+              chargée, le filtre paraissait vide jusque-là. */}
+          <SelectValue>{t(`classes.filter.${filter}` as TranslationKey)}</SelectValue>
         </SelectTrigger>
         <SelectContent>
           {CLASS_FILTERS.map((f) => (
