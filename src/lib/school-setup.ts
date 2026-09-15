@@ -5,7 +5,7 @@ import {
   subjectNamesForCycle,
   type SchoolType,
 } from "@/lib/school-levels";
-import { INITIAL_SUBSCRIPTION_STATUS, INITIAL_PLAN } from "@/lib/plans";
+import { initialSubscription, INITIAL_PLAN } from "@/lib/plans";
 
 /**
  * Contenu livré avec chaque nouvelle école : le programme mauritanien et les
@@ -231,9 +231,9 @@ export async function createSchoolWithDirector(input: {
         email: input.email,
         city: input.city,
         currency: "MRU",
-        // Aucun accès tant que l'éditeur n'a pas activé l'école depuis le
-        // tableau de bord Super Admin.
-        subscriptionStatus: INITIAL_SUBSCRIPTION_STATUS,
+        // Essai immédiat, ou attente d'activation si la validation manuelle
+        // est rétablie (voir REQUIRE_MANUAL_ACTIVATION).
+        ...initialSubscription(),
         // Avancé d'emblée : une fois activée, l'école essaie l'application
         // complète sans avoir eu à choisir de formule à l'inscription.
         plan: INITIAL_PLAN,

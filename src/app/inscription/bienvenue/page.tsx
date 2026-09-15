@@ -1,14 +1,19 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CheckCircle2, MessageCircle } from "lucide-react";
+import { ArrowRight, CheckCircle2, MessageCircle } from "lucide-react";
 import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { Logo } from "@/components/brand/logo";
 import { buildWhatsAppUrl, fillTemplate } from "@/lib/whatsapp";
 import { CONTACT_PHONE } from "@/lib/contact";
+import { REQUIRE_MANUAL_ACTIVATION, TRIAL_DAYS } from "@/lib/plans";
 
 const WELCOME_MESSAGE_TEMPLATE =
   "Bonjour, je viens de créer mon école {schoolName} sur Madrasati ({city}). " +
-  "Je suis {directorName}, joignable au {phone}. J'aimerais qu'on active mon compte.";
+  "Je suis {directorName}, joignable au {phone}. " +
+  (REQUIRE_MANUAL_ACTIVATION
+    ? "J'aimerais qu'on active mon compte."
+    : "J'aimerais être accompagné pour bien démarrer.");
 
 export default async function WelcomePage() {
   const user = await requireUser();
@@ -58,25 +63,52 @@ export default async function WelcomePage() {
           </p>
         </div>
 
-        <div className="mt-8 rounded-2xl bg-surface p-6 shadow-2xl sm:p-8">
-          {/* Plus de lien vers le tableau de bord : l'accès n'est ouvert
-              qu'après activation (voir requireRole), il ne ferait que renvoyer
-              l'utilisateur vers l'écran d'attente. */}
-          <p className="text-sm text-foreground/60">
-            Dernière étape : écrivez-nous sur WhatsApp pour faire activer votre
-            compte — le message est déjà prêt avec les informations de votre
-            école. Votre espace s&apos;ouvre dès l&apos;activation.
-          </p>
-          <a
-            href={whatsappUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary-700 text-base font-semibold text-white transition-colors hover:bg-primary-800"
-          >
-            <MessageCircle className="h-4.5 w-4.5" />
-            Nous écrire sur WhatsApp
-          </a>
-        </div>
+        {REQUIRE_MANUAL_ACTIVATION ? (
+          <div className="mt-8 rounded-2xl bg-surface p-6 shadow-2xl sm:p-8">
+            {/* Plus de lien vers le tableau de bord : l'accès n'est ouvert
+                qu'après activation (voir requireRole), il ne ferait que
+                renvoyer l'utilisateur vers l'écran d'attente. */}
+            <p className="text-sm text-foreground/60">
+              Dernière étape : écrivez-nous sur WhatsApp pour faire activer
+              votre compte — le message est déjà prêt avec les informations de
+              votre école. Votre espace s&apos;ouvre dès l&apos;activation.
+            </p>
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary-700 text-base font-semibold text-white transition-colors hover:bg-primary-800"
+            >
+              <MessageCircle className="h-4.5 w-4.5" />
+              Nous écrire sur WhatsApp
+            </a>
+          </div>
+        ) : (
+          <div className="mt-8 rounded-2xl bg-surface p-6 shadow-2xl sm:p-8">
+            {/* Validation manuelle coupée (voir REQUIRE_MANUAL_ACTIVATION) :
+                l'essai a déjà démarré, le tableau de bord est ouvert. */}
+            <p className="text-sm text-foreground/60">
+              Votre essai gratuit de {TRIAL_DAYS} jours commence maintenant :
+              ajoutez vos élèves et vos enseignants, tout le reste est prêt.
+            </p>
+            <Link
+              href="/directeur"
+              className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary-700 text-base font-semibold text-white transition-colors hover:bg-primary-800"
+            >
+              Accéder à mon tableau de bord
+              <ArrowRight className="h-4.5 w-4.5 rtl:rotate-180" />
+            </Link>
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-lg text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50"
+            >
+              <MessageCircle className="h-4 w-4" />
+              Besoin d&apos;aide ? Écrivez-nous sur WhatsApp
+            </a>
+          </div>
+        )}
       </div>
     </div>
   );

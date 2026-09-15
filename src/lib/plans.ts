@@ -163,13 +163,33 @@ export const SUBSCRIPTION_STATUS_LABELS: Record<SubscriptionStatus, string> = {
 };
 
 /**
- * Statut d'une école qui vient de s'inscrire : le compte existe, mais aucun
- * accès n'est ouvert tant que l'éditeur ne l'a pas activée depuis le tableau
- * de bord Super Admin. Distinct de « suspended », qui désigne une école qui
- * avait l'accès et l'a perdu faute de paiement — le message affiché n'a rien
- * à voir.
+ * Validation manuelle des nouvelles écoles par l'éditeur.
+ *
+ * Coupée pendant la prospection : une école inscrite sur le terrain doit
+ * pouvoir se servir de l'application tout de suite, sans attendre qu'on
+ * l'active depuis le tableau de bord Super Admin. Elle démarre donc
+ * directement son essai gratuit.
+ *
+ * Remettre à `true` pour rétablir l'attente : une école naît alors
+ * « pending » et n'a aucun accès avant son activation.
  */
-export const INITIAL_SUBSCRIPTION_STATUS: SubscriptionStatus = "pending";
+export const REQUIRE_MANUAL_ACTIVATION = false;
+
+/**
+ * Statut d'une école qui vient de s'inscrire. En attente d'activation si la
+ * validation manuelle est en place — distinct de « suspended », qui désigne
+ * une école qui avait l'accès et l'a perdu faute de paiement. Sinon, son
+ * essai démarre immédiatement, avec son échéance posée dès maintenant.
+ */
+export function initialSubscription(now = new Date()): {
+  subscriptionStatus: SubscriptionStatus;
+  nextDueAt: Date | null;
+} {
+  if (REQUIRE_MANUAL_ACTIVATION) return { subscriptionStatus: "pending", nextDueAt: null };
+  const end = new Date(now);
+  end.setDate(end.getDate() + TRIAL_DAYS);
+  return { subscriptionStatus: "trial", nextDueAt: end };
+}
 
 /**
  * Formule attribuée à une école dès sa création : l'Avancé, pour qu'elle

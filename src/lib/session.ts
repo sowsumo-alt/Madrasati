@@ -4,7 +4,14 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import type { Role } from "@/lib/roles";
 import { ROLES } from "@/lib/roles";
-import { planHasFeature, effectivePlan, blocksAllAccess, type Feature } from "@/lib/plans";
+import {
+  planHasFeature,
+  effectivePlan,
+  blocksAllAccess,
+  initialSubscription,
+  REQUIRE_MANUAL_ACTIVATION,
+  type Feature,
+} from "@/lib/plans";
 
 export async function getCurrentUser() {
   const session = await getServerSession(authOptions);
@@ -32,14 +39,29 @@ export async function requireRole(...roles: Role[]) {
 
   const account = await prisma.user.findUnique({
     where: { id: user.id },
-    select: { mustChangePassword: true, school: { select: { subscriptionStatus: true } } },
+    select: {
+      mustChangePassword: true,
+      school: { select: { id: true, subscriptionStatus: true } },
+    },
   });
   if (account?.mustChangePassword) redirect("/mon-compte");
+
+  // Validation manuelle coupée : une école restée « pending » (inscrite quand
+  // elle était encore en place) démarre son essai à sa prochaine visite,
+  // plutôt que de rester bloquée devant un écran d'attente.
+  let status = account?.school?.subscriptionStatus;
+  if (status === "pending" && !REQUIRE_MANUAL_ACTIVATION && account?.school) {
+    const started = await prisma.school.update({
+      where: { id: account.school.id },
+      data: initialSubscription(),
+      select: { subscriptionStatus: true },
+    });
+    status = started.subscriptionStatus;
+  }
 
   // Deux situations coupent l'accès à toute l'école — directeur, enseignants
   // et parents compris. Le contrôle est ici, côté serveur : saisir l'URL du
   // tableau de bord à la main ne permet pas de passer outre.
-  const status = account?.school?.subscriptionStatus;
   if (status && blocksAllAccess(status)) {
     // Une école fraîchement inscrite n'a jamais eu d'accès : on lui explique
     // qu'elle attend son activation, pas qu'on lui a coupé le service.

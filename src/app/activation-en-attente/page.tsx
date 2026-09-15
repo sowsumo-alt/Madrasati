@@ -1,9 +1,11 @@
+import { redirect } from "next/navigation";
 import { Clock, MessageCircle } from "lucide-react";
 import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { Logo } from "@/components/brand/logo";
 import { buildWhatsAppUrl, fillTemplate } from "@/lib/whatsapp";
 import { CONTACT_PHONE } from "@/lib/contact";
+import { REQUIRE_MANUAL_ACTIVATION } from "@/lib/plans";
 import { buttonVariants } from "@/components/ui/button";
 import { SignOutButton } from "@/app/compte-suspendu/sign-out-button";
 
@@ -20,6 +22,9 @@ const ACTIVATION_MESSAGE_TEMPLATE =
  */
 export default async function PendingActivationPage() {
   const user = await requireUser();
+  // Sans validation manuelle, il n'y a rien à attendre : l'espace de
+  // l'école s'ouvre directement.
+  if (!REQUIRE_MANUAL_ACTIVATION) redirect("/");
 
   const account = user.schoolId
     ? await prisma.user.findUnique({
