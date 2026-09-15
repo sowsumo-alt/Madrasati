@@ -25,6 +25,8 @@ export interface SubjectStyle {
   badge: string;
   /** Étiquette de texte (liste des examens). */
   chip: string;
+  /** Remplissage d'une barre (moyennes des statistiques). */
+  bar: string;
 }
 
 const TONES = {
@@ -32,71 +34,85 @@ const TONES = {
     card: "border-emerald-100 bg-emerald-50/70",
     badge: "bg-emerald-100 text-emerald-600",
     chip: "bg-emerald-50 text-emerald-700",
+    bar: "bg-emerald-500",
   },
   green: {
     card: "border-green-100 bg-green-50/70",
     badge: "bg-green-100 text-green-600",
     chip: "bg-green-50 text-green-700",
+    bar: "bg-green-500",
   },
   lime: {
     card: "border-lime-100 bg-lime-50/70",
     badge: "bg-lime-100 text-lime-700",
     chip: "bg-lime-50 text-lime-700",
+    bar: "bg-lime-500",
   },
   blue: {
     card: "border-blue-100 bg-blue-50/70",
     badge: "bg-blue-100 text-blue-600",
     chip: "bg-blue-50 text-blue-700",
+    bar: "bg-blue-500",
   },
   amber: {
     card: "border-amber-100 bg-amber-50/70",
     badge: "bg-amber-100 text-amber-600",
     chip: "bg-amber-50 text-amber-700",
+    bar: "bg-amber-400",
   },
   teal: {
     card: "border-teal-100 bg-teal-50/70",
     badge: "bg-teal-100 text-teal-600",
     chip: "bg-teal-50 text-teal-700",
+    bar: "bg-teal-500",
   },
   violet: {
     card: "border-violet-100 bg-violet-50/70",
     badge: "bg-violet-100 text-violet-600",
     chip: "bg-violet-50 text-violet-700",
+    bar: "bg-violet-500",
   },
   orange: {
     card: "border-orange-100 bg-orange-50/70",
     badge: "bg-orange-100 text-orange-600",
     chip: "bg-orange-50 text-orange-700",
+    bar: "bg-orange-400",
   },
   pink: {
     card: "border-pink-100 bg-pink-50/70",
     badge: "bg-pink-100 text-pink-600",
     chip: "bg-pink-50 text-pink-700",
+    bar: "bg-pink-500",
   },
   indigo: {
     card: "border-indigo-100 bg-indigo-50/70",
     badge: "bg-indigo-100 text-indigo-600",
     chip: "bg-indigo-50 text-indigo-700",
+    bar: "bg-indigo-500",
   },
   rose: {
     card: "border-rose-100 bg-rose-50/70",
     badge: "bg-rose-100 text-rose-600",
     chip: "bg-rose-50 text-rose-700",
+    bar: "bg-rose-500",
   },
   red: {
     card: "border-red-100 bg-red-50/70",
     badge: "bg-red-100 text-red-600",
     chip: "bg-red-50 text-red-700",
+    bar: "bg-red-500",
   },
   yellow: {
     card: "border-yellow-100 bg-yellow-50/70",
     badge: "bg-yellow-100 text-yellow-700",
     chip: "bg-yellow-50 text-yellow-700",
+    bar: "bg-yellow-400",
   },
   slate: {
     card: "border-slate-200 bg-slate-50",
     badge: "bg-slate-100 text-slate-600",
     chip: "bg-slate-100 text-slate-700",
+    bar: "bg-slate-400",
   },
 } as const;
 
@@ -129,8 +145,8 @@ function normalize(name: string) {
 
 /**
  * Icône et couleurs d'une matière, déduites de son nom : les mêmes sur
- * l'emploi du temps et dans la liste des examens, sans réglage à faire par
- * l'école. Une matière inconnue reçoit un livre sur fond neutre.
+ * l'emploi du temps, dans la liste des examens et dans les statistiques, sans
+ * réglage à faire par l'école. Une matière inconnue reçoit un livre sur fond neutre.
  */
 export function subjectStyle(name: string): SubjectStyle {
   const key = normalize(name);

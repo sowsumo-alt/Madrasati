@@ -18,12 +18,15 @@ export function AreaChart({
   max = 100,
   color = SERIE,
   emptyLabel,
+  highlightLast = false,
 }: {
   data: Point[];
   unit?: string;
   max?: number;
   color?: string;
   emptyLabel: string;
+  /** Étiquette directe sur le dernier point — la seule valeur écrite sur la courbe. */
+  highlightLast?: boolean;
 }) {
   const gradientId = useId();
 
@@ -47,12 +50,24 @@ export function AreaChart({
   const area = `${line} L${x(data.length - 1)},${baseline} L${x(0)},${baseline} Z`;
   const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => Math.round(max * f));
 
+  // Pastille du dernier point, au-dessus de lui (en dessous s'il touche le
+  // haut du cadre), gardée à l'intérieur du tracé.
+  const last = data[data.length - 1];
+  const pillText = `${last.value}${unit}`;
+  const pillW = 16 + pillText.length * 7;
+  const lastX = x(data.length - 1);
+  const lastY = y(last.value);
+  const pillX = Math.min(Math.max(lastX - pillW / 2, PAD.left), W - PAD.right - pillW);
+  const pillY = lastY - 32 >= 0 ? lastY - 32 : lastY + 12;
+
   return (
     <svg
       viewBox={`0 0 ${W} ${H}`}
       className="h-auto w-full"
       role="img"
       aria-label={data.map((d) => `${d.label} ${d.value}${unit}`).join(", ")}
+      // Axe du temps de gauche à droite, en arabe comme en français.
+      direction="ltr"
     >
       <defs>
         <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -103,6 +118,23 @@ export function AreaChart({
           </text>
         </g>
       ))}
+
+      {highlightLast && (
+        <g>
+          <rect x={pillX} y={pillY} width={pillW} height={22} rx={11} fill={color} />
+          <text
+            x={pillX + pillW / 2}
+            y={pillY + 15}
+            textAnchor="middle"
+            fontSize={12}
+            fontWeight={700}
+            fill="#ffffff"
+            style={{ fontVariantNumeric: "tabular-nums" }}
+          >
+            {pillText}
+          </text>
+        </g>
+      )}
     </svg>
   );
 }

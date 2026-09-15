@@ -196,9 +196,10 @@ export function ColumnChart({ data, unit = "" }: { data: Point[]; unit?: string 
 
   const max = niceMax(Math.max(...data.map((d) => d.value), 1));
   const band = plotW / data.length;
-  const barW = Math.min(24, band - 8);
+  const barW = Math.min(28, band - 10);
   const y = (v: number) => PAD.top + plotH - (v / max) * plotH;
-  const ticks = [0, max / 2, max];
+  // Graduations en quarts : 0, 25 000, 50 000… se lisent d'un coup d'œil.
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => max * f);
 
   return (
     <svg
@@ -206,6 +207,9 @@ export function ColumnChart({ data, unit = "" }: { data: Point[]; unit?: string 
       className="h-auto w-full"
       role="img"
       aria-label={data.map((d) => `${d.label} ${fmt(d.value)}${unit}`).join(", ")}
+      // L'axe du temps se lit de gauche à droite dans toutes les langues : sans
+      // cela, en arabe, les graduations ancrées « end » passaient sous les barres.
+      direction="ltr"
     >
       {ticks.map((t) => (
         <g key={t}>

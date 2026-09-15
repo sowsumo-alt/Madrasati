@@ -2,150 +2,163 @@ import { requireFeature } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { FEATURES } from "@/lib/plans";
 import { prisma } from "@/lib/prisma";
+import { getTranslations } from "@/lib/i18n/server";
+import {
+  isInMonth,
+  isPresent,
+  lastMonthKeys,
+  monthlyAttendance,
+  monthlySums,
+  percentChange,
+  runningTotals,
+  type MonthKey,
+} from "@/lib/dashboard-data";
+import {
+  levelDistribution,
+  monthlyCounts,
+  pointsChange,
+  referenceDate,
+  subjectAverages,
+} from "@/lib/stats-data";
 import { StatisticsView, type StatsData } from "./statistics-view";
-import { CURRENT_YEAR } from "@/lib/school-year";
 
-const MONTH_LABELS = [
-  "Jan", "Fév", "Mar", "Avr", "Mai", "Juin",
-  "Juil", "Août", "Sep", "Oct", "Nov", "Déc",
-];
-
-/** Les 6 derniers mois, du plus ancien au plus récent. */
-function lastSixMonths() {
-  const months: { key: string; label: string; year: number; month: number }[] = [];
-  const now = new Date();
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    months.push({
-      key: `${d.getFullYear()}-${d.getMonth()}`,
-      label: MONTH_LABELS[d.getMonth()],
-      year: d.getFullYear(),
-      month: d.getMonth(),
-    });
-  }
-  return months;
+/** « sept. » devient « Sept » : libellés d'axe courts. */
+function shortLabel(value: string) {
+  const trimmed = value.replace(/\.$/, "");
+  return trimmed.charAt(0).toLocaleUpperCase() + trimmed.slice(1);
 }
 
-export default async function StatisticsPage() {
-  const user = await requireFeature(FEATURES.ADVANCED_STATS, ROLES.DIRECTOR);
-  const months = lastSixMonths();
-  const since = new Date(months[0].year, months[0].month, 1);
+const sameMonth = (a: MonthKey, b: MonthKey) => a.year === b.year && a.month === b.month;
 
-  const [students, attendance, payments, grades, classes] = await Promise.all([
+export default async function StatisticsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ annee?: string }>;
+}) {
+  const user = await requireFeature(FEATURES.ADVANCED_STATS, ROLES.DIRECTOR);
+  const schoolId = user.schoolId;
+  const { annee } = await searchParams;
+  const { locale } = await getTranslations();
+  const now = new Date();
+
+  const years = await prisma.academicYear.findMany({
+    where: { schoolId },
+    orderBy: { startDate: "desc" },
+    select: { id: true, label: true, isCurrent: true, endDate: true },
+  });
+  const year = years.find((y) => y.id === annee) ?? years.find((y) => y.isCurrent) ?? years[0] ?? null;
+  const isCurrent = year?.isCurrent ?? true;
+
+  // Douze mois jusqu'au mois de référence : aujourd'hui pour l'année en
+  // cours, la fin de l'année pour une année terminée.
+  const reference = year ? referenceDate(year.endDate, now) : now;
+  const months = lastMonthKeys(reference, 12);
+  const trendMonths = months.slice(-6);
+  const from = new Date(Date.UTC(months[0].year, months[0].month, 1));
+  const to = new Date(Date.UTC(reference.getUTCFullYear(), reference.getUTCMonth() + 1, 1));
+
+  const classes = year
+    ? await prisma.classRoom.findMany({
+        where: { schoolId, academicYearId: year.id },
+        select: {
+          id: true,
+          level: true,
+          // Même règle que les autres écrans pour l'année en cours : seuls les
+          // élèves actifs comptent. Une année passée garde tous ses élèves.
+          _count: { select: { students: { where: isCurrent ? { status: "ACTIVE" } : {} } } },
+        },
+      })
+    : [];
+  const classIds = classes.map((c) => c.id);
+
+  const [students, attendance, payments, grades] = await Promise.all([
     prisma.student.findMany({
-      where: { schoolId: user.schoolId, status: "ACTIVE" },
-      select: { gender: true, classRoom: { select: { level: true } } },
+      where: isCurrent ? { schoolId, status: "ACTIVE" } : { schoolId, classId: { in: classIds } },
+      select: { gender: true, createdAt: true },
     }),
     prisma.attendanceRecord.findMany({
-      where: { schoolId: user.schoolId, date: { gte: since } },
+      where: { schoolId, classId: { in: classIds }, date: { gte: from, lt: to } },
       select: { date: true, status: true },
     }),
     prisma.payment.findMany({
-      where: { schoolId: user.schoolId, paidAt: { gte: since } },
+      where: { schoolId, paidAt: { gte: from, lt: to } },
       select: { paidAt: true, amount: true },
     }),
-    prisma.grade.findMany({
-      where: {
-        exam: { schoolId: user.schoolId },
-        isAbsent: false,
-        score: { not: null },
-      },
-      select: {
-        score: true,
-        exam: { select: { maxScore: true, subject: { select: { name: true } } } },
-      },
-    }),
-    prisma.classRoom.findMany({
-      where: { schoolId: user.schoolId, ...CURRENT_YEAR },
-      // Même règle que partout ailleurs (tableau de bord, paramètres) :
-      // seuls les élèves actifs sont comptés, sinon la répartition par niveau
-      // annonçait un total différent des autres écrans.
-      select: {
-        level: true,
-        _count: { select: { students: { where: { status: "ACTIVE" } } } },
-      },
-    }),
+    year
+      ? prisma.grade.findMany({
+          where: {
+            exam: { schoolId, academicYearId: year.id },
+            isAbsent: false,
+            score: { not: null },
+          },
+          select: {
+            score: true,
+            createdAt: true,
+            exam: { select: { maxScore: true, subject: { select: { name: true } } } },
+          },
+        })
+      : Promise.resolve([]),
   ]);
 
-  // — Présence : % de présents par mois
-  const attendanceByMonth = months.map((m) => {
-    const records = attendance.filter(
-      (a) => a.date.getFullYear() === m.year && a.date.getMonth() === m.month,
-    );
-    const present = records.filter((a) => a.status === "PRESENT" || a.status === "LATE").length;
-    return {
-      label: m.label,
-      value: records.length === 0 ? 0 : Math.round((present / records.length) * 100),
-    };
+  const monthFormatter = new Intl.DateTimeFormat(locale === "ar" ? "ar-u-nu-latn" : locale, {
+    month: "short",
+    timeZone: "UTC",
   });
+  const label = (key: MonthKey) =>
+    shortLabel(monthFormatter.format(new Date(Date.UTC(key.year, key.month, 1))));
 
-  // — Revenus encaissés par mois
-  const revenueByMonth = months.map((m) => ({
-    label: m.label,
-    value: payments
-      .filter((p) => p.paidAt.getFullYear() === m.year && p.paidAt.getMonth() === m.month)
-      .reduce((sum, p) => sum + p.amount, 0),
-  }));
+  // — Graphiques mensuels. Un mois sans appel est omis, pas compté à zéro.
+  const attendanceRates = monthlyAttendance(attendance, months);
+  const revenue = monthlySums(payments.map((p) => ({ at: p.paidAt, amount: p.amount })), months);
+  const trendRates = monthlyAttendance(attendance, trendMonths);
+  const present = attendance.filter((a) => isPresent(a.status)).length;
+  const last = months.length - 1;
 
-  // — Moyenne par matière, ramenée sur 20
-  const bySubject = new Map<string, { total: number; count: number }>();
-  for (const g of grades) {
-    if (g.score == null) continue;
-    const name = g.exam.subject.name;
-    const scaled = (g.score / (g.exam.maxScore || 20)) * 20;
-    const entry = bySubject.get(name) ?? { total: 0, count: 0 };
-    entry.total += scaled;
-    entry.count += 1;
-    bySubject.set(name, entry);
-  }
-  const subjectAverages = [...bySubject.entries()]
-    .map(([label, { total, count }]) => ({
-      label,
-      value: Math.round((total / count) * 10) / 10,
-    }))
-    .sort((a, b) => b.value - a.value);
+  const averages = subjectAverages(
+    grades.flatMap((g) =>
+      g.score == null ? [] : [{ score: g.score, maxScore: g.exam.maxScore, subject: g.exam.subject.name }],
+    ),
+  );
+  const levels = levelDistribution(classes.map((c) => ({ level: c.level, count: c._count.students })));
 
-  // — Répartition par niveau
-  const byLevel = new Map<string, number>();
-  for (const c of classes) {
-    byLevel.set(c.level, (byLevel.get(c.level) ?? 0) + c._count.students);
-  }
-  const levelDistribution = [...byLevel.entries()]
-    .map(([label, value]) => ({ label, value }))
-    .filter((d) => d.value > 0)
-    .sort((a, b) => b.value - a.value);
-
-  // Un élève sans classe n'apparaît dans aucun niveau : ce sous-total est donc
-  // légitimement inférieur à l'effectif de l'école, mais il faut le dire —
-  // sinon le chiffre isolé passe pour une incohérence.
-  const studentsInAClass = levelDistribution.reduce((sum, d) => sum + d.value, 0);
-
-  // — Répartition par genre
   const boys = students.filter((s) => s.gender === "M").length;
   const girls = students.filter((s) => s.gender === "F").length;
-  const unknown = students.length - boys - girls;
-
-  const totalRevenue = revenueByMonth.reduce((sum, m) => sum + m.value, 0);
-  const overallAttendance =
-    attendance.length === 0
-      ? 0
-      : Math.round(
-          (attendance.filter((a) => a.status === "PRESENT" || a.status === "LATE").length /
-            attendance.length) *
-            100,
-        );
 
   const data: StatsData = {
+    years: years.map((y) => ({ id: y.id, label: y.label })),
+    yearId: year?.id ?? null,
+
     totalStudents: students.length,
-    overallAttendance,
-    totalRevenue,
-    subjectCount: subjectAverages.length,
-    attendanceByMonth,
-    revenueByMonth,
-    subjectAverages,
-    levelDistribution,
-    studentsInAClass,
-    gender: { boys, girls, unknown },
+    newThisMonth: students.filter((s) => isInMonth(s.createdAt, months[last])).length,
+    studentTrend: runningTotals(students.map((s) => s.createdAt), trendMonths),
+
+    overallAttendance: attendance.length === 0 ? null : Math.round((present / attendance.length) * 100),
+    attendanceChange: pointsChange(trendRates),
+    attendanceTrend: trendRates.map((r) => r.rate),
+
+    totalRevenue: revenue.reduce((sum, v) => sum + v, 0),
+    revenueChange: percentChange(revenue[last] ?? 0, revenue[last - 1] ?? 0),
+    revenueTrend: revenue.slice(-6),
+
+    subjectCount: averages.length,
+    gradeCount: grades.length,
+    gradesTrend: monthlyCounts(grades.map((g) => g.createdAt), trendMonths),
+
+    attendanceByMonth: attendanceRates.map(({ month, rate }) => ({
+      label: label(month),
+      value: rate,
+      index: months.findIndex((m) => sameMonth(m, month)),
+    })),
+    revenueByMonth: months.map((m, i) => ({ label: label(m), value: revenue[i], index: i })),
+    subjectAverages: averages,
+    levelDistribution: levels,
+    studentsInAClass: levels.reduce((sum, d) => sum + d.value, 0),
+    gender: { boys, girls, unknown: students.length - boys - girls },
+    table: months.map((m, i) => ({
+      label: label(m),
+      attendance: attendanceRates.find((r) => sameMonth(r.month, m))?.rate ?? null,
+      revenue: revenue[i],
+    })),
   };
 
   return <StatisticsView data={data} />;
