@@ -56,7 +56,7 @@ export function FeeDetailSheet({
       <SheetContent closeLabel={t("common.close")}>
         {fee && (
           <>
-            <div className="border-b border-primary-100 bg-gradient-to-br from-primary-50 via-surface to-emerald-50 px-6 pb-5 pt-8">
+            <div className="border-b border-primary-200 bg-gradient-to-br from-primary-50 via-surface to-emerald-50 px-6 pb-5 pt-8">
               <div className="flex items-center gap-4 pe-6">
                 <StudentAvatar
                   firstName={fee.student.firstName}

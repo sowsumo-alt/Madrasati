@@ -79,9 +79,9 @@ export function ChildrenStep({
           <section
             key={child.key}
             aria-label={t("family.child").replace("{n}", String(index + 1))}
-            className="overflow-hidden rounded-xl border border-primary-100 bg-surface"
+            className="overflow-hidden rounded-xl border border-primary-200 bg-surface"
           >
-            <div className="flex items-center justify-between gap-3 border-b border-primary-100 bg-primary-50/70 px-4 py-2">
+            <div className="flex items-center justify-between gap-3 border-b border-primary-200 bg-primary-50/70 px-4 py-2">
               <h3 className="flex items-center gap-2.5 text-sm font-semibold text-primary-900">
                 <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary-700 text-xs font-bold text-white">
                   {index + 1}

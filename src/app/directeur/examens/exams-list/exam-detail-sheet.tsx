@@ -54,7 +54,7 @@ export function ExamDetailSheet({
       <SheetContent closeLabel={t("common.close")}>
         {group && head && style && Icon && (
           <>
-            <div className="border-b border-primary-100 bg-gradient-to-br from-primary-50 via-surface to-emerald-50 px-6 pb-5 pt-8">
+            <div className="border-b border-primary-200 bg-gradient-to-br from-primary-50 via-surface to-emerald-50 px-6 pb-5 pt-8">
               <div className="flex items-start gap-4 pe-6">
                 <span className={cn("flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl", style.badge)}>
                   <Icon className="h-7 w-7" strokeWidth={1.75} />

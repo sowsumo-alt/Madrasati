@@ -85,7 +85,7 @@ export function PaymentStep({
           })}
         </ul>
         <div
-          className="flex items-center justify-between gap-3 border-t border-primary-100 bg-primary-50/70 px-4 py-3.5"
+          className="flex items-center justify-between gap-3 border-t border-primary-200 bg-primary-50/70 px-4 py-3.5"
           aria-live="polite"
         >
           <span className="font-semibold text-primary-900">{t("family.total")}</span>

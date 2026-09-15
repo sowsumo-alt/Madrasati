@@ -25,8 +25,8 @@ export function FormSection({
   children: ReactNode;
 }) {
   return (
-    <section className={cn("overflow-hidden rounded-xl border border-primary-100 bg-surface", className)}>
-      <div className="flex items-center gap-2.5 border-b border-primary-100 bg-primary-50/70 px-4 py-2.5">
+    <section className={cn("overflow-hidden rounded-xl border border-primary-200 bg-surface", className)}>
+      <div className="flex items-center gap-2.5 border-b border-primary-200 bg-primary-50/70 px-4 py-2.5">
         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-surface text-primary-600 shadow-sm">
           <Icon className="h-4 w-4" strokeWidth={2.25} />
         </span>

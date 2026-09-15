@@ -196,7 +196,7 @@ export default async function FamilyReceiptPage({
 
         <section className="mt-6">
           <h2 className={label}>{t("family.receiptChildren")}</h2>
-          <div className="mt-2 overflow-hidden rounded-xl border border-primary-100">
+          <div className="mt-2 overflow-hidden rounded-xl border border-primary-200">
             <table className="w-full text-sm">
               <thead className="bg-primary-50/70">
                 <tr>

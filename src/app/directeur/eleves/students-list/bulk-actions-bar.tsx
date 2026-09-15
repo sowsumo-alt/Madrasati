@@ -19,7 +19,7 @@ export function BulkActionsBar({
   const { t } = useLanguage();
 
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b border-primary-100 bg-primary-50/70 px-4 py-2.5">
+    <div className="flex flex-wrap items-center gap-2 border-b border-primary-200 bg-primary-50/70 px-4 py-2.5">
       <span className="me-auto text-sm font-semibold text-primary-900">
         {t("students.selectedCount").replace("{count}", String(count))}
       </span>

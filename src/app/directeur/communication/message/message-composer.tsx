@@ -296,7 +296,7 @@ export function MessageComposer({
           )}
         </div>
 
-        <aside className="flex h-fit flex-col items-center rounded-2xl border border-primary-100 bg-primary-50/50 p-5 text-center">
+        <aside className="flex h-fit flex-col items-center rounded-2xl border border-primary-200 bg-primary-50/50 p-5 text-center">
           <span className="flex h-14 w-14 items-center justify-center rounded-full bg-surface text-emerald-600 shadow-sm">
             <WhatsAppIcon className="h-7 w-7" />
           </span>
