@@ -35,7 +35,7 @@ function visibleNavItems(items: NavItem[], plan: Plan, navKey: NavKey) {
  * d'une famille à « Parents ».
  */
 function menuPath(pathname: string) {
-  if (pathname.startsWith("/directeur/familles/inscription")) return "/directeur/eleves";
+  if (pathname.startsWith("/directeur/familles/inscription")) return "/directeur/inscription";
   if (pathname.startsWith("/directeur/familles/")) return "/directeur/parents";
   return pathname;
 }

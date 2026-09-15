@@ -52,7 +52,7 @@ const directorNavGroups: NavGroup[] = [
   {
     labelKey: "nav.category.schooling",
     items: [
-      { href: "/directeur/eleves?new=1", labelKey: "nav.enrollment", icon: ClipboardPlus },
+      { href: "/directeur/inscription", labelKey: "nav.enrollment", icon: ClipboardPlus },
       { href: "/directeur/eleves", labelKey: "nav.students", icon: Users },
       { href: "/directeur/classes", labelKey: "nav.classes", icon: School },
       { href: "/directeur/reinscription", labelKey: "nav.reenrollment", icon: UserPlus },
