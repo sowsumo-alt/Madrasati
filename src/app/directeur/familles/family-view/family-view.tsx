@@ -139,7 +139,7 @@ export function FamilyView({ data }: { data: FamilyPageData }) {
             </span>
             <div className="min-w-0">
               <p className="truncate text-xl font-bold" data-testid={`kpi-${key}`} style={{ fontVariantNumeric: "tabular-nums" }}>
-                {value}
+                <span dir="ltr">{value}</span>
               </p>
               <p className="line-clamp-2 text-sm leading-snug opacity-70">{label}</p>
             </div>
@@ -185,16 +185,16 @@ export function FamilyView({ data }: { data: FamilyPageData }) {
                   <div className="grid grid-cols-3 gap-4 text-end text-xs" style={{ fontVariantNumeric: "tabular-nums" }}>
                     <div>
                       <p className="text-foreground/50">{t("family.billed")}</p>
-                      <p className="font-semibold text-foreground">{formatMRU(c.billed)}</p>
+                      <p className="font-semibold text-foreground" dir="ltr">{formatMRU(c.billed)}</p>
                     </div>
                     <div>
                       <p className="text-foreground/50">{t("family.paid")}</p>
-                      <p className="font-semibold text-emerald-700">{formatMRU(c.paid)}</p>
+                      <p className="font-semibold text-emerald-700" dir="ltr">{formatMRU(c.paid)}</p>
                     </div>
                     <div>
                       <p className="text-foreground/50">{t("family.due")}</p>
                       <p className={cn("font-semibold", c.due > 0 ? "text-amber-700" : "text-foreground/45")}>
-                        {c.due > 0 ? formatMRU(c.due) : t("family.upToDate")}
+                        {c.due > 0 ? <span dir="ltr">{formatMRU(c.due)}</span> : t("family.upToDate")}
                       </p>
                     </div>
                   </div>
@@ -264,7 +264,7 @@ export function FamilyView({ data }: { data: FamilyPageData }) {
                   </div>
                   <div className="shrink-0 text-end">
                     <p className="font-bold text-foreground" style={{ fontVariantNumeric: "tabular-nums" }}>
-                      {formatMRU(h.total)}
+                      <span dir="ltr">{formatMRU(h.total)}</span>
                     </p>
                     <Link
                       href={

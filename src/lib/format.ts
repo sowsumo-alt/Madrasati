@@ -107,6 +107,15 @@ export function formatEventTime(date: Date | string) {
 }
 
 /**
+ * Isole un montant ou un numéro inséré dans une phrase : en arabe, sans cela,
+ * « 1 000 MRU » s'affiche « MRU 1 000 ». Même rôle que dir="ltr" sur un
+ * élément, pour du texte assemblé par replace().
+ */
+export function ltrIsolate(text: string): string {
+  return `\u2066${text}\u2069`;
+}
+
+/**
  * Numéro lisible : « +222 46 52 38 96 » plutôt que « +22246523896 ».
  * Un numéro mauritanien tient en huit chiffres après l'indicatif ; tout
  * autre format est rendu tel quel, sans rien inventer.

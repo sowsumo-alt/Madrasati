@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { ArrowLeft, ArrowRight, Check, ChevronRight, Loader2, Phone, UsersRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { familySurname, familyTotal, parseAmount } from "@/lib/family";
-import { formatMRU } from "@/lib/format";
+import { formatMRU, formatPhone, ltrIsolate } from "@/lib/format";
 import type { PaymentMethod } from "@/lib/payment-methods";
 import { splitFullName } from "@/lib/student-form";
 import { useLanguage } from "@/lib/i18n/language-provider";
@@ -322,7 +322,7 @@ export function FamilyEnrollmentForm({
               <Button type="button" onClick={submit} disabled={submitting} className="sm:min-w-56">
                 {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                 {total > 0
-                  ? t("family.submitPay").replace("{amount}", formatMRU(total))
+                  ? t("family.submitPay").replace("{amount}", ltrIsolate(formatMRU(total)))
                   : t("family.submit").replace("{count}", String(children.length))}
               </Button>
             )}
@@ -335,9 +335,9 @@ export function FamilyEnrollmentForm({
             <p className="text-lg font-bold text-primary-900">{draft.familyName || "—"}</p>
             {draft.parentName && <p className="text-sm text-foreground/70">{draft.parentName}</p>}
             {phoneDigits.length >= 8 && (
-              <p className="mt-0.5 flex items-center gap-1.5 text-sm text-foreground/55" dir="ltr">
+              <p className="mt-0.5 flex items-center gap-1.5 text-sm text-foreground/55">
                 <Phone className="h-3.5 w-3.5" />
-                {draft.parentPhone}
+                <span dir="ltr">{formatPhone(`+${phoneDigits.length === 8 ? `222${phoneDigits}` : phoneDigits}`)}</span>
               </p>
             )}
           </div>
@@ -359,7 +359,7 @@ export function FamilyEnrollmentForm({
                         </span>
                       )}
                       {parseAmount(c.amount) > 0 && (
-                        <span className="text-xs font-medium text-foreground/60" style={{ fontVariantNumeric: "tabular-nums" }}>
+                        <span dir="ltr" className="text-xs font-medium text-foreground/60" style={{ fontVariantNumeric: "tabular-nums" }}>
                           {formatMRU(parseAmount(c.amount))}
                         </span>
                       )}
@@ -371,7 +371,7 @@ export function FamilyEnrollmentForm({
           </div>
           <div className="flex items-center justify-between border-t border-border/70 pt-3">
             <span className="text-sm font-semibold text-foreground/70">{t("family.total")}</span>
-            <span className="text-xl font-bold text-primary-800" style={{ fontVariantNumeric: "tabular-nums" }}>
+            <span dir="ltr" className="text-xl font-bold text-primary-800" style={{ fontVariantNumeric: "tabular-nums" }}>
               {formatMRU(total)}
             </span>
           </div>

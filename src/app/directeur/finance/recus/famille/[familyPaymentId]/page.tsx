@@ -7,7 +7,15 @@ import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { FEATURES, schoolHasFeature } from "@/lib/plans";
 import { familyLabel } from "@/lib/family";
-import { formatAmount, formatDateIn, formatLongDate, formatLongDateAr, formatMRU, formatPhone } from "@/lib/format";
+import {
+  formatAmount,
+  formatDateIn,
+  formatLongDate,
+  formatLongDateAr,
+  formatMRU,
+  formatPhone,
+  ltrIsolate,
+} from "@/lib/format";
 import { PrintButton } from "@/components/ui/print-button";
 import { PdfButton } from "@/components/ui/pdf-button";
 import { PaymentMethodLogo } from "@/components/ui/payment-method-logo";
@@ -217,7 +225,7 @@ export default async function FamilyReceiptPage({
                       className="whitespace-nowrap px-3 py-3 text-end font-semibold text-foreground"
                       style={{ fontVariantNumeric: "tabular-nums" }}
                     >
-                      {formatMRU(p.amount)}
+                      <span dir="ltr">{formatMRU(p.amount)}</span>
                     </td>
                   </tr>
                 ))}
@@ -250,12 +258,12 @@ export default async function FamilyReceiptPage({
               className="text-3xl font-bold text-primary-800"
               style={{ fontVariantNumeric: "tabular-nums" }}
             >
-              {formatMRU(familyPayment.total)}
+              <span dir="ltr">{formatMRU(familyPayment.total)}</span>
             </p>
           </div>
           {remaining > 0 && (
             <p className="mt-2 text-end text-sm font-medium text-amber-700">
-              {t("finance.remainingIs").replace("{amount}", formatMRU(remaining))}
+              {t("finance.remainingIs").replace("{amount}", ltrIsolate(formatMRU(remaining)))}
             </p>
           )}
         </div>

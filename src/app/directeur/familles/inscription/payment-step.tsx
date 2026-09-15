@@ -91,6 +91,7 @@ export function PaymentStep({
           <span className="font-semibold text-primary-900">{t("family.total")}</span>
           <span
             data-testid="family-total"
+            dir="ltr"
             className="text-2xl font-bold text-primary-800"
             style={{ fontVariantNumeric: "tabular-nums" }}
           >

@@ -31,7 +31,7 @@ import {
 import { buildTelUrl } from "@/lib/whatsapp";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { familyLabel, type FamilyBalance } from "@/lib/family";
-import { formatMRU } from "@/lib/format";
+import { formatMRU, ltrIsolate } from "@/lib/format";
 
 export interface ParentRow {
   id: string;
@@ -205,11 +205,11 @@ export function ParentsView({
                         ) : (
                           <>
                             <span className="block text-foreground/60">
-                              {t("family.paid")} : <span className="font-semibold text-emerald-700">{formatMRU(p.balance.paid)}</span>
+                              {t("family.paid")} : <span dir="ltr" className="font-semibold text-emerald-700">{formatMRU(p.balance.paid)}</span>
                             </span>
                             <span className={p.balance.due > 0 ? "font-semibold text-amber-700" : "font-semibold text-foreground/45"}>
                               {p.balance.due > 0
-                                ? t("family.dueAmount").replace("{amount}", formatMRU(p.balance.due))
+                                ? t("family.dueAmount").replace("{amount}", ltrIsolate(formatMRU(p.balance.due)))
                                 : t("family.upToDate")}
                             </span>
                           </>

@@ -15,7 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { PaymentMethodPicker } from "@/components/payments/payment-method-picker";
 import { familyTotal, parseAmount } from "@/lib/family";
-import { formatMRU } from "@/lib/format";
+import { formatMRU, ltrIsolate } from "@/lib/format";
 import type { PaymentMethod } from "@/lib/payment-methods";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { recordFamilyPayment } from "../actions";
@@ -109,7 +109,7 @@ export function FamilyPaymentDialog({
                         {f.className && <span className="font-normal text-foreground/50"> · {f.className}</span>}
                       </label>
                       <p className="truncate text-xs text-foreground/55">
-                        {f.label} — {t("finance.remainingIs").replace("{amount}", formatMRU(f.remaining))}
+                        {f.label} — {t("finance.remainingIs").replace("{amount}", ltrIsolate(formatMRU(f.remaining)))}
                       </p>
                     </div>
                     <div className="relative w-36">
@@ -137,7 +137,7 @@ export function FamilyPaymentDialog({
 
             <div className="flex items-center justify-between rounded-xl bg-primary-50/70 px-4 py-3" aria-live="polite">
               <span className="font-semibold text-primary-900">{t("family.total")}</span>
-              <span className="text-2xl font-bold text-primary-800" style={{ fontVariantNumeric: "tabular-nums" }}>
+              <span dir="ltr" className="text-2xl font-bold text-primary-800" style={{ fontVariantNumeric: "tabular-nums" }}>
                 {formatMRU(total)}
               </span>
             </div>
@@ -155,7 +155,7 @@ export function FamilyPaymentDialog({
           </Button>
           <Button type="button" disabled={total === 0 || tooHigh || saving} onClick={submit}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-            {t("family.payConfirm").replace("{amount}", formatMRU(total))}
+            {t("family.payConfirm").replace("{amount}", ltrIsolate(formatMRU(total)))}
           </Button>
         </DialogFooter>
       </DialogContent>
