@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils";
 import type { FeeRow } from "../finance-view";
 import { FeeStatusBadge, overdueText } from "./fee-status-badge";
 import { parentLine } from "./parent-line";
+import { FamilyBadge } from "@/components/family/family-badge";
 
 export interface FeeRowActions {
   onView: (fee: FeeRow) => void;
@@ -33,6 +34,8 @@ export interface FeeRowActions {
   onDelete: (fee: FeeRow) => void;
   /** Lien WhatsApp de relance ; `null` pour un frais soldé ou sans parent joignable. */
   reminderUrl: (fee: FeeRow) => string | null;
+  /** Filtre la liste sur la famille de ce parent. */
+  onFamily: (parentId: string) => void;
 }
 
 const checkboxClass = "h-4 w-4 cursor-pointer rounded border-border accent-primary-700";
@@ -230,6 +233,11 @@ export function PaymentsTable({
                     {parent && <span className="block truncate text-xs text-foreground/50">{parent}</span>}
                   </span>
                 </button>
+                {fee.parent && (
+                  <div className="ps-[3.25rem]">
+                    <FamilyBadge parent={fee.parent} onClick={() => actions.onFamily(fee.parent!.id)} />
+                  </div>
+                )}
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
                   {fee.student.className && <span className={classChip}>{fee.student.className}</span>}
                   <FeeStatusBadge status={fee.status} />
@@ -333,6 +341,12 @@ export function PaymentsTable({
                         )}
                       </span>
                     </button>
+                    {/* Hors du bouton de la fiche : un bouton ne peut pas en contenir un autre. */}
+                    {fee.parent && (
+                      <div className="ps-[3.25rem]">
+                        <FamilyBadge parent={fee.parent} onClick={() => actions.onFamily(fee.parent!.id)} />
+                      </div>
+                    )}
                   </td>
                   <td className="hidden px-3 py-3 xl:table-cell">
                     {fee.student.className ? (

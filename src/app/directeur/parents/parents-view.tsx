@@ -12,6 +12,7 @@ import {
   KeyRound,
   Loader2,
   Lock,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +30,8 @@ import {
 } from "./parent-form-dialog";
 import { buildTelUrl } from "@/lib/whatsapp";
 import { useLanguage } from "@/lib/i18n/language-provider";
+import { familyLabel, type FamilyBalance } from "@/lib/family";
+import { formatMRU } from "@/lib/format";
 
 export interface ParentRow {
   id: string;
@@ -38,7 +41,11 @@ export interface ParentRow {
   email: string | null;
   address: string | null;
   relationship: string | null;
-  children: { id: string; name: string }[];
+  /** Nom de la famille, s'il a été saisi (sinon « Famille » + nom). */
+  familyName: string | null;
+  children: { id: string; name: string; className: string | null }[];
+  /** Situation financière de la famille, tous enfants confondus. */
+  balance: FamilyBalance;
   /** Identifiant du compte de connexion, s'il en a un. */
   userId: string | null;
   accountEmail: string | null;
@@ -146,6 +153,7 @@ export function ParentsView({
                   <th className="px-5 py-3">Nom</th>
                   <th className="px-5 py-3">{t("parents.phone")}</th>
                   <th className="px-5 py-3">Enfant(s)</th>
+                  <th className="px-5 py-3">{t("family.colBalance")}</th>
                   <th className="px-5 py-3">{t("parents.access")}</th>
                   <th className="px-5 py-3 text-right">Actions</th>
                 </tr>
@@ -162,13 +170,49 @@ export function ParentsView({
                             ({p.relationship})
                           </span>
                         )}
+                        {p.children.length > 0 && (
+                          <Link
+                            href={`/directeur/familles/${p.id}`}
+                            className="mt-0.5 flex w-fit items-center gap-1 text-xs font-semibold text-violet-700 hover:underline"
+                          >
+                            <Users className="h-3 w-3" />
+                            {familyLabel(p, t("family.defaultName"))}
+                          </Link>
+                        )}
                       </td>
                       <td className="px-5 py-3 text-foreground/70">{p.phone}</td>
                       <td className="px-5 py-3 text-foreground/70">
                         {p.children.length === 0 ? (
                           <span className="text-foreground/40">{t("parents.noChild")}</span>
                         ) : (
-                          p.children.map((c) => c.name).join(", ")
+                          <ul className="space-y-1">
+                            {p.children.map((c) => (
+                              <li key={c.id} className="flex items-center gap-2">
+                                <span className="truncate">{c.name}</span>
+                                {c.className && (
+                                  <span className="shrink-0 rounded-full bg-primary-50 px-2 py-0.5 text-[11px] font-semibold text-primary-700">
+                                    {c.className}
+                                  </span>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </td>
+                      <td className="whitespace-nowrap px-5 py-3 text-xs" style={{ fontVariantNumeric: "tabular-nums" }}>
+                        {p.balance.billed === 0 ? (
+                          <span className="text-foreground/40">{t("family.noFees")}</span>
+                        ) : (
+                          <>
+                            <span className="block text-foreground/60">
+                              {t("family.paid")} : <span className="font-semibold text-emerald-700">{formatMRU(p.balance.paid)}</span>
+                            </span>
+                            <span className={p.balance.due > 0 ? "font-semibold text-amber-700" : "font-semibold text-foreground/45"}>
+                              {p.balance.due > 0
+                                ? t("family.dueAmount").replace("{amount}", formatMRU(p.balance.due))
+                                : t("family.upToDate")}
+                            </span>
+                          </>
                         )}
                       </td>
                       <td className="px-5 py-3">
@@ -225,6 +269,16 @@ export function ParentsView({
                                 <KeyRound className="h-4 w-4" />
                               )}
                             </button>
+                          )}
+                          {p.children.length > 0 && (
+                            <Link
+                              href={`/directeur/familles/${p.id}`}
+                              title={t("family.open")}
+                              aria-label={t("family.open")}
+                              className="flex h-8 w-8 items-center justify-center rounded-lg text-violet-700 transition-colors hover:bg-violet-50"
+                            >
+                              <Users className="h-4 w-4" />
+                            </Link>
                           )}
                           <button
                             onClick={() => openEdit(p)}

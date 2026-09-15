@@ -29,7 +29,19 @@ function visibleNavItems(items: NavItem[], plan: Plan, navKey: NavKey) {
   }));
 }
 
-function isActive(pathname: string, href: string) {
+/**
+ * Pages sans entrée de menu propre, rattachées à celle dont elles
+ * prolongent le travail : l'inscription d'une famille à « Élèves », la fiche
+ * d'une famille à « Parents ».
+ */
+function menuPath(pathname: string) {
+  if (pathname.startsWith("/directeur/familles/inscription")) return "/directeur/eleves";
+  if (pathname.startsWith("/directeur/familles/")) return "/directeur/parents";
+  return pathname;
+}
+
+function isActive(rawPathname: string, href: string) {
+  const pathname = menuPath(rawPathname);
   // Une entrée qui porte un filtre (?statut=…) ou vise une section (#annees)
   // partage son chemin avec une autre entrée : seule cette dernière s'allume.
   if (/[?#]/.test(href)) return false;

@@ -2,6 +2,7 @@ import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { schoolHasFeature, FEATURES } from "@/lib/plans";
+import { familyBalance } from "@/lib/family";
 import { ParentsView, type ParentRow } from "./parents-view";
 
 export default async function ParentsPage() {
@@ -12,7 +13,16 @@ export default async function ParentsPage() {
       where: { schoolId: user.schoolId },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
       include: {
-        studentLinks: { include: { student: true } },
+        studentLinks: {
+          include: {
+            student: {
+              include: {
+                classRoom: { select: { name: true } },
+                fees: { select: { amount: true, payments: { select: { amount: true } } } },
+              },
+            },
+          },
+        },
         user: { select: { email: true } },
       },
     }),
@@ -34,10 +44,21 @@ export default async function ParentsPage() {
     email: p.email,
     address: p.address,
     relationship: p.relationship,
+    familyName: p.familyName,
     children: p.studentLinks.map((l) => ({
       id: l.student.id,
       name: `${l.student.firstName} ${l.student.lastName}`,
+      className: l.student.classRoom?.name ?? null,
     })),
+    // Situation de toute la famille, frais par frais, tous enfants confondus.
+    balance: familyBalance(
+      p.studentLinks.flatMap((l) =>
+        l.student.fees.map((f) => ({
+          amount: f.amount,
+          totalPaid: f.payments.reduce((sum, x) => sum + x.amount, 0),
+        })),
+      ),
+    ),
     userId: p.userId,
     accountEmail: p.user?.email ?? null,
   }));

@@ -53,14 +53,14 @@ function GenderToggle({
  * en ajoute autant que nécessaire.
  */
 export function ChildrenStep({
-  children,
+  entries,
   errors,
   classes,
   onChange,
   onAdd,
   onRemove,
 }: {
-  children: ChildDraft[];
+  entries: ChildDraft[];
   errors: Record<string, FieldErrors>;
   classes: EnrollmentClassOption[];
   onChange: (key: string, patch: Partial<ChildDraft>) => void;
@@ -71,7 +71,7 @@ export function ChildrenStep({
 
   return (
     <div className="space-y-3">
-      {children.map((child, index) => {
+      {entries.map((child, index) => {
         const e = errors[child.key] ?? {};
         const id = (field: string) => `${child.key}-${field}`;
         const className = classes.find((c) => c.id === child.classId)?.name;
@@ -93,7 +93,7 @@ export function ChildrenStep({
                   </span>
                 )}
               </h3>
-              {children.length > 1 && (
+              {entries.length > 1 && (
                 <button
                   type="button"
                   onClick={() => onRemove(child.key)}

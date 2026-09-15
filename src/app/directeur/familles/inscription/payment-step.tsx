@@ -24,7 +24,7 @@ const MODES: { mode: FamilyPaymentMode; icon: typeof Receipt }[] = [
  * unique détaillé) et un paiement par enfant (un reçu chacun).
  */
 export function PaymentStep({
-  children,
+  entries,
   classes,
   onAmountChange,
   mode,
@@ -32,7 +32,7 @@ export function PaymentStep({
   method,
   onMethodChange,
 }: {
-  children: ChildDraft[];
+  entries: ChildDraft[];
   classes: EnrollmentClassOption[];
   onAmountChange: (key: string, amount: string) => void;
   mode: FamilyPaymentMode;
@@ -41,15 +41,15 @@ export function PaymentStep({
   onMethodChange: (method: PaymentMethod) => void;
 }) {
   const { t } = useLanguage();
-  const total = familyTotal(children.map((c) => c.amount));
-  const payingChildren = children.filter((c) => parseAmount(c.amount) > 0).length;
+  const total = familyTotal(entries.map((c) => c.amount));
+  const payingChildren = entries.filter((c) => parseAmount(c.amount) > 0).length;
 
   return (
     <div className="space-y-4">
       <FormSection icon={Wallet} title={t("family.feesTitle")} bodyClassName="block p-0">
         <p className="px-4 pt-3 text-xs text-foreground/55">{t("family.feesHint")}</p>
         <ul className="divide-y divide-border/70 px-4">
-          {children.map((c) => {
+          {entries.map((c) => {
             const name = `${c.firstName} ${c.lastName}`.trim();
             const className = classes.find((cl) => cl.id === c.classId)?.name;
             const inputId = `montant-${c.key}`;

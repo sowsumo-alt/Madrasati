@@ -35,6 +35,9 @@ import { PaymentsBulkBar } from "./payments-list/payments-bulk-bar";
 import { FeeDetailSheet } from "./payments-list/fee-detail-sheet";
 import { RemindersDialog } from "./payments-list/reminders-dialog";
 import { PaymentsReport } from "./payments-list/payments-report";
+import { FamilyFilterBanner } from "@/components/family/family-filter-banner";
+import { FamilyPaymentDialog } from "../familles/family-view/family-payment-dialog";
+import type { FamilyOpenFee } from "../familles/family-view/types";
 
 export interface FeeRow {
   id: string;
@@ -55,7 +58,16 @@ export interface FeeRow {
     classId: string | null;
     className: string | null;
   };
-  parent: { firstName: string; lastName: string; phone: string; relationship: string | null } | null;
+  parent: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    phone: string;
+    relationship: string | null;
+    familyName: string | null;
+    /** Enfants rattachés à ce parent : sa famille, à partir de deux. */
+    familySize: number;
+  } | null;
   /** Du plus ancien au plus récent. */
   payments: { id: string; receiptNumber: string; amount: number; method: string; paidAt: string }[];
 }
@@ -84,6 +96,7 @@ export function FinanceView({
   reminderTemplate,
   reminderTemplateAr,
   initialStatus = "ALL",
+  initialFamilyFilter = null,
 }: {
   fees: FeeRow[];
   kpis: PaymentsKpis;
@@ -93,6 +106,8 @@ export function FinanceView({
   reminderTemplateAr?: string;
   /** Filtre au premier affichage (voir le lien « Impayés » du menu). */
   initialStatus?: PaymentStatusFilter;
+  /** Famille présélectionnée (?famille=<parentId>). */
+  initialFamilyFilter?: string | null;
 }) {
   const { t, locale } = useLanguage();
   const router = useRouter();
@@ -115,6 +130,8 @@ export function FinanceView({
   const [deleting, setDeleting] = useState(false);
   const [remindersOpen, setRemindersOpen] = useState(false);
   const [exportRows, setExportRows] = useState<FeeRow[] | null>(null);
+  const [familyFilter, setFamilyFilter] = useState<string | null>(initialFamilyFilter);
+  const [familyPayOpen, setFamilyPayOpen] = useState(false);
 
   const classes = useMemo(() => {
     const names = new Map<string, string>();
@@ -131,10 +148,29 @@ export function FinanceView({
       fees.filter(
         (f) =>
           matchesFeeFilters(f, filters) &&
-          matchesLetter(`${f.student.firstName} ${f.student.lastName}`, letter),
+          matchesLetter(`${f.student.firstName} ${f.student.lastName}`, letter) &&
+          (!familyFilter || f.parent?.id === familyFilter),
       ),
-    [fees, filters, letter],
+    [fees, filters, letter, familyFilter],
   );
+
+  // Famille affichée : son parent, et ses frais encore dus pour le paiement
+  // familial (un seul versement, un seul reçu).
+  const familyParent = familyFilter
+    ? (fees.find((f) => f.parent?.id === familyFilter)?.parent ?? null)
+    : null;
+  const familyOpenFees: FamilyOpenFee[] = familyFilter
+    ? fees
+        .filter((f) => f.parent?.id === familyFilter && f.remaining > 0)
+        .map((f) => ({
+          feeId: f.id,
+          studentId: f.student.id,
+          studentName: `${f.student.firstName} ${f.student.lastName}`,
+          className: f.student.className,
+          label: f.label,
+          remaining: f.remaining,
+        }))
+    : [];
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
   const pageRows = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -222,6 +258,10 @@ export function FinanceView({
     onRecordPayment: openPayment,
     onDelete: setDeleteTarget,
     reminderUrl,
+    onFamily: (parentId) => {
+      setFamilyFilter(parentId);
+      setPage(1);
+    },
   };
 
   /**
@@ -376,6 +416,24 @@ export function FinanceView({
         />
       </div>
 
+      {familyFilter && familyParent && (
+        <FamilyFilterBanner
+          parentId={familyFilter}
+          parent={familyParent}
+          clearLabelKey="family.clearPayments"
+          onClear={() => {
+            setFamilyFilter(null);
+            setPage(1);
+          }}
+          actions={
+            <Button size="sm" className="h-9" onClick={() => setFamilyPayOpen(true)} disabled={familyOpenFees.length === 0}>
+              <HandCoins className="h-4 w-4" />
+              {t("family.payFamily")}
+            </Button>
+          }
+        />
+      )}
+
       <PaymentsToolbar
         filters={filters}
         onChange={updateFilters}
@@ -430,6 +488,15 @@ export function FinanceView({
           </>
         )}
       </section>
+
+      {familyFilter && (
+        <FamilyPaymentDialog
+          open={familyPayOpen}
+          onOpenChange={setFamilyPayOpen}
+          parentId={familyFilter}
+          fees={familyOpenFees}
+        />
+      )}
 
       <FeeDetailSheet
         fee={detailFee}

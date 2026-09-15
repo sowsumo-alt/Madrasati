@@ -15,10 +15,10 @@ const DEFAULT_REMINDER_AR =
 export default async function FinancePage({
   searchParams,
 }: {
-  searchParams: Promise<{ statut?: string }>;
+  searchParams: Promise<{ statut?: string; famille?: string }>;
 }) {
   const user = await requireRole(ROLES.DIRECTOR);
-  const { statut } = await searchParams;
+  const { statut, famille } = await searchParams;
   // Statuts, retards et tendances sont calculés ici, au rendu serveur : lus
   // dans le navigateur, un frais échu à minuit pouvait changer de badge entre
   // le HTML reçu et l'hydratation.
@@ -41,7 +41,15 @@ export default async function FinancePage({
               take: 1,
               select: {
                 parent: {
-                  select: { firstName: true, lastName: true, phone: true, relationship: true },
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    phone: true,
+                    relationship: true,
+                    familyName: true,
+                    _count: { select: { studentLinks: true } },
+                  },
                 },
               },
             },
@@ -71,7 +79,18 @@ export default async function FinancePage({
     .map((f) => {
       const totalPaid = f.payments.reduce((sum, p) => sum + p.amount, 0);
       const amounts = { amount: f.amount, totalPaid, dueDate: f.dueDate };
-      const parent = f.student.parentLinks[0]?.parent ?? null;
+      const linked = f.student.parentLinks[0]?.parent ?? null;
+      const parent = linked
+        ? {
+            id: linked.id,
+            firstName: linked.firstName,
+            lastName: linked.lastName,
+            phone: linked.phone,
+            relationship: linked.relationship,
+            familyName: linked.familyName,
+            familySize: linked._count.studentLinks,
+          }
+        : null;
       return {
         id: f.id,
         label: f.label,
@@ -141,8 +160,10 @@ export default async function FinancePage({
       // « Paiements » et « Impayés » du menu ouvrent ce même écran, chacun
       // avec son filtre : la clé remonte la vue quand l'adresse change, sans
       // quoi le filtre du premier affichage restait en place.
-      key={statut ?? "tous"}
+      key={`${statut ?? "tous"}|${famille ?? ""}`}
       initialStatus={statut === "impayes" ? "UNPAID" : "ALL"}
+      // Frais d'une même famille (?famille=<parentId>), depuis sa fiche.
+      initialFamilyFilter={famille && rows.some((r) => r.parent?.id === famille) ? famille : null}
       fees={rows}
       kpis={kpis}
       students={studentOptions}

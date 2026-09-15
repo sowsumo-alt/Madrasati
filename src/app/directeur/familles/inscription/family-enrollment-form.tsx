@@ -278,7 +278,7 @@ export function FamilyEnrollmentForm({
             />
           ) : step === 2 ? (
             <ChildrenStep
-              children={children}
+              entries={children}
               errors={childErrors}
               classes={classes}
               onChange={patchChild}
@@ -287,7 +287,7 @@ export function FamilyEnrollmentForm({
             />
           ) : (
             <PaymentStep
-              children={children}
+              entries={children}
               classes={classes}
               onAmountChange={(key, amount) => patchChild(key, { amount })}
               mode={mode}

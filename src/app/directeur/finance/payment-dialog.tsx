@@ -21,7 +21,6 @@ import { StudentAvatar } from "@/components/students/student-avatar";
 import { PaymentMethodPicker } from "@/components/payments/payment-method-picker";
 import { formatMRU } from "@/lib/format";
 import { useLanguage } from "@/lib/i18n/language-provider";
-import type { TranslationKey } from "@/lib/i18n/dictionaries";
 import { cn } from "@/lib/utils";
 import { paymentSchema, type PaymentFormValues } from "./schema";
 import { recordPayment } from "./actions";
