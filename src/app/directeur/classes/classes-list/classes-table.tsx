@@ -112,8 +112,8 @@ function SubjectsCell({ row }: { row: ClassRow }) {
   );
 }
 
-const th = "px-4 py-3 text-start text-xs font-semibold uppercase tracking-wide text-primary-700";
-const td = "px-4 py-2.5 first:rounded-s-xl last:rounded-e-xl";
+const th = "px-4 py-2.5 text-start text-xs font-semibold uppercase tracking-wide text-primary-700";
+const td = "px-4 py-2 first:rounded-s-xl last:rounded-e-xl";
 
 /**
  * Tableau des classes : une ligne blanche par classe sur fond vert d'eau.
@@ -128,10 +128,10 @@ export function ClassesTable({ rows, ...handlers }: RowHandlers & { rows: ClassT
         <table className="w-full min-w-[42rem] border-separate border-spacing-y-[3px] text-sm">
           <thead>
             <tr>
-              <th className={th}>{t("classes.colClass")}</th>
-              <th className={cn(th, "hidden xl:table-cell")}>{t("classes.colLevel")}</th>
-              <th className={th}>{t("classes.students")}</th>
-              <th className={th}>{t("classes.colMainTeacher")}</th>
+              <th className={cn(th, "xl:w-[18%]")}>{t("classes.colClass")}</th>
+              <th className={cn(th, "hidden w-[11%] xl:table-cell")}>{t("classes.colLevel")}</th>
+              <th className={cn(th, "xl:w-[14%]")}>{t("classes.students")}</th>
+              <th className={cn(th, "xl:w-[22%]")}>{t("classes.colMainTeacher")}</th>
               <th className={th}>{t("classes.subjects")}</th>
               <th className={cn(th, "text-end")}>{t("common.actions")}</th>
             </tr>

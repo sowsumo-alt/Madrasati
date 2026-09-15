@@ -27,7 +27,7 @@ export function ClassesToolbar({
           onChange={(e) => onQueryChange(e.target.value)}
           placeholder={t("classes.searchPlaceholder")}
           aria-label={t("classes.searchPlaceholder")}
-          className="h-12 w-full rounded-xl border border-border/60 bg-surface pe-4 ps-11 text-sm text-foreground transition-colors placeholder:text-slate-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
+          className="h-10.5 w-full rounded-xl border border-border/60 bg-surface pe-4 ps-11 text-sm text-foreground transition-colors placeholder:text-slate-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
         />
       </div>
       <Select
@@ -39,7 +39,7 @@ export function ClassesToolbar({
       >
         <SelectTrigger
           aria-label={t("classes.filter.ALL")}
-          className="h-12 rounded-xl border-border/60 bg-surface px-4 text-sm text-primary-900/80 sm:w-56"
+          className="h-10.5 rounded-xl border-border/60 bg-surface px-4 text-sm text-primary-900/80 sm:w-56"
         >
           <SelectValue />
         </SelectTrigger>

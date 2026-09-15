@@ -1,4 +1,4 @@
-import type { SVGProps } from "lucide-react";
+import type { SVGProps } from "react";
 
 /** Trois silhouettes pleines (une classe, un groupe d'élèves) : lucide n'a
  *  que des contours, trop maigres dans les grandes pastilles d'en-tête. */

@@ -10,7 +10,7 @@ interface SubjectHandlers {
 }
 
 const actionButton =
-  "flex h-9 w-9 items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500";
+  "flex h-8 w-8 items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500";
 
 function SubjectActions({ subject, onEdit, onDelete, onReactivate }: SubjectHandlers & { subject: SubjectRow }) {
   const { t } = useLanguage();
@@ -72,7 +72,7 @@ function StatusPill({ active }: { active: boolean }) {
   return (
     <span
       className={cn(
-        "inline-flex rounded-full px-3 py-1 text-sm font-semibold",
+        "inline-flex rounded-full px-3 py-0.5 text-sm font-semibold",
         active ? "bg-primary-100/70 text-primary-700" : "bg-slate-100 text-slate-500",
       )}
     >
@@ -81,8 +81,8 @@ function StatusPill({ active }: { active: boolean }) {
   );
 }
 
-const th = "px-4 py-2.5 text-start text-xs font-semibold uppercase tracking-wide text-primary-700";
-const td = "px-4 py-2 first:rounded-s-xl last:rounded-e-xl";
+const th = "px-4 py-2 text-start text-xs font-semibold uppercase tracking-wide text-primary-700";
+const td = "px-4 py-1.5 first:rounded-s-xl last:rounded-e-xl";
 
 /** Tableau des matières de l'école ; une carte par matière sur téléphone. */
 export function SubjectsTable({ subjects, ...handlers }: SubjectHandlers & { subjects: SubjectRow[] }) {
@@ -94,8 +94,8 @@ export function SubjectsTable({ subjects, ...handlers }: SubjectHandlers & { sub
         <table className="w-full min-w-[36rem] border-separate border-spacing-y-[3px] text-sm">
           <thead>
             <tr>
-              <th className={cn(th, "w-[48%]")}>{t("classes.subject")}</th>
-              <th className={th}>{t("classes.coefficient")}</th>
+              <th className={cn(th, "w-[43%]")}>{t("classes.subject")}</th>
+              <th className={cn(th, "w-[20%]")}>{t("classes.coefficient")}</th>
               <th className={th}>{t("classes.status")}</th>
               <th className={cn(th, "text-end")}>{t("common.actions")}</th>
             </tr>

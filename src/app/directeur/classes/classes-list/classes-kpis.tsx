@@ -1,7 +1,9 @@
-import { BookOpen, UserRound, UsersRound, type LucideIcon } from "lucide-react";
+import type { ComponentType, SVGProps } from "react";
+import { BookOpen, UserRound } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import type { TranslationKey } from "@/lib/i18n/dictionaries";
 import { cn } from "@/lib/utils";
+import { UsersGroupIcon } from "./users-group-icon";
 
 type Tone = "green" | "blue" | "amber" | "violet";
 
@@ -28,7 +30,7 @@ const TONES: Record<Tone, { tile: string; icon: string; value: string; label: st
     tile: "bg-violet-50/80",
     icon: "bg-violet-100/70 text-violet-600",
     value: "text-violet-950",
-    label: "text-violet-900/60",
+    label: "text-slate-500",
   },
 };
 
@@ -39,8 +41,8 @@ export interface ClassesKpisValues {
   subjects: number;
 }
 
-const ITEMS: { key: keyof ClassesKpisValues; label: TranslationKey; icon: LucideIcon; tone: Tone }[] = [
-  { key: "classes", label: "classes.kpiClasses", icon: UsersRound, tone: "green" },
+const ITEMS: { key: keyof ClassesKpisValues; label: TranslationKey; icon: ComponentType<SVGProps<SVGSVGElement>>; tone: Tone }[] = [
+  { key: "classes", label: "classes.kpiClasses", icon: UsersGroupIcon, tone: "green" },
   { key: "students", label: "classes.kpiStudents", icon: UserRound, tone: "blue" },
   { key: "mainTeachers", label: "classes.kpiMainTeachers", icon: UserRound, tone: "amber" },
   { key: "subjects", label: "classes.kpiSubjects", icon: BookOpen, tone: "violet" },
@@ -55,21 +57,17 @@ export function ClassesKpis({ values }: { values: ClassesKpisValues }) {
       {ITEMS.map(({ key, label, icon: Icon, tone }) => {
         const style = TONES[tone];
         return (
-          <div key={key} className={cn("flex min-w-0 items-center gap-3 rounded-2xl p-3 sm:gap-4 sm:p-4", style.tile)}>
+          <div key={key} className={cn("flex min-w-0 items-center gap-3 rounded-2xl p-3 sm:gap-4 sm:px-4 sm:py-2.5", style.tile)}>
             <span
               className={cn(
-                "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl sm:h-12 sm:w-12",
+                "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
                 style.icon,
               )}
             >
-              <Icon
-                className="h-6 w-6"
-                strokeWidth={2}
-                fill={tone === "green" ? "currentColor" : "none"}
-              />
+              <Icon className="h-6 w-6" strokeWidth={2} />
             </span>
             <div className="min-w-0">
-              <p className={cn("text-2xl font-bold leading-tight", style.value)}>{values[key]}</p>
+              <p className={cn("text-xl font-bold leading-tight", style.value)}>{values[key]}</p>
               <p className={cn("truncate text-sm", style.label)}>{t(label)}</p>
             </div>
           </div>

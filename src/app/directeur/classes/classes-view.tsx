@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { BookOpen, Plus, RefreshCw, Sparkles, UsersRound } from "lucide-react";
+import { BookOpen, Plus, RefreshCw, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
@@ -33,6 +33,7 @@ import { ClassesToolbar } from "./classes-list/classes-toolbar";
 import { ClassesTable, type ClassTableRow } from "./classes-list/classes-table";
 import { ClassDetailSheet } from "./classes-list/class-detail-sheet";
 import { SubjectsTable } from "./classes-list/subjects-table";
+import { UsersGroupIcon } from "./classes-list/users-group-icon";
 
 export interface ClassRow {
   id: string;
@@ -177,7 +178,7 @@ export function ClassesView({
   return (
     <div className="space-y-6">
       <SectionPanel
-        icon={UsersRound}
+        icon={UsersGroupIcon}
         title={t("classes.classesTitle")}
         subtitle={t("classes.classesSubtitle")}
         titleAs="h1"
@@ -194,7 +195,7 @@ export function ClassesView({
           </>
         }
       >
-        <div className="mt-5 space-y-4">
+        <div className="mt-4 space-y-3">
           <ClassesKpis
             values={{
               classes: classes.length,
