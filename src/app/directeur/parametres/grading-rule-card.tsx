@@ -162,6 +162,23 @@ export function GradingRuleCard({
     }
   }
 
+  // L'exemple annuel : trois moyennes trimestrielles de démonstration.
+  const ANNUAL_SAMPLE = [12, 14, 15];
+  const annualWeights = config.annual.terms.map((x) => x.weight);
+  const annualDivisor =
+    config.annual.divisor.mode === "FIXED"
+      ? config.annual.divisor.value
+      : annualWeights.reduce((sum, w) => sum + w, 0);
+  const annualValue =
+    annualDivisor > 0
+      ? ANNUAL_SAMPLE.reduce((sum, v, i) => sum + v * (annualWeights[i] ?? 0), 0) / annualDivisor
+      : null;
+  const annualText = config.annual.terms
+    .map((x, i) => `${ANNUAL_SAMPLE[i]}${x.weight === 1 ? "" : ` × ${x.weight}`}`)
+    .join(" + ");
+  const annualExample = annualValue == null ? "—" : formatNumber(annualValue);
+  const annualTotal = annualWeights.reduce((sum, w) => sum + w, 0);
+
   // L'exemple : les notes saisies plus haut, passées dans la formule en cours.
   const sampleScores = formula.parts.map((p) => parseSample(sample[p.id] ?? ""));
   const example = computeSubjectAverage(
@@ -418,6 +435,117 @@ export function GradingRuleCard({
           </p>
           {example.average == null && (
             <p className="mt-1 text-sm text-amber-700">{t("grading.exampleMissing")}</p>
+          )}
+        </div>
+
+        {/* Bulletin annuel : les trimestres et leurs poids */}
+        <div className="rounded-xl border border-border bg-surface-muted/30 p-3" data-testid="annual">
+          <label className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <input
+              type="checkbox"
+              checked={config.annual.enabled}
+              onChange={(e) => {
+                setConfig((c) => ({ ...c, annual: { ...c.annual, enabled: e.target.checked } }));
+                setDirty(true);
+              }}
+              className="h-4 w-4 rounded border-border text-primary-700 focus:ring-primary-500"
+              data-testid="annual-enabled"
+            />
+            {t("grading.annualTitle")}
+          </label>
+          <p className="mt-1 text-sm text-foreground/60">{t("grading.annualHint")}</p>
+
+          {config.annual.enabled && (
+            <>
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                {config.annual.terms.map((term, index) => (
+                  <div key={term.term} className="space-y-1.5">
+                    <Label htmlFor={`term-${index}`}>{term.term}</Label>
+                    <Input
+                      id={`term-${index}`}
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={term.weight}
+                      onChange={(e) => {
+                        const weight = Number(e.target.value) || 0;
+                        setConfig((c) => ({
+                          ...c,
+                          annual: {
+                            ...c.annual,
+                            terms: c.annual.terms.map((x, i) => (i === index ? { ...x, weight } : x)),
+                          },
+                        }));
+                        setDirty(true);
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-end gap-3">
+                <div className="space-y-1.5">
+                  <Label>{t("grading.annualDivisor")}</Label>
+                  <Select
+                    value={config.annual.divisor.mode}
+                    onValueChange={(mode) => {
+                      const total = config.annual.terms.reduce((sum, x) => sum + x.weight, 0) || 1;
+                      setConfig((c) => ({
+                        ...c,
+                        annual: {
+                          ...c.annual,
+                          divisor:
+                            mode === "AUTO" ? { mode: "AUTO" } : { mode: "FIXED", value: total },
+                        },
+                      }));
+                      setDirty(true);
+                    }}
+                  >
+                    <SelectTrigger className="w-64" aria-label={t("grading.annualDivisor")}>
+                      <SelectValue>
+                        {config.annual.divisor.mode === "AUTO"
+                          ? t("grading.divisorAuto").replace("{n}", String(annualTotal))
+                          : t("grading.divisorFixed")}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="AUTO">
+                        {t("grading.divisorAuto").replace("{n}", String(annualTotal))}
+                      </SelectItem>
+                      <SelectItem value="FIXED">{t("grading.divisorFixed")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {config.annual.divisor.mode === "FIXED" && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="annual-divisor">{t("grading.divisorValue")}</Label>
+                    <Input
+                      id="annual-divisor"
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={config.annual.divisor.value}
+                      onChange={(e) => {
+                        const value = Number(e.target.value) || 1;
+                        setConfig((c) => ({
+                          ...c,
+                          annual: { ...c.annual, divisor: { mode: "FIXED", value } },
+                        }));
+                        setDirty(true);
+                      }}
+                      className="w-28"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <p className="mt-3 text-sm text-foreground/70" data-testid="annual-example">
+                {t("grading.annualExample")
+                  .replace("{formula}", annualText)
+                  .replace("{divisor}", String(annualDivisor))
+                  .replace("{value}", annualExample)}
+              </p>
+            </>
           )}
         </div>
 

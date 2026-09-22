@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
-import { buildReportCards, reportCardRule } from "@/lib/report-card-data";
+import { buildReportCards, buildAnnualReportCards, reportCardRule } from "@/lib/report-card-data";
+import { ANNUAL_TERM } from "@/lib/report-card-compute";
 import { markReportCardIssued } from "../actions";
 import { RuleBanner } from "./rule-banner";
 import { formatDate } from "@/lib/format";
@@ -41,9 +42,8 @@ export default async function ReportCardPage({
   if (!student || !student.classId) notFound();
 
   const term =
-    termParam && (TERMS as readonly string[]).includes(termParam)
-      ? termParam
-      : TERMS[0];
+    termParam && [...TERMS, ANNUAL_TERM].includes(termParam) ? termParam : TERMS[0];
+  const isAnnual = term === ANNUAL_TERM;
 
   // La règle de calcul : celle d'aujourd'hui, ou celle avec laquelle ce
   // bulletin a déjà été remis au parent.
@@ -59,7 +59,9 @@ export default async function ReportCardPage({
   });
 
   const [cards, school, academicYear, comment, parentLink, template] = await Promise.all([
-    buildReportCards(user.schoolId, student.classId, term, rule.config),
+    isAnnual
+      ? buildAnnualReportCards(user.schoolId, student.classId, rule.config)
+      : buildReportCards(user.schoolId, student.classId, term, rule.config),
     prisma.school.findUnique({ where: { id: user.schoolId } }),
     prisma.academicYear.findFirst({
       where: { schoolId: user.schoolId, isCurrent: true },
@@ -159,6 +161,10 @@ export default async function ReportCardPage({
               logoUrl: school?.logoUrl ?? null,
             }}
             yearLabel={academicYear?.label ?? null}
+            title={isAnnual ? "Bulletin annuel" : undefined}
+            periodLabel={
+              isAnnual ? `${ANNUAL_TERM}${academicYear ? ` ${academicYear.label}` : ""}` : undefined
+            }
             studentNumber={cards.indexOf(card) + 1}
             suspensions={suspensions}
             comment={comment ? { body: comment.body, bodyAr: comment.bodyAr } : null}

@@ -2,7 +2,9 @@ import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { FEATURES, schoolHasFeature } from "@/lib/plans";
-import { buildReportCards } from "@/lib/report-card-data";
+import { buildReportCards, buildAnnualReportCards } from "@/lib/report-card-data";
+import { ANNUAL_TERM } from "@/lib/report-card-compute";
+import { currentGradingConfig } from "@/lib/grading-config-data";
 import { TERMS } from "@/app/directeur/examens/schema";
 import { BulletinsView, type BulletinRow } from "./bulletins-view";
 import { CURRENT_YEAR } from "@/lib/school-year";
@@ -42,14 +44,21 @@ export default async function BulletinsPage({
       })
     : [];
   const termsWithExams = new Set(examTerms.map((e) => e.term));
+  // Le bulletin annuel n'est proposé que si l'école l'a activé dans sa règle
+  // de calcul (Paramètres → Calcul des moyennes).
+  const rule = await currentGradingConfig(user.schoolId);
+  const terms = rule.config.annual.enabled ? [...TERMS, ANNUAL_TERM] : [...TERMS];
   const selectedTerm =
-    params.term && (TERMS as readonly string[]).includes(params.term)
+    params.term && terms.includes(params.term)
       ? params.term
       : (TERMS.find((t) => termsWithExams.has(t)) ?? TERMS[0]);
+  const isAnnual = selectedTerm === ANNUAL_TERM;
 
   const [cards, parents, school, template] = await Promise.all([
     selectedClassId
-      ? buildReportCards(user.schoolId, selectedClassId, selectedTerm)
+      ? isAnnual
+        ? buildAnnualReportCards(user.schoolId, selectedClassId, rule.config)
+        : buildReportCards(user.schoolId, selectedClassId, selectedTerm, rule.config)
       : Promise.resolve([]),
     prisma.studentParent.findMany({
       where: { isPrimary: true, student: { schoolId: user.schoolId } },
@@ -69,7 +78,7 @@ export default async function BulletinsPage({
   // Aucune moyenne peut vouloir dire deux choses très différentes : aucun
   // examen n'a été planifié, ou les examens existent mais ne sont pas notés.
   // La page le disait pareillement dans les deux cas — c'est-à-dire pas du tout.
-  const hasExamThisTerm = termsWithExams.has(selectedTerm);
+  const hasExamThisTerm = isAnnual ? termsWithExams.size > 0 : termsWithExams.has(selectedTerm);
 
   const rows: BulletinRow[] = cards.map((c) => {
     const parent = parentByStudent.get(c.student.id);
@@ -95,7 +104,7 @@ export default async function BulletinsPage({
     <BulletinsView
       rows={rows}
       classes={classes}
-      terms={[...TERMS]}
+      terms={terms}
       selectedClassId={selectedClassId}
       selectedTerm={selectedTerm}
       hasExamThisTerm={hasExamThisTerm}

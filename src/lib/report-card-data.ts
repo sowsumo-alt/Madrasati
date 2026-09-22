@@ -3,10 +3,13 @@ import { termDateRange } from "@/lib/report-card";
 import { currentGradingConfig, gradingConfigById } from "@/lib/grading-config-data";
 import type { GradingConfig } from "@/lib/grading-config";
 import {
+  ANNUAL_TERM,
+  computeAnnualCards,
   computeReportCards,
   type ReportCard,
   type ReportCardAttendance,
 } from "@/lib/report-card-compute";
+import { TERM_LABELS } from "@/lib/grading-config";
 
 export type { ReportCard } from "@/lib/report-card-compute";
 
@@ -130,3 +133,28 @@ export async function reportCardRule(options: {
     outdated: Boolean(pinned && pinned.id !== current.id),
   };
 }
+
+/**
+ * Bulletin annuel d'une classe : les moyennes des trois trimestres,
+ * combinées selon la règle de l'école (poids de chaque trimestre et
+ * diviseur). N'existe que si l'école a activé le bulletin annuel.
+ */
+export async function buildAnnualReportCards(
+  schoolId: string,
+  classId: string,
+  config?: GradingConfig,
+): Promise<ReportCard[]> {
+  const rule = config ?? (await currentGradingConfig(schoolId)).config;
+  if (!rule.annual.enabled) return [];
+
+  const terms = rule.annual.terms.map((t) => t.term);
+  const cards = await Promise.all(
+    terms.map(async (term) => ({
+      term,
+      cards: await buildReportCards(schoolId, classId, term, rule),
+    })),
+  );
+  return computeAnnualCards(cards, rule.annual);
+}
+
+export { ANNUAL_TERM, TERM_LABELS };

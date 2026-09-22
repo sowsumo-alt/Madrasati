@@ -39,6 +39,10 @@ export interface SecondaryReportCardProps {
   suspensions: number;
   comment: { body: string; bodyAr: string | null } | null;
   issuedAt: Date;
+  /** Intitulé du document ; « Bulletin de notes du Secondaire » par défaut. */
+  title?: string;
+  /** Intitulé de la période : « 1 · 2026-2027 », ou « Année 2026-2027 ». */
+  periodLabel?: string;
 }
 
 /** 13,75 — virgule française, zéros inutiles retirés (42 et non 42,00). */
@@ -117,6 +121,8 @@ export function SecondaryReportCard({
   suspensions,
   comment,
   issuedAt,
+  title,
+  periodLabel,
 }: SecondaryReportCardProps) {
   const rows = officialOrder(card.results);
   const parts = card.formula.parts;
@@ -172,7 +178,7 @@ export function SecondaryReportCard({
         </div>
       </div>
 
-      <div className={styles.title}>Bulletin de notes du Secondaire</div>
+      <div className={styles.title}>{title ?? "Bulletin de notes du Secondaire"}</div>
 
       {/* INFORMATIONS DE L'ÉLÈVE */}
       <div className={styles.studentInfo}>
@@ -191,10 +197,9 @@ export function SecondaryReportCard({
           <strong>{card.className}</strong>
         </div>
         <div>
-          <span>Trimestre</span>
+          <span>{periodLabel ? "Période" : "Trimestre"}</span>
           <strong>
-            {termNumber}
-            {yearLabel ? ` · ${yearLabel}` : ""}
+            {periodLabel ?? `${termNumber}${yearLabel ? ` · ${yearLabel}` : ""}`}
           </strong>
         </div>
       </div>
