@@ -61,7 +61,7 @@ export function AppShell({
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background print:bg-white">
       {/* Fond illustré (feuillage, toque et livres) fixé à l'écran : il
           reste en place pendant le défilement et commence au bord de la
           barre latérale ; retourné en arabe, pour que le feuillage reste du
@@ -162,7 +162,7 @@ export function AppShell({
         {/* La clé force le remontage à chaque navigation : l'animation
             d'entrée rejoue sur chaque nouvelle page, pas seulement au
             premier chargement. */}
-        <main key={pathname} className="animate-page-in px-4 py-6 sm:px-6 lg:px-8">
+        <main key={pathname} className="animate-page-in px-4 py-6 sm:px-6 lg:px-8 print:p-0">
           {children}
         </main>
       </div>

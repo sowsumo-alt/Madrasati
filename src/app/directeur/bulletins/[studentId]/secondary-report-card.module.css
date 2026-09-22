@@ -239,6 +239,11 @@
   text-underline-offset: 2px;
 }
 
+.empty {
+  color: #9ca3af;
+  font-weight: 400;
+}
+
 .table tbody tr.totalRow td {
   background: #e6f4ed;
   font-weight: 800;
@@ -326,18 +331,17 @@
   margin-top: 16px;
 }
 
-/* À l'impression, la feuille A4 est plus étroite que l'écran : le document
-   s'y ajuste au lieu de déborder, sans ombre ni cadre autour. */
+/* À l'impression, la feuille A4 (19 cm utiles, environ 718 px) est plus
+   étroite que le document : plutôt que de le laisser se tasser — colonnes
+   repliées, bulletin sur deux pages —, on le réduit d'un bloc, mise en page
+   intacte, pour qu'il tienne sur une seule feuille. Sans ombre ni cadre. */
 @media print {
   .bulletin {
-    min-width: 0;
+    zoom: 0.87;
     max-width: none;
     border: none;
     box-shadow: none;
     padding: 0;
-  }
-  .table {
-    min-width: 0;
   }
   .tableWrap {
     overflow: visible;

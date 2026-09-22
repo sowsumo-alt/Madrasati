@@ -109,8 +109,8 @@ export default async function ReportCardPage({
       : 0;
 
     return (
-      <div className="mx-auto max-w-[62rem] px-4 py-10">
-        <div className="no-print mb-6 flex justify-end gap-2">
+      <div className="mx-auto max-w-[62rem] px-4 py-10 print:max-w-none print:p-0">
+        <div className="no-print mb-6 flex flex-wrap justify-end gap-2">
           <PdfButton
             elementId="bulletin-card"
             fileName={pdfFileName}

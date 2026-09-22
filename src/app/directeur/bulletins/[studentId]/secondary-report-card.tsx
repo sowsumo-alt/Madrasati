@@ -44,6 +44,9 @@ function twoDecimals(value: number): string {
   return value.toFixed(2).replace(".", ",");
 }
 
+/** Case sans valeur : un tiret gris, discret à côté des notes. */
+const EMPTY = <span className={styles.empty}>—</span>;
+
 function rankLabel(rank: number | null, classSize: number): string {
   if (rank == null) return "—";
   return `${rank === 1 ? "1er" : `${rank}ème`} / ${classSize}`;
@@ -215,20 +218,20 @@ export function SecondaryReportCard({
                     </div>
                   </td>
                   <td className={styles.times3} data-testid="times3">
-                    {d?.bestTimes3 != null ? score(d.bestTimes3) : "—"}
+                    {d?.bestTimes3 != null ? score(d.bestTimes3) : EMPTY}
                     <Devoirs result={r} />
                   </td>
                   <td data-testid="composition">
-                    {d?.composition != null ? score(d.composition) : d?.compositionAbsent ? "Abs" : "—"}
+                    {d?.composition != null ? score(d.composition) : d?.compositionAbsent ? "Abs" : EMPTY}
                   </td>
                   <td data-testid="subject-average">
-                    {r.average != null ? twoDecimals(r.average) : "—"}
+                    {r.average != null ? twoDecimals(r.average) : EMPTY}
                   </td>
                   <td data-testid="coefficient">{r.coefficient}</td>
                   <td className={styles.weighted} data-testid="weighted">
-                    {d?.weighted != null ? twoDecimals(d.weighted) : "—"}
+                    {d?.weighted != null ? twoDecimals(d.weighted) : EMPTY}
                   </td>
-                  <td>{d?.rank ?? "—"}</td>
+                  <td>{d?.rank ?? EMPTY}</td>
                   <td className={styles.observation}>{d?.observation ?? ""}</td>
                 </tr>
               );
