@@ -15,6 +15,7 @@ export function CommentEditor({
   initialBodyAr,
   isAiGenerated,
   aiEnabled,
+  printCopy = true,
 }: {
   studentId: string;
   term: string;
@@ -22,6 +23,8 @@ export function CommentEditor({
   initialBodyAr: string;
   isAiGenerated: boolean;
   aiEnabled: boolean;
+  /** Faux quand le document imprime déjà l'appréciation lui-même. */
+  printCopy?: boolean;
 }) {
   const router = useRouter();
   const { t } = useLanguage();
@@ -130,7 +133,7 @@ export function CommentEditor({
           champs de saisie et leurs boutons. */}
       {/* Rien à imprimer sans appréciation : un intitulé seul au-dessus de deux
           colonnes vides ferait croire à un bulletin incomplet. */}
-      {(body || bodyAr) && (
+      {printCopy && (body || bodyAr) && (
         <div className="hidden print:block" data-pdf-show>
           <p className="text-xs font-medium uppercase tracking-wide text-foreground/40">
             Appréciation / ملاحظة

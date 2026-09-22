@@ -15,6 +15,8 @@ import type { TranslationKey } from "@/lib/i18n/dictionaries";
 import { FEATURES, schoolHasFeature } from "@/lib/plans";
 import { DEFAULT_TEMPLATES } from "@/lib/school-setup";
 import { fillTemplate, withArabic, schoolSignatureFr, schoolSignatureAr } from "@/lib/whatsapp";
+import { termDateRange } from "@/lib/report-card";
+import { SecondaryReportCard } from "./secondary-report-card";
 
 const DEFAULT_GRADES_TEMPLATE = DEFAULT_TEMPLATES.find((t) => t.key === "GRADES_AVAILABLE")!;
 
@@ -45,7 +47,7 @@ export default async function ReportCardPage({
     prisma.school.findUnique({ where: { id: user.schoolId } }),
     prisma.academicYear.findFirst({
       where: { schoolId: user.schoolId, isCurrent: true },
-      select: { label: true },
+      select: { label: true, startDate: true, endDate: true },
     }),
     prisma.reportCardComment.findUnique({
       where: { studentId_term: { studentId, term } },
@@ -89,12 +91,80 @@ export default async function ReportCardPage({
       )
     : "";
 
+  const pdfFileName = `Bulletin-${studentName}-${term}.pdf`;
+
+  // Collège et lycée : le bulletin officiel mauritanien (meilleur devoir × 3
+  // + composition, ÷ 4). Le Fondamental garde plus bas son bulletin d'origine.
+  if (card.scheme === "SECONDARY") {
+    const range = academicYear ? termDateRange(academicYear, term) : null;
+    const suspensions = range
+      ? await prisma.disciplineIncident.count({
+          where: {
+            schoolId: user.schoolId,
+            studentId,
+            type: "SUSPENSION",
+            date: { gte: range.start, lte: range.end },
+          },
+        })
+      : 0;
+
+    return (
+      <div className="mx-auto max-w-[62rem] px-4 py-10">
+        <div className="no-print mb-6 flex justify-end gap-2">
+          <PdfButton
+            elementId="bulletin-card"
+            fileName={pdfFileName}
+            labelKey="bulletin.sendPdf"
+            parentPhone={parent?.phone ?? null}
+            message={pdfMessage}
+          />
+          <PrintButton label={t("bulletin.print")} />
+        </div>
+
+        {/* Le document garde sa largeur sur téléphone et défile : le PDF
+            envoyé au parent reste ainsi complet. */}
+        <div className="overflow-x-auto pb-2 print:overflow-visible print:pb-0">
+          <SecondaryReportCard
+            id="bulletin-card"
+            card={card}
+            school={{
+              name: school?.name ?? "Madrasati",
+              address: school?.address ?? null,
+              city: school?.city ?? null,
+              phone: school?.phone ?? null,
+              logoUrl: school?.logoUrl ?? null,
+            }}
+            yearLabel={academicYear?.label ?? null}
+            studentNumber={cards.indexOf(card) + 1}
+            suspensions={suspensions}
+            comment={comment ? { body: comment.body, bodyAr: comment.bodyAr } : null}
+            issuedAt={new Date()}
+          />
+        </div>
+
+        {/* L'observation générale s'écrit ici et s'imprime dans le cadre
+            Conduite du bulletin, pas en double sous le document. */}
+        <div className="no-print mx-auto mt-2 max-w-[900px]">
+          <CommentEditor
+            studentId={studentId}
+            term={term}
+            initialBody={comment?.body ?? ""}
+            initialBodyAr={comment?.bodyAr ?? ""}
+            isAiGenerated={comment?.isAiGenerated ?? false}
+            aiEnabled={isAiEnabled()}
+            printCopy={false}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <div className="no-print mb-6 flex justify-end gap-2">
         <PdfButton
           elementId="bulletin-card"
-          fileName={`Bulletin-${studentName}-${term}.pdf`}
+          fileName={pdfFileName}
           labelKey="bulletin.sendPdf"
           parentPhone={parent?.phone ?? null}
           message={pdfMessage}
