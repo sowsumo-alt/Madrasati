@@ -21,6 +21,7 @@ export default async function GradesPage({
       key={`${data.classId}:${data.subjectId}:${data.term}`}
       data={data}
       examsHref="/directeur/examens"
+      settingsHref="/directeur/parametres#calcul"
     />
   );
 }

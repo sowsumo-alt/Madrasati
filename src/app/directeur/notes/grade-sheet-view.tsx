@@ -4,8 +4,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { ChevronRight, Info, Loader2, NotebookPen, Plus, Save, X } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { ChevronRight, Info, Loader2, NotebookPen, Plus, Save, Settings2, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -16,20 +16,16 @@ import {
 import { useLanguage } from "@/lib/i18n/language-provider";
 import type { TranslationKey } from "@/lib/i18n/dictionaries";
 import { cn } from "@/lib/utils";
-import { onTwenty, secondarySubjectAverage } from "@/lib/grading";
-import {
-  cellKey,
-  formatCell,
-  NEW_COMPOSITION,
-  NEW_DEVOIR_PREFIX,
-  parseCell,
-} from "@/lib/grade-sheet";
+import { onTwenty } from "@/lib/grading";
+import { computeSubjectAverage, describeFormula, type MultiRule } from "@/lib/grading-config";
+import { cellKey, formatCell, isNewColumn, newColumnKey, parseCell } from "@/lib/grade-sheet";
 import type { GradeSheetData } from "@/lib/grade-sheet-data";
 import { TERMS } from "@/app/directeur/examens/schema";
 import { saveGradeSheet } from "./actions";
 
 interface Column {
   key: string;
+  partIndex: number;
   title: string;
   subtitle: string;
   maxScore: number;
@@ -42,30 +38,33 @@ function formatScore(value: number): string {
 }
 
 /**
- * Grille de saisie du collège et du lycée : une ligne par élève, une colonne
- * par devoir — autant qu'il en faut, avec « Ajouter un devoir » — et une
- * colonne pour la composition. Le meilleur devoir de chaque élève est
- * surligné et la moyenne de la matière se calcule pendant la saisie.
+ * Grille de saisie des notes : une ligne par élève, une colonne par note, et
+ * les colonnes regroupées selon la règle de calcul de l'école — « Devoirs »
+ * puis « Composition » avec le modèle par défaut. La note retenue par la
+ * règle est surlignée et la moyenne de la matière se calcule pendant la
+ * saisie.
  */
 export function GradeSheetView({
   data,
   examsHref,
+  settingsHref,
 }: {
   data: GradeSheetData;
-  /** Où saisir les notes d'une classe du Fondamental. */
+  /** Où retrouver la saisie examen par examen. */
   examsHref: string;
+  /** Où modifier la règle de calcul ; absent pour un enseignant. */
+  settingsHref?: string;
 }) {
   const { t, locale } = useLanguage();
   const router = useRouter();
   const pathname = usePathname();
   const [edits, setEdits] = useState<Record<string, string>>({});
-  const [newDevoirs, setNewDevoirs] = useState<string[]>([]);
+  const [newColumns, setNewColumns] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [, startTransition] = useTransition();
 
   const selectedClass = data.classes.find((c) => c.id === data.classId) ?? null;
   const selectedSubject = data.subjects.find((s) => s.id === data.subjectId) ?? null;
-  const isSecondary = selectedClass?.scheme === "SECONDARY";
 
   const shortDate = useMemo(
     () =>
@@ -77,57 +76,72 @@ export function GradeSheetView({
     [locale],
   );
 
-  const devoirColumns: Column[] = [
-    ...data.devoirs.map((d) => ({
-      key: d.id,
-      title: d.title,
-      subtitle: `/${d.maxScore} · ${shortDate.format(new Date(d.date))}`,
-      maxScore: d.maxScore,
+  const ruleLabels = useMemo(
+    () =>
+      ({
+        BEST: t("grading.rule.BEST"),
+        AVERAGE: t("grading.rule.AVERAGE"),
+        SUM: t("grading.rule.SUM"),
+        LAST: t("grading.rule.LAST"),
+      }) as Record<MultiRule, string>,
+    [t],
+  );
+
+  // Les colonnes de chaque bloc : celles déjà enregistrées, puis celles que
+  // le directeur vient d'ajouter.
+  const columnsByPart: Column[][] = data.parts.map((part, partIndex) => {
+    const saved = part.columns.map((c) => ({
+      key: c.id,
+      partIndex,
+      title: c.title,
+      subtitle: `/${c.maxScore} · ${shortDate.format(new Date(c.date))}`,
+      maxScore: c.maxScore,
       isNew: false,
-    })),
-    ...newDevoirs.map((key, i) => ({
-      key,
-      title: t("grades.devoirN").replace("{n}", String(data.devoirs.length + i + 1)),
-      subtitle: `/20 · ${t("grades.newColumn")}`,
-      maxScore: 20,
-      isNew: true,
-    })),
-  ];
-  // Sans aucun devoir, une première colonne est proposée d'emblée : la grille
-  // ne s'ouvre jamais sans case où saisir.
-  if (devoirColumns.length === 0) {
-    devoirColumns.push({
-      key: `${NEW_DEVOIR_PREFIX}0`,
-      title: t("grades.devoirN").replace("{n}", "1"),
-      subtitle: `/20 · ${t("grades.newColumn")}`,
-      maxScore: 20,
-      isNew: true,
-    });
-  }
-  const compositionColumn: Column = data.composition
-    ? {
-        key: data.composition.id,
-        title: t("exams.kind.COMPOSITION"),
-        subtitle: `/${data.composition.maxScore} · ${shortDate.format(new Date(data.composition.date))}`,
-        maxScore: data.composition.maxScore,
-        isNew: false,
-      }
-    : {
-        key: NEW_COMPOSITION,
-        title: t("exams.kind.COMPOSITION"),
-        subtitle: `/20 · ${t("grades.toEnter")}`,
+    }));
+    const added = newColumns
+      .filter((key) => key.startsWith(`new:${part.id}:`))
+      .map((key, i) => ({
+        key,
+        partIndex,
+        title: `${part.label} ${saved.length + i + 1}`,
+        subtitle: `/20 · ${t("grades.newColumn")}`,
         maxScore: 20,
         isNew: true,
-      };
-  const columns = [...devoirColumns, compositionColumn];
+      }));
+    // Un bloc sans aucune note s'ouvre avec une colonne vide : la grille ne
+    // s'affiche jamais sans case où saisir.
+    if (saved.length === 0 && added.length === 0) {
+      return [
+        {
+          key: newColumnKey(part.id, 0),
+          partIndex,
+          title: part.label,
+          subtitle: `/20 · ${t("grades.toEnter")}`,
+          maxScore: 20,
+          isNew: true,
+        },
+      ];
+    }
+    return [...saved, ...added];
+  });
+  const columns = columnsByPart.flat();
+  // Une colonne calculée par bloc n'a d'intérêt que s'il y a plusieurs blocs
+  // ou un poids : sinon elle répéterait la moyenne de la matière.
+  const showPartValues = data.parts.length > 1 || data.parts.some((p) => p.weight !== 1);
 
   const initialValue = (column: string, studentId: string) =>
     formatCell(data.grades[cellKey(column, studentId)]);
   const valueOf = (column: string, studentId: string) =>
     edits[cellKey(column, studentId)] ?? initialValue(column, studentId);
 
+  // La clé d'une case est « colonne:élève » ; une colonne ajoutée contient
+  // elle-même des deux-points (« new:devoir:1 »), d'où la coupure à la fin.
+  const splitKey = (key: string) => {
+    const at = key.lastIndexOf(":");
+    return [key.slice(0, at), key.slice(at + 1)] as const;
+  };
   const changed = Object.entries(edits).filter(([key, value]) => {
-    const [column, studentId] = key.split(":");
+    const [column, studentId] = splitKey(key);
     return value.trim() !== initialValue(column, studentId);
   });
   const invalidCount = data.students.reduce(
@@ -149,26 +163,24 @@ export function GradeSheetView({
     router.push(`${pathname}?${params.toString()}`);
   }
 
-  function addDevoir() {
-    const used = new Set([...newDevoirs, ...devoirColumns.map((c) => c.key)]);
-    let n = newDevoirs.length + 1;
-    while (used.has(`${NEW_DEVOIR_PREFIX}${n}`)) n += 1;
-    // La colonne proposée d'office (sans aucun devoir) devient la première.
-    const base = data.devoirs.length === 0 && newDevoirs.length === 0 ? [`${NEW_DEVOIR_PREFIX}0`] : [];
-    setNewDevoirs((current) => [...(current.length === 0 ? base : current), `${NEW_DEVOIR_PREFIX}${n}`]);
+  function addColumn(partIndex: number) {
+    const part = data.parts[partIndex];
+    const used = new Set([...newColumns, ...columnsByPart[partIndex].map((c) => c.key)]);
+    let n = 0;
+    while (used.has(newColumnKey(part.id, n))) n += 1;
+    const opening = columnsByPart[partIndex].filter((c) => c.isNew && !newColumns.includes(c.key));
+    setNewColumns((current) => [...current, ...opening.map((c) => c.key), newColumnKey(part.id, n)]);
   }
 
-  function removeNewDevoir(key: string) {
-    setNewDevoirs((current) => current.filter((k) => k !== key));
+  function removeColumn(key: string) {
+    setNewColumns((current) => current.filter((k) => k !== key));
     setEdits((current) =>
       Object.fromEntries(Object.entries(current).filter(([k]) => !k.startsWith(`${key}:`))),
     );
   }
 
   function focusCell(row: number, col: number) {
-    document
-      .querySelector<HTMLInputElement>(`input[data-row="${row}"][data-col="${col}"]`)
-      ?.focus();
+    document.querySelector<HTMLInputElement>(`input[data-row="${row}"][data-col="${col}"]`)?.focus();
   }
 
   async function handleSave() {
@@ -177,16 +189,15 @@ export function GradeSheetView({
       toast.error(t("grades.invalid"));
       return;
     }
-    const devoirKeys = devoirColumns.filter((c) => c.isNew).map((c) => c.key);
     setSaving(true);
     try {
       await saveGradeSheet({
         classId: data.classId,
         subjectId: data.subjectId,
         term: data.term,
-        newDevoirs: devoirKeys,
+        newColumns: columns.filter((c) => c.isNew).map((c) => c.key),
         cells: changed.map(([key, value]) => {
-          const [column, studentId] = key.split(":");
+          const [column, studentId] = splitKey(key);
           return { column, studentId, value };
         }),
       });
@@ -195,7 +206,7 @@ export function GradeSheetView({
       // d'instant où les notes tapées disparaissent avant d'être relues.
       startTransition(() => {
         setEdits({});
-        setNewDevoirs([]);
+        setNewColumns([]);
         router.refresh();
       });
     } catch (e) {
@@ -220,14 +231,23 @@ export function GradeSheetView({
           <ChevronRight className="h-3.5 w-3.5 rtl:rotate-180" />
           <span className="font-medium text-foreground/70">{t("nav.grades")}</span>
         </nav>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-600">
             <NotebookPen className="h-6 w-6" />
           </span>
-          <div>
+          <div className="min-w-0">
             <h1 className="text-2xl font-bold tracking-tight text-foreground">{t("grades.title")}</h1>
             <p className="mt-0.5 text-sm text-foreground/60">{t("grades.subtitle")}</p>
           </div>
+          {settingsHref && (
+            <Link
+              href={settingsHref}
+              className="ms-auto inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-3.5 py-2 text-sm font-semibold text-primary-800 shadow-sm hover:bg-primary-50/60"
+            >
+              <Settings2 className="h-4 w-4 text-primary-600" />
+              {t("grading.editRule")}
+            </Link>
+          )}
         </div>
       </div>
 
@@ -283,20 +303,15 @@ export function GradeSheetView({
           {selectedClass && levelKey && (
             <div className="flex flex-wrap items-center gap-2 text-sm">
               <span
-                className={cn(
-                  "inline-flex items-center rounded-full px-3 py-1 font-semibold",
-                  isSecondary ? "bg-primary-100/80 text-primary-800" : "bg-amber-100 text-amber-800",
-                )}
+                className="inline-flex items-center rounded-full bg-primary-100/80 px-3 py-1 font-semibold text-primary-800"
                 data-testid="grading-level"
               >
                 {t(levelKey)}
               </span>
-              {isSecondary && (
-                <span className="text-foreground/60" data-testid="grading-formula">
-                  {t("grades.formula")}
-                </span>
-              )}
-              {isSecondary && selectedSubject && (
+              <span className="text-foreground/60" data-testid="grading-formula">
+                {t("grades.subjectAverage")} = {describeFormula(data.formula, ruleLabels)}
+              </span>
+              {selectedSubject && (
                 <span className="ms-auto rounded-full border border-border px-3 py-1 text-foreground/70">
                   {t("grades.coefficient").replace("{n}", String(selectedSubject.coefficient))}
                 </span>
@@ -304,25 +319,7 @@ export function GradeSheetView({
             </div>
           )}
 
-          {!isSecondary ? (
-            <section
-              className="rounded-2xl border border-amber-200 bg-amber-50/70 p-5 sm:p-6"
-              data-testid="standard-class"
-            >
-              <div className="flex gap-3">
-                <Info className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
-                <div>
-                  <h2 className="font-semibold text-amber-900">{t("grades.standardTitle")}</h2>
-                  <p className="mt-1 text-sm leading-relaxed text-amber-900/80">
-                    {t("grades.standardBody")}
-                  </p>
-                  <Link href={examsHref} className={cn(buttonVariants({ variant: "secondary" }), "mt-4")}>
-                    {t("grades.goToExams")}
-                  </Link>
-                </div>
-              </div>
-            </section>
-          ) : data.subjects.length === 0 ? (
+          {data.subjects.length === 0 ? (
             <div className="rounded-2xl border border-border/80 bg-surface px-5 py-16 text-center text-sm text-foreground/50 shadow-soft">
               {t("grades.noSubjects")}
             </div>
@@ -342,100 +339,39 @@ export function GradeSheetView({
                       <th className="sticky start-10 z-10 min-w-[11rem] bg-primary-50 px-3 py-3 text-start font-semibold">
                         {t("grades.student")}
                       </th>
-                      {devoirColumns.map((c) => (
-                        <th key={c.key} className="min-w-[6.5rem] px-2 py-2 text-center font-semibold">
-                          <span className="flex items-center justify-center gap-1">
-                            <span className="truncate">{c.title}</span>
-                            {c.isNew && newDevoirs.includes(c.key) && (
-                              <button
-                                type="button"
-                                onClick={() => removeNewDevoir(c.key)}
-                                title={t("grades.removeColumn")}
-                                aria-label={t("grades.removeColumn")}
-                                className="rounded p-0.5 text-primary-700/60 hover:bg-primary-100 hover:text-primary-900"
-                              >
-                                <X className="h-3.5 w-3.5" />
-                              </button>
-                            )}
-                          </span>
-                          <span className="block text-[11px] font-normal text-foreground/50">{c.subtitle}</span>
-                        </th>
+                      {data.parts.map((part, partIndex) => (
+                        <PartHeaderCells
+                          key={part.id}
+                          columns={columnsByPart[partIndex]}
+                          partLabel={part.label}
+                          weight={part.weight}
+                          showValue={showPartValues}
+                          canAdd={data.canAddColumn}
+                          removable={newColumns}
+                          onAdd={() => addColumn(partIndex)}
+                          onRemove={removeColumn}
+                          addLabel={t("grades.addNote").replace("{name}", part.label)}
+                          removeLabel={t("grades.removeColumn")}
+                          valueLabel={
+                            part.weight === 1 ? part.label : `${part.label} × ${part.weight}`
+                          }
+                        />
                       ))}
-                      <th className="px-2 py-2 text-center">
-                        {data.canAddDevoir && (
-                          <button
-                            type="button"
-                            onClick={addDevoir}
-                            className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-dashed border-primary-300 px-2.5 py-1.5 text-xs font-semibold text-primary-700 hover:bg-primary-100/60"
-                            data-testid="add-devoir"
-                          >
-                            <Plus className="h-3.5 w-3.5" />
-                            {t("grades.addDevoir")}
-                          </button>
-                        )}
-                      </th>
-                      <th className="min-w-[7rem] border-s border-border px-2 py-2 text-center font-semibold">
-                        {compositionColumn.title}
-                        <span className="block text-[11px] font-normal text-foreground/50">
-                          {compositionColumn.subtitle}
-                        </span>
-                      </th>
                       <th className="min-w-[6rem] border-s border-border px-2 py-2 text-center font-semibold">
-                        {t("grades.bestTimes3")}
-                      </th>
-                      <th className="min-w-[6rem] px-2 py-2 text-center font-semibold">
                         {t("grades.subjectAverage")}
                       </th>
                     </tr>
                   </thead>
                   <tbody>
                     {data.students.map((s, row) => {
-                      const devoirScores = devoirColumns.map((c) => {
-                        const p = parseCell(valueOf(c.key, s.id), c.maxScore);
-                        return p.invalid || p.score == null ? null : onTwenty(p.score, c.maxScore);
-                      });
-                      const cp = parseCell(valueOf(compositionColumn.key, s.id), compositionColumn.maxScore);
-                      const composition =
-                        cp.invalid || cp.score == null ? null : onTwenty(cp.score, compositionColumn.maxScore);
-                      const calc = secondarySubjectAverage(devoirScores, composition);
-
-                      const cell = (c: Column, col: number, best: boolean) => {
-                        const value = valueOf(c.key, s.id);
-                        const invalid = parseCell(value, c.maxScore).invalid;
-                        return (
-                          <input
-                            value={value}
-                            onChange={(e) =>
-                              setEdits((current) => ({ ...current, [cellKey(c.key, s.id)]: e.target.value }))
-                            }
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" || e.key === "ArrowDown") {
-                                e.preventDefault();
-                                focusCell(row + 1, col);
-                              } else if (e.key === "ArrowUp") {
-                                e.preventDefault();
-                                focusCell(row - 1, col);
-                              }
-                            }}
-                            inputMode="decimal"
-                            dir="ltr"
-                            placeholder="—"
-                            aria-label={`${c.title} — ${s.firstName} ${s.lastName}`}
-                            aria-invalid={invalid || undefined}
-                            data-row={row}
-                            data-col={col}
-                            data-testid={`cell-${c.isNew ? c.key : col}-${row}`}
-                            className={cn(
-                              "h-9 w-full min-w-[4.5rem] rounded-lg border bg-surface px-2 text-center text-sm tabular-nums text-foreground placeholder:text-foreground/30 focus:outline-none focus:ring-2 focus:ring-primary-500",
-                              invalid
-                                ? "border-red-400 bg-red-50 text-red-700"
-                                : best
-                                  ? "border-primary-400 bg-primary-50 font-bold text-primary-800"
-                                  : "border-border",
-                            )}
-                          />
-                        );
-                      };
+                      const scoresByPart = columnsByPart.map((list) =>
+                        list.map((c) => {
+                          const p = parseCell(valueOf(c.key, s.id), c.maxScore);
+                          return p.invalid || p.score == null ? null : onTwenty(p.score, c.maxScore);
+                        }),
+                      );
+                      const computed = computeSubjectAverage(data.formula, scoresByPart);
+                      let col = -1;
 
                       return (
                         <tr key={s.id} className="border-b border-border/70 last:border-b-0">
@@ -447,28 +383,68 @@ export function GradeSheetView({
                               {s.firstName} {s.lastName}
                             </span>
                           </td>
-                          {devoirColumns.map((c, col) => (
-                            <td key={c.key} className="px-2 py-1.5">
-                              {cell(c, col, calc.bestIndex === col)}
-                            </td>
+                          {data.parts.map((part, partIndex) => (
+                            <PartCells
+                              key={part.id}
+                              columns={columnsByPart[partIndex]}
+                              showValue={showPartValues}
+                              result={computed.parts[partIndex]}
+                              cell={(c) => {
+                                col += 1;
+                                const column = c;
+                                const currentCol = col;
+                                const value = valueOf(column.key, s.id);
+                                const invalid = parseCell(value, column.maxScore).invalid;
+                                const used =
+                                  computed.parts[partIndex]?.usedIndex ===
+                                  columnsByPart[partIndex].indexOf(column);
+                                return (
+                                  <input
+                                    value={value}
+                                    onChange={(e) =>
+                                      setEdits((current) => ({
+                                        ...current,
+                                        [cellKey(column.key, s.id)]: e.target.value,
+                                      }))
+                                    }
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter" || e.key === "ArrowDown") {
+                                        e.preventDefault();
+                                        focusCell(row + 1, currentCol);
+                                      } else if (e.key === "ArrowUp") {
+                                        e.preventDefault();
+                                        focusCell(row - 1, currentCol);
+                                      }
+                                    }}
+                                    inputMode="decimal"
+                                    dir="ltr"
+                                    placeholder="—"
+                                    aria-label={`${column.title} — ${s.firstName} ${s.lastName}`}
+                                    aria-invalid={invalid || undefined}
+                                    data-row={row}
+                                    data-col={currentCol}
+                                    data-testid={`cell-${column.isNew ? column.key : currentCol}-${row}`}
+                                    className={cn(
+                                      "h-9 w-full min-w-[4.5rem] rounded-lg border bg-surface px-2 text-center text-sm tabular-nums text-foreground placeholder:text-foreground/30 focus:outline-none focus:ring-2 focus:ring-primary-500",
+                                      invalid
+                                        ? "border-red-400 bg-red-50 text-red-700"
+                                        : used && columnsByPart[partIndex].length > 1
+                                          ? "border-primary-400 bg-primary-50 font-bold text-primary-800"
+                                          : "border-border",
+                                    )}
+                                  />
+                                );
+                              }}
+                            />
                           ))}
-                          <td />
-                          <td className="border-s border-border px-2 py-1.5">
-                            {cell(compositionColumn, devoirColumns.length, false)}
-                          </td>
                           <td
-                            className="border-s border-border px-2 py-1.5 text-center font-semibold tabular-nums text-primary-700"
-                            dir="ltr"
-                            data-testid={`times3-${row}`}
-                          >
-                            {calc.bestTimes3 != null ? formatScore(calc.bestTimes3) : "—"}
-                          </td>
-                          <td
-                            className="px-2 py-1.5 text-center font-bold tabular-nums text-foreground"
+                            className="border-s border-border px-2 py-1.5 text-center font-bold tabular-nums text-foreground"
                             dir="ltr"
                             data-testid={`average-${row}`}
                           >
-                            {calc.average != null ? calc.average.toFixed(2).replace(".", ",") : "—"}
+                            {computed.average != null
+                              ? computed.average.toFixed(2).replace(".", ",")
+                              : "—"}
                           </td>
                         </tr>
                       );
@@ -478,14 +454,17 @@ export function GradeSheetView({
               </div>
               <p className="flex gap-2 border-t border-border bg-amber-50/60 px-5 py-3 text-xs leading-relaxed text-amber-900/80">
                 <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                {t("grades.hint")}
+                {t("grades.hint")}{" "}
+                <Link href={examsHref} className="font-semibold underline">
+                  {t("grades.goToExams")}
+                </Link>
               </p>
             </section>
           )}
         </>
       )}
 
-      {isSecondary && (changed.length > 0 || saving) && (
+      {changed.length > 0 || saving ? (
         <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface/95 px-4 py-3 shadow-lg backdrop-blur lg:start-64">
           <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
             <p className="text-sm text-foreground/70" data-testid="unsaved-count">
@@ -504,7 +483,107 @@ export function GradeSheetView({
             </div>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
+  );
+}
+
+/** En-têtes des colonnes d'un bloc, suivis du bouton « Ajouter ». */
+function PartHeaderCells({
+  columns,
+  showValue,
+  canAdd,
+  removable,
+  onAdd,
+  onRemove,
+  addLabel,
+  removeLabel,
+  valueLabel,
+}: {
+  columns: Column[];
+  partLabel: string;
+  weight: number;
+  showValue: boolean;
+  canAdd: boolean;
+  removable: string[];
+  onAdd: () => void;
+  onRemove: (key: string) => void;
+  addLabel: string;
+  removeLabel: string;
+  valueLabel: string;
+}) {
+  return (
+    <>
+      {columns.map((c) => (
+        <th key={c.key} className="min-w-[6.5rem] px-2 py-2 text-center font-semibold">
+          <span className="flex items-center justify-center gap-1">
+            <span className="truncate">{c.title}</span>
+            {isNewColumn(c.key) && removable.includes(c.key) && (
+              <button
+                type="button"
+                onClick={() => onRemove(c.key)}
+                title={removeLabel}
+                aria-label={removeLabel}
+                className="rounded p-0.5 text-primary-700/60 hover:bg-primary-100 hover:text-primary-900"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </span>
+          <span className="block text-[11px] font-normal text-foreground/50">{c.subtitle}</span>
+        </th>
+      ))}
+      <th className="px-2 py-2 text-center">
+        {canAdd && (
+          <button
+            type="button"
+            onClick={onAdd}
+            className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-dashed border-primary-300 px-2.5 py-1.5 text-xs font-semibold text-primary-700 hover:bg-primary-100/60"
+            data-testid="add-note"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            {addLabel}
+          </button>
+        )}
+      </th>
+      {showValue && (
+        <th className="min-w-[5.5rem] border-s border-border px-2 py-2 text-center font-semibold">
+          {valueLabel}
+        </th>
+      )}
+    </>
+  );
+}
+
+/** Cases d'un bloc pour un élève, suivies de la valeur calculée du bloc. */
+function PartCells({
+  columns,
+  showValue,
+  result,
+  cell,
+}: {
+  columns: Column[];
+  showValue: boolean;
+  result: { weighted: number | null } | undefined;
+  cell: (column: Column) => React.ReactNode;
+}) {
+  return (
+    <>
+      {columns.map((c) => (
+        <td key={c.key} className="px-2 py-1.5">
+          {cell(c)}
+        </td>
+      ))}
+      <td />
+      {showValue && (
+        <td
+          className="border-s border-border px-2 py-1.5 text-center font-semibold tabular-nums text-primary-700"
+          dir="ltr"
+          data-testid="part-value"
+        >
+          {result?.weighted != null ? formatScore(result.weighted) : "—"}
+        </td>
+      )}
+    </>
   );
 }

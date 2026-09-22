@@ -4,12 +4,15 @@ import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { effectivePlan, trialEndsAt, daysBetween } from "@/lib/plans";
 import { SettingsView, type YearRow } from "./settings-view";
+import { GradingRuleCard } from "./grading-rule-card";
+import { currentGradingConfig } from "@/lib/grading-config-data";
+import { formatDate } from "@/lib/format";
 import { CURRENT_YEAR } from "@/lib/school-year";
 
 export default async function SettingsPage() {
   const user = await requireRole(ROLES.DIRECTOR);
 
-  const [school, years, students, teachers, classes] = await Promise.all([
+  const [school, years, students, teachers, classes, rule] = await Promise.all([
     prisma.school.findUnique({ where: { id: user.schoolId } }),
     prisma.academicYear.findMany({
       where: { schoolId: user.schoolId },
@@ -18,6 +21,7 @@ export default async function SettingsPage() {
     prisma.student.count({ where: { schoolId: user.schoolId, status: "ACTIVE" } }),
     prisma.teacher.count({ where: { schoolId: user.schoolId, status: "ACTIVE" } }),
     prisma.classRoom.count({ where: { schoolId: user.schoolId, ...CURRENT_YEAR } }),
+    currentGradingConfig(user.schoolId),
   ]);
 
   if (!school) notFound();
@@ -32,6 +36,13 @@ export default async function SettingsPage() {
 
   return (
     <SettingsView
+      gradingRule={
+        <GradingRuleCard
+          initialConfig={rule.config}
+          isDefault={rule.isDefault}
+          updatedAt={rule.updatedAt ? formatDate(rule.updatedAt) : null}
+        />
+      }
       school={{
         name: school.name,
         address: school.address ?? "",

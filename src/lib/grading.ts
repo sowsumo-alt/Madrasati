@@ -1,18 +1,16 @@
 /**
- * Calcul des moyennes selon le niveau de la classe.
+ * Niveau d'une classe, moyenne générale et coefficients de référence.
  *
- * Deux logiques distinctes, jamais mélangées :
+ * Ce fichier ne contient aucune formule de matière : la façon de calculer une
+ * moyenne appartient à chaque école et vit dans lib/grading-config.ts. Ici
+ * on ne décide que de deux choses communes à toutes :
  *
- * - Collège et Lycée (classes AS) : la règle du bulletin officiel
- *   mauritanien, relevée sur celui du Groupe Scolaire Privé « Ngalam Avenir »
- *   et confirmée par son directeur. Dans chaque matière, un trimestre peut
- *   compter plusieurs devoirs, mais seul le meilleur est retenu :
- *   Moy T = (meilleur devoir × 3 + composition) ÷ 4.
- * - Fondamental (classes AF) et toute classe au niveau non reconnu : le
- *   calcul d'origine de Madrasati, la moyenne simple de toutes les notes de
- *   la matière. Le Fondamental a son propre bulletin officiel, qu'on n'a pas
- *   encore vu : lui appliquer la règle du secondaire fausserait toutes ses
- *   moyennes.
+ * - à quel cycle appartient une classe (Fondamental, Collège, Lycée), donc
+ *   laquelle des deux règles de l'école s'applique et quel bulletin est
+ *   imprimé ;
+ * - comment les moyennes de matières, une fois calculées, se combinent en
+ *   moyenne générale : somme des notes coefficientées ÷ somme des
+ *   coefficients.
  *
  * Aucune dépendance à la base, pour être testé à part (tests/grading.test.ts).
  */
@@ -51,21 +49,6 @@ export function gradingSchemeFor(level: SchoolLevel | null): GradingScheme {
   return level === "COLLEGE" || level === "LYCEE" ? "SECONDARY" : "STANDARD";
 }
 
-/** Le meilleur devoir compte trois fois, la composition une fois. */
-export const BEST_DEVOIR_WEIGHT = 3;
-/** Diviseur fixe de la moyenne de matière, quel que soit le nombre de devoirs. */
-export const SUBJECT_DIVISOR = 4;
-
-/**
- * Une composition, par opposition aux devoirs (devoirs, contrôles,
- * interrogations). Les examens créés avant le champ « type » n'ont que leur
- * titre pour le dire.
- */
-export function isCompositionExam(exam: { kind: string | null; title: string }): boolean {
-  if (exam.kind) return exam.kind === "COMPOSITION";
-  return /compo/i.test(exam.title);
-}
-
 /** Note ramenée sur 20, pour un examen noté sur un autre barème. */
 export function onTwenty(score: number, maxScore: number): number {
   return maxScore === 20 || maxScore <= 0 ? score : (score / maxScore) * 20;
@@ -74,49 +57,6 @@ export function onTwenty(score: number, maxScore: number): number {
 /** Arrondi au centième, comme sur le bulletin papier. */
 export function roundHundredth(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
-}
-
-export interface SecondarySubjectCalc {
-  /** Meilleur devoir retenu, sur 20 ; null sans aucun devoir noté. */
-  best: number | null;
-  /** Position de ce devoir dans la liste reçue (le premier en cas d'égalité). */
-  bestIndex: number | null;
-  /** Colonne « Moy Int × 3 » du bulletin. */
-  bestTimes3: number | null;
-  composition: number | null;
-  /**
-   * Colonne « Moy T /20 », arrondie au centième. Null tant qu'il manque le
-   * devoir ou la composition : une moyenne à moitié calculée serait fausse.
-   */
-  average: number | null;
-}
-
-/**
- * Moyenne d'une matière au collège et au lycée :
- * (meilleur devoir × 3 + composition) ÷ 4.
- *
- * Seul le meilleur devoir entre dans le calcul, quel que soit leur nombre —
- * ni leur moyenne, ni leur somme. Les devoirs non notés ou manqués (null)
- * sont ignorés.
- */
-export function secondarySubjectAverage(
-  devoirs: (number | null)[],
-  composition: number | null,
-): SecondarySubjectCalc {
-  let bestIndex: number | null = null;
-  devoirs.forEach((score, index) => {
-    if (score == null) return;
-    if (bestIndex == null || score > (devoirs[bestIndex] as number)) bestIndex = index;
-  });
-
-  const best = bestIndex == null ? null : (devoirs[bestIndex] as number);
-  const bestTimes3 = best == null ? null : best * BEST_DEVOIR_WEIGHT;
-  const average =
-    bestTimes3 == null || composition == null
-      ? null
-      : roundHundredth((bestTimes3 + composition) / SUBJECT_DIVISOR);
-
-  return { best, bestIndex, bestTimes3, composition, average };
 }
 
 export interface GeneralAverage {

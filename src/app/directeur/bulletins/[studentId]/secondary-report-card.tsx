@@ -1,14 +1,21 @@
 import Image from "next/image";
 import { GraduationCap } from "lucide-react";
 import type { ReportCard, ReportCardSubject } from "@/lib/report-card-compute";
+import { weightedOf } from "@/lib/report-card-compute";
 import { MENTION_LABELS_FR } from "@/lib/report-card";
 import { SECONDARY_OFFICIAL_SUBJECTS, officialSubjectIndex, roundHundredth } from "@/lib/grading";
+import type { FormulaPart } from "@/lib/grading-config";
 import { formatLongDate, formatPhone } from "@/lib/format";
 import styles from "./secondary-report-card.module.css";
 
 /**
  * Bulletin du collège et du lycée, à l'image du bulletin officiel mauritanien
  * (maquette validée : brand-assets/madrasati-mvp-bulletin-v2.html).
+ *
+ * Les colonnes de notes ne sont pas fixées ici : elles suivent la règle de
+ * calcul de l'école (un bloc = une colonne). L'école qui garde le modèle par
+ * défaut retrouve « Moy Int × 3 » et « Compt » ; celle qui compte autrement
+ * voit ses propres colonnes.
  *
  * Toujours en français et en arabe, quelle que soit la langue de
  * l'interface : c'est le document officiel que les parents connaissent.
@@ -52,6 +59,12 @@ function rankLabel(rank: number | null, classSize: number): string {
   return `${rank === 1 ? "1er" : `${rank}ème`} / ${classSize}`;
 }
 
+/** En-tête de la colonne d'un bloc : « Moy Int × 3 », ou le nom du bloc. */
+function columnHeader(part: FormulaPart): string {
+  if (part.columnLabel) return part.columnLabel;
+  return part.weight === 1 ? part.label : `${part.label} × ${part.weight}`;
+}
+
 /** L'ordre du bulletin officiel (Arabe, Français, Anglais…), puis les autres matières. */
 function officialOrder(results: ReportCardSubject[]): ReportCardSubject[] {
   return [...results].sort((a, b) => {
@@ -67,24 +80,28 @@ function arabicName(result: ReportCardSubject): string {
   return index == null ? "" : SECONDARY_OFFICIAL_SUBJECTS[index].nameAr;
 }
 
-function Devoirs({ result }: { result: ReportCardSubject }) {
-  const detail = result.secondary;
-  if (!detail) return null;
-  const shown = detail.devoirs
-    .map((d, index) => ({ ...d, index }))
-    .filter((d) => d.score != null || d.isAbsent);
-  if (shown.length === 0) return null;
+/**
+ * Les notes du bloc sous sa valeur — « D1 12 · D2 14 » —, celle qui a été
+ * retenue soulignée. Rien à afficher quand le bloc n'a qu'une note, qui est
+ * déjà la valeur de la colonne.
+ */
+function PartScores({ result, index }: { result: ReportCardSubject; index: number }) {
+  const part = result.detail.parts[index];
+  const shown = (part?.scores ?? [])
+    .map((value, position) => ({ value, position }))
+    .filter((s) => s.value != null);
+  if (!part || shown.length < 2) return null;
 
   return (
-    <div className={styles.devoirs} data-testid="devoirs">
-      {shown.map((d) => (
+    <div className={styles.devoirs} data-testid="part-scores">
+      {shown.map((s) => (
         <span
-          key={d.index}
-          className={d.index === detail.bestIndex ? styles.devoirBest : undefined}
-          title={d.index === detail.bestIndex ? "Meilleur devoir, retenu pour la moyenne" : d.title}
-          data-best={d.index === detail.bestIndex ? "" : undefined}
+          key={s.position}
+          className={s.position === part.usedIndex ? styles.devoirBest : undefined}
+          data-best={s.position === part.usedIndex ? "" : undefined}
+          title={result.detail.titles[index]?.[s.position]}
         >
-          D{d.index + 1} {d.score != null ? score(d.score) : "Abs"}
+          D{s.position + 1} {score(s.value as number)}
         </span>
       ))}
     </div>
@@ -102,6 +119,7 @@ export function SecondaryReportCard({
   issuedAt,
 }: SecondaryReportCardProps) {
   const rows = officialOrder(card.results);
+  const parts = card.formula.parts;
   const termNumber = card.term.replace(/\D/g, "") || card.term;
   const rank = rankLabel(card.rank, card.classSize);
   const place = [school.address, school.city]
@@ -187,8 +205,9 @@ export function SecondaryReportCard({
           <thead>
             <tr className={styles.frRow}>
               <th className={styles.colSubject}>Disciplines</th>
-              <th>Moy Int × 3</th>
-              <th>Compt</th>
+              {parts.map((part) => (
+                <th key={part.id}>{columnHeader(part)}</th>
+              ))}
               <th>Moy T /20</th>
               <th>Coeff</th>
               <th>Note × Coeff</th>
@@ -197,8 +216,9 @@ export function SecondaryReportCard({
             </tr>
             <tr className={styles.arRow} lang="ar">
               <th className={styles.colSubject}>المواد</th>
-              <th>معدل فردي×3</th>
-              <th>التأليف</th>
+              {parts.map((part) => (
+                <th key={part.id}>{part.columnLabelAr ?? ""}</th>
+              ))}
               <th>معدل ف /20</th>
               <th>الضارب</th>
               <th>النقطة المرجحة</th>
@@ -208,7 +228,7 @@ export function SecondaryReportCard({
           </thead>
           <tbody>
             {rows.map((r) => {
-              const d = r.secondary;
+              const weighted = weightedOf(r);
               return (
                 <tr key={r.subjectName} data-testid="subject-row" data-subject={r.subjectName}>
                   <td className={styles.subject}>
@@ -217,22 +237,28 @@ export function SecondaryReportCard({
                       {arabicName(r)}
                     </div>
                   </td>
-                  <td className={styles.times3} data-testid="times3">
-                    {d?.bestTimes3 != null ? score(d.bestTimes3) : EMPTY}
-                    <Devoirs result={r} />
-                  </td>
-                  <td data-testid="composition">
-                    {d?.composition != null ? score(d.composition) : d?.compositionAbsent ? "Abs" : EMPTY}
-                  </td>
+                  {parts.map((part, index) => {
+                    const value = r.detail.parts[index]?.weighted ?? null;
+                    return (
+                      <td
+                        key={part.id}
+                        className={index === 0 ? styles.times3 : undefined}
+                        data-testid={`part-${index}`}
+                      >
+                        {value != null ? score(value) : EMPTY}
+                        <PartScores result={r} index={index} />
+                      </td>
+                    );
+                  })}
                   <td data-testid="subject-average">
                     {r.average != null ? twoDecimals(r.average) : EMPTY}
                   </td>
                   <td data-testid="coefficient">{r.coefficient}</td>
                   <td className={styles.weighted} data-testid="weighted">
-                    {d?.weighted != null ? twoDecimals(d.weighted) : EMPTY}
+                    {weighted != null ? twoDecimals(weighted) : EMPTY}
                   </td>
-                  <td>{d?.rank ?? EMPTY}</td>
-                  <td className={styles.observation}>{d?.observation ?? ""}</td>
+                  <td>{r.detail.rank ?? EMPTY}</td>
+                  <td className={styles.observation}>{r.detail.observation ?? ""}</td>
                 </tr>
               );
             })}
@@ -243,14 +269,15 @@ export function SecondaryReportCard({
                   المعدل العام
                 </div>
               </td>
-              <td></td>
-              <td></td>
+              {parts.map((part) => (
+                <td key={part.id}></td>
+              ))}
               <td data-testid="general-average">
-                {card.average != null ? twoDecimals(card.average) : "—"}
+                {card.average != null ? twoDecimals(card.average) : EMPTY}
               </td>
               <td data-testid="total-coefficients">{card.totalCoefficients}</td>
               <td data-testid="total-points">
-                {card.totalPoints != null ? twoDecimals(card.totalPoints) : "—"}
+                {card.totalPoints != null ? twoDecimals(card.totalPoints) : EMPTY}
               </td>
               <td colSpan={2}>{rank}</td>
             </tr>
@@ -259,9 +286,8 @@ export function SecondaryReportCard({
       </div>
 
       <div className={styles.calcNote}>
-        💡 <b>Moy Int × 3</b> = meilleur devoir retenu parmi ceux saisis, multiplié par 3 ·{" "}
-        <b>Moy T /20</b> = (Moy Int ×3 + Compt) ÷ 4 · <b>Note × Coeff</b> = Moy T × Coeff —
-        calculés automatiquement par Madrasati.
+        💡 {formulaNote(card)} — calculés automatiquement par Madrasati, selon la règle de
+        calcul enregistrée par l&apos;école.
       </div>
 
       {/* SYNTHÈSE */}
@@ -312,5 +338,39 @@ export function SecondaryReportCard({
         {school.city ? `${school.city}, le ${date}` : `Le ${date}`}
       </div>
     </div>
+  );
+}
+
+/** La phrase d'explication sous le tableau, écrite d'après la formule de l'école. */
+function formulaNote(card: ReportCard) {
+  const terms = card.formula.parts.map((part) => {
+    const rule =
+      part.multiple === "BEST"
+        ? "la meilleure note"
+        : part.multiple === "AVERAGE"
+          ? "la moyenne des notes"
+          : part.multiple === "SUM"
+            ? "la somme des notes"
+            : "la dernière note";
+    const times = part.weight === 1 ? "" : ` × ${part.weight}`;
+    return `${columnHeader(part)} = ${rule} de « ${part.label} »${times}`;
+  });
+  const divisor =
+    card.formula.divisor.mode === "FIXED"
+      ? card.formula.divisor.value
+      : card.formula.parts.reduce((sum, p) => sum + p.weight, 0);
+
+  return (
+    <>
+      {terms.map((text, i) => (
+        <span key={i}>
+          {i > 0 && " · "}
+          <b>{text.split(" = ")[0]}</b> = {text.split(" = ").slice(1).join(" = ")}
+        </span>
+      ))}
+      {" · "}
+      <b>Moy T /20</b> = tout cela additionné, ÷ {divisor} · <b>Note × Coeff</b> = Moy T ×
+      Coeff
+    </>
   );
 }

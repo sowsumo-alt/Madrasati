@@ -6,16 +6,19 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { assertClassAccess, getTeacherScope } from "@/lib/teacher-scope";
-import { gradingSchemeFor, isCompositionExam, schoolLevelOf } from "@/lib/grading";
-import { isNewDevoirColumn, NEW_COMPOSITION, parseCell } from "@/lib/grade-sheet";
+import { schoolLevelOf } from "@/lib/grading";
+import { partForKind, type FormulaPart } from "@/lib/grading-config";
+import { currentGradingConfig } from "@/lib/grading-config-data";
+import { examKindOf, formulaFor } from "@/lib/report-card-compute";
+import { isNewColumn, newColumnPart, parseCell } from "@/lib/grade-sheet";
 import { TERMS } from "@/app/directeur/examens/schema";
 
 const sheetSchema = z.object({
   classId: z.string().min(1),
   subjectId: z.string().min(1),
   term: z.enum(TERMS),
-  /** Devoirs ajoutés dans la grille, dans l'ordre de leurs colonnes. */
-  newDevoirs: z.array(z.string().refine(isNewDevoirColumn)).max(20),
+  /** Colonnes ajoutées dans la grille, dans l'ordre où elles s'affichent. */
+  newColumns: z.array(z.string().refine(isNewColumn)).max(40),
   cells: z
     .array(
       z.object({
@@ -28,20 +31,21 @@ const sheetSchema = z.object({
 });
 export type GradeSheetInput = z.infer<typeof sheetSchema>;
 
-/** Minuit UTC du jour : la date des devoirs et compositions créés depuis la grille. */
+/** Minuit UTC du jour : la date des notes créées depuis la grille. */
 function today(): Date {
   const now = new Date();
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 }
 
 /**
- * Enregistre la grille d'une matière pour un trimestre, au collège et au
- * lycée : les devoirs ajoutés et la composition sont créés à ce moment-là —
- * comme des examens ordinaires, de type Devoir ou Composition —, puis toutes
- * les notes sont écrites en une seule transaction. Soit tout passe, soit rien.
+ * Enregistre la grille d'une matière pour un trimestre : les colonnes
+ * ajoutées deviennent des examens ordinaires — du type prévu par le bloc de
+ * la formule auquel elles appartiennent —, puis toutes les notes sont
+ * écrites en une seule transaction. Soit tout passe, soit rien.
  *
- * Chaque note est gardée brute, telle qu'obtenue ; le meilleur devoir n'est
- * choisi qu'au calcul de la moyenne (lib/grading.ts).
+ * Chaque note est gardée brute, telle qu'obtenue ; la règle de l'école
+ * (meilleure note, moyenne, somme…) ne s'applique qu'au calcul de la
+ * moyenne, jamais à l'enregistrement.
  */
 export async function saveGradeSheet(input: GradeSheetInput) {
   const user = await requireRole(ROLES.DIRECTOR, ROLES.TEACHER);
@@ -49,26 +53,26 @@ export async function saveGradeSheet(input: GradeSheetInput) {
 
   await assertClassAccess(user, data.classId);
 
-  const classRoom = await prisma.classRoom.findFirst({
-    where: { id: data.classId, schoolId: user.schoolId },
-    select: {
-      id: true,
-      name: true,
-      level: true,
-      academicYearId: true,
-      mainTeacherId: true,
-      classSubjects: { where: { subjectId: data.subjectId }, select: { teacherId: true } },
-    },
-  });
+  const [classRoom, rule] = await Promise.all([
+    prisma.classRoom.findFirst({
+      where: { id: data.classId, schoolId: user.schoolId },
+      select: {
+        id: true,
+        name: true,
+        level: true,
+        academicYearId: true,
+        mainTeacherId: true,
+        classSubjects: { where: { subjectId: data.subjectId }, select: { teacherId: true } },
+      },
+    }),
+    currentGradingConfig(user.schoolId),
+  ]);
   if (!classRoom) throw new Error("Classe introuvable.");
   const classSubject = classRoom.classSubjects[0];
   if (!classSubject) throw new Error("Cette matière n'est pas enseignée dans cette classe.");
 
-  // La grille Devoirs / Composition est celle du collège et du lycée. Le
-  // Fondamental garde sa saisie par examen et son calcul d'origine.
-  if (gradingSchemeFor(schoolLevelOf(classRoom.level, classRoom.name)) !== "SECONDARY") {
-    throw new Error("Cette grille est réservée aux classes du collège et du lycée.");
-  }
+  const formula = formulaFor(rule.config, schoolLevelOf(classRoom.level, classRoom.name));
+  const partById = new Map(formula.parts.map((p) => [p.id, p]));
 
   const [exams, students] = await Promise.all([
     prisma.exam.findMany({
@@ -88,17 +92,13 @@ export async function saveGradeSheet(input: GradeSheetInput) {
   ]);
   const allowedStudents = new Set(students.map((s) => s.id));
   const examById = new Map(exams.map((e) => [e.id, e]));
-  const devoirCount = exams.filter((e) => !isCompositionExam(e)).length;
-  const hasComposition = exams.some((e) => isCompositionExam(e));
 
   // Toutes les cases sont lues et vérifiées avant la moindre écriture.
   const byColumn = new Map<string, { studentId: string; score: number | null; isAbsent: boolean }[]>();
   for (const cell of data.cells) {
     if (!allowedStudents.has(cell.studentId)) continue;
     const exam = examById.get(cell.column);
-    const isNew = isNewDevoirColumn(cell.column) || cell.column === NEW_COMPOSITION;
-    if (!exam && !isNew) throw new Error("Une colonne de la grille n'existe plus. Rechargez la page.");
-    if (isNewDevoirColumn(cell.column) && !data.newDevoirs.includes(cell.column)) {
+    if (!exam && !(isNewColumn(cell.column) && data.newColumns.includes(cell.column))) {
       throw new Error("Une colonne de la grille n'existe plus. Rechargez la page.");
     }
 
@@ -111,17 +111,16 @@ export async function saveGradeSheet(input: GradeSheetInput) {
     byColumn.set(cell.column, list);
   }
 
-  const creatingExams =
-    data.newDevoirs.some((c) => byColumn.has(c)) || (byColumn.has(NEW_COMPOSITION) && !hasComposition);
+  const creating = data.newColumns.some((c) => byColumn.has(c));
 
   // Un enseignant saisit les notes de toutes ses classes, comme sur la page
-  // Examens ; mais il n'ouvre un nouveau devoir que dans une matière qu'il
+  // Examens ; mais il n'ouvre une nouvelle note que dans une matière qu'il
   // enseigne, ou dans la classe dont il est le professeur principal.
-  if (creatingExams && user.role === ROLES.TEACHER) {
+  if (creating && user.role === ROLES.TEACHER) {
     const scope = await getTeacherScope(user.id, user.schoolId);
     const teacherId = scope?.teacher.id;
     if (!teacherId || (classSubject.teacherId !== teacherId && classRoom.mainTeacherId !== teacherId)) {
-      throw new Error("Seul l'enseignant de cette matière peut ajouter un devoir.");
+      throw new Error("Seul l'enseignant de cette matière peut ajouter une note.");
     }
   }
 
@@ -137,48 +136,38 @@ export async function saveGradeSheet(input: GradeSheetInput) {
   const toGrades = (list: { studentId: string; score: number | null; isAbsent: boolean }[]) =>
     list.map((g) => ({ studentId: g.studentId, score: g.isAbsent ? null : g.score, isAbsent: g.isAbsent }));
 
+  /** Nombre de notes déjà enregistrées dans ce bloc : « Devoir 3 » suit « Devoir 2 ». */
+  const countOf = (part: FormulaPart) =>
+    exams.filter((e) => partForKind(formula, examKindOf(e))?.id === part.id).length;
+  const created = new Map<string, number>();
+
   const writes = [];
 
-  // Les devoirs ajoutés prennent la suite des devoirs existants : Devoir 3
-  // après Devoir 1 et Devoir 2. Une colonne ajoutée puis laissée vide n'est
-  // pas créée.
-  let number = devoirCount;
-  for (const column of data.newDevoirs) {
+  for (const column of data.newColumns) {
     const list = byColumn.get(column);
     if (!list || list.length === 0) continue;
-    number += 1;
+    const part = partById.get(newColumnPart(column) ?? "");
+    if (!part) throw new Error("Cette colonne ne correspond à aucun type de note de votre règle.");
+
+    const rank = countOf(part) + (created.get(part.id) ?? 0) + 1;
+    created.set(part.id, (created.get(part.id) ?? 0) + 1);
+    const name = part.examTitle ?? part.label;
     writes.push(
       prisma.exam.create({
         data: {
           ...common,
-          title: `Devoir ${number}`,
-          kind: "DEVOIR",
+          // Une note seule dans son bloc porte le nom du trimestre
+          // (« Composition Trimestre 1 ») ; au-delà, elle est numérotée.
+          title: rank === 1 && part.multiple === "LAST" ? `${name} ${data.term}` : `${name} ${rank}`,
+          kind: part.kinds[0] ?? "DEVOIR",
           grades: { create: toGrades(list) },
         },
       }),
     );
   }
 
-  // Une seule composition par trimestre : si elle existe déjà, ses notes y
-  // vont plutôt que dans une deuxième.
-  const compositionCells = byColumn.get(NEW_COMPOSITION);
-  const existingComposition = [...exams].reverse().find((e) => isCompositionExam(e));
-  if (compositionCells && compositionCells.length > 0 && !existingComposition) {
-    writes.push(
-      prisma.exam.create({
-        data: {
-          ...common,
-          title: `Composition ${data.term}`,
-          kind: "COMPOSITION",
-          grades: { create: toGrades(compositionCells) },
-        },
-      }),
-    );
-  }
-
   for (const [column, list] of byColumn) {
-    const examId =
-      column === NEW_COMPOSITION ? existingComposition?.id : examById.get(column)?.id;
+    const examId = examById.get(column)?.id;
     if (!examId) continue;
     for (const g of toGrades(list)) {
       writes.push(

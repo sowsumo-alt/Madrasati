@@ -3,7 +3,10 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
-import { buildReportCards } from "@/lib/report-card-data";
+import { buildReportCards, reportCardRule } from "@/lib/report-card-data";
+import { markReportCardIssued } from "../actions";
+import { RuleBanner } from "./rule-banner";
+import { formatDate } from "@/lib/format";
 import { TERMS } from "@/app/directeur/examens/schema";
 import { PrintButton } from "@/components/ui/print-button";
 import { GraduationCap } from "lucide-react";
@@ -42,8 +45,21 @@ export default async function ReportCardPage({
       ? termParam
       : TERMS[0];
 
+  // La règle de calcul : celle d'aujourd'hui, ou celle avec laquelle ce
+  // bulletin a déjà été remis au parent.
+  const activeYear = await prisma.academicYear.findFirst({
+    where: { schoolId: user.schoolId, isCurrent: true },
+    select: { id: true },
+  });
+  const rule = await reportCardRule({
+    schoolId: user.schoolId,
+    studentId,
+    academicYearId: activeYear?.id ?? null,
+    term,
+  });
+
   const [cards, school, academicYear, comment, parentLink, template] = await Promise.all([
-    buildReportCards(user.schoolId, student.classId, term),
+    buildReportCards(user.schoolId, student.classId, term, rule.config),
     prisma.school.findUnique({ where: { id: user.schoolId } }),
     prisma.academicYear.findFirst({
       where: { schoolId: user.schoolId, isCurrent: true },
@@ -92,6 +108,12 @@ export default async function ReportCardPage({
     : "";
 
   const pdfFileName = `Bulletin-${studentName}-${term}.pdf`;
+  // Imprimer ou envoyer le bulletin le fige sur la règle du jour.
+  const onIssued = markReportCardIssued.bind(null, studentId, term);
+  const ruleBanner =
+    rule.outdated && rule.issuedAt ? (
+      <RuleBanner studentId={studentId} term={term} issuedAt={formatDate(rule.issuedAt)} />
+    ) : null;
 
   // Collège et lycée : le bulletin officiel mauritanien (meilleur devoir × 3
   // + composition, ÷ 4). Le Fondamental garde plus bas son bulletin d'origine.
@@ -110,6 +132,7 @@ export default async function ReportCardPage({
 
     return (
       <div className="mx-auto max-w-[62rem] px-4 py-10 print:max-w-none print:p-0">
+        {ruleBanner}
         <div className="no-print mb-6 flex flex-wrap justify-end gap-2">
           <PdfButton
             elementId="bulletin-card"
@@ -117,8 +140,9 @@ export default async function ReportCardPage({
             labelKey="bulletin.sendPdf"
             parentPhone={parent?.phone ?? null}
             message={pdfMessage}
+            onUse={onIssued}
           />
-          <PrintButton label={t("bulletin.print")} />
+          <PrintButton label={t("bulletin.print")} onUse={onIssued} />
         </div>
 
         {/* Le document garde sa largeur sur téléphone et défile : le PDF
@@ -161,15 +185,17 @@ export default async function ReportCardPage({
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
-      <div className="no-print mb-6 flex justify-end gap-2">
+      {ruleBanner}
+      <div className="no-print mb-6 flex flex-wrap justify-end gap-2">
         <PdfButton
           elementId="bulletin-card"
           fileName={pdfFileName}
           labelKey="bulletin.sendPdf"
           parentPhone={parent?.phone ?? null}
           message={pdfMessage}
+          onUse={onIssued}
         />
-        <PrintButton label={t("bulletin.print")} />
+        <PrintButton label={t("bulletin.print")} onUse={onIssued} />
       </div>
 
       <div

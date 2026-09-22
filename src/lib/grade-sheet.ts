@@ -43,11 +43,22 @@ export function cellKey(column: string, studentId: string): string {
   return `${column}:${studentId}`;
 }
 
-/** Colonne d'un devoir ajouté mais pas encore enregistré. */
-export const NEW_DEVOIR_PREFIX = "new-devoir-";
-/** Colonne de la composition, tant qu'elle n'existe pas encore. */
-export const NEW_COMPOSITION = "new-composition";
+/**
+ * Colonne ajoutée dans la grille mais pas encore enregistrée : « new:devoir:2 »
+ * est la deuxième note ajoutée au bloc « devoir ». L'examen correspondant
+ * n'est créé qu'à l'enregistrement, et seulement si une note y a été saisie.
+ */
+export const NEW_PREFIX = "new:";
 
-export function isNewDevoirColumn(column: string): boolean {
-  return column.startsWith(NEW_DEVOIR_PREFIX);
+export function newColumnKey(partId: string, index: number): string {
+  return `${NEW_PREFIX}${partId}:${index}`;
+}
+
+export function isNewColumn(column: string): boolean {
+  return column.startsWith(NEW_PREFIX);
+}
+
+export function newColumnPart(column: string): string | null {
+  if (!isNewColumn(column)) return null;
+  return column.slice(NEW_PREFIX.length).split(":")[0] || null;
 }

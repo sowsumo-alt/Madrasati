@@ -17,6 +17,8 @@ interface PdfButtonProps {
   /** Renseigné : le PDF part avec l'ouverture de la conversation du parent. */
   parentPhone?: string | null;
   message?: string;
+  /** Appelé au moment de l'export : sert à marquer un document comme remis. */
+  onUse?: () => Promise<void>;
 }
 
 /**
@@ -31,6 +33,7 @@ export function PdfButton({
   labelKey,
   parentPhone = null,
   message = "",
+  onUse,
 }: PdfButtonProps) {
   const { t } = useLanguage();
   const [isGenerating, setIsGenerating] = useState(false);
@@ -45,6 +48,7 @@ export function PdfButton({
 
     setIsGenerating(true);
     try {
+      onUse?.().catch(() => {});
       await exportElementToPdf(element, fileName);
 
       if (sendsToParent) {

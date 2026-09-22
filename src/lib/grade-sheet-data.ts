@@ -3,12 +3,14 @@ import { CURRENT_YEAR } from "@/lib/school-year";
 import { defaultTermForDate } from "@/lib/exams";
 import {
   gradingSchemeFor,
-  isCompositionExam,
   officialSubjectIndex,
   schoolLevelOf,
   type GradingScheme,
   type SchoolLevel,
 } from "@/lib/grading";
+import { partForKind, type Formula } from "@/lib/grading-config";
+import { currentGradingConfig } from "@/lib/grading-config-data";
+import { examKindOf, formulaFor } from "@/lib/report-card-compute";
 import { TERMS } from "@/app/directeur/examens/schema";
 
 export interface GradeSheetColumn {
@@ -19,6 +21,16 @@ export interface GradeSheetColumn {
   maxScore: number;
 }
 
+/** Un bloc de la formule de l'école et les notes déjà saisies pour lui. */
+export interface GradeSheetPart {
+  id: string;
+  label: string;
+  weight: number;
+  multiple: string;
+  required: boolean;
+  columns: GradeSheetColumn[];
+}
+
 export interface GradeSheetData {
   classes: { id: string; name: string; level: SchoolLevel | null; scheme: GradingScheme }[];
   classId: string | null;
@@ -26,18 +38,23 @@ export interface GradeSheetData {
   subjectId: string | null;
   term: (typeof TERMS)[number];
   students: { id: string; firstName: string; lastName: string }[];
-  devoirs: GradeSheetColumn[];
-  composition: GradeSheetColumn | null;
+  /** La règle de calcul de l'école pour le cycle de cette classe. */
+  formula: Formula;
+  parts: GradeSheetPart[];
   /** Notes enregistrées, par `${examId}:${studentId}`. */
   grades: Record<string, { score: number | null; isAbsent: boolean }>;
   /** Faux pour un enseignant qui n'enseigne pas cette matière. */
-  canAddDevoir: boolean;
+  canAddColumn: boolean;
 }
 
 /**
- * Données de la grille de saisie Devoirs / Composition : les classes de
- * l'année visibles par l'utilisateur, puis les devoirs, la composition et les
- * notes de la matière et du trimestre choisis.
+ * Données de la grille de saisie : les classes de l'année visibles par
+ * l'utilisateur, puis, pour la matière et le trimestre choisis, une colonne
+ * par note déjà saisie, rangée sous le bloc de la formule qui la reçoit.
+ *
+ * Les blocs viennent de la configuration de l'école : une école qui compte
+ * « meilleur devoir × 3 + composition » voit deux blocs, une école qui fait
+ * la moyenne de ses devoirs en voit un seul.
  *
  * `teacherId` renseigné : la vue d'un enseignant, limitée aux matières qu'il
  * enseigne — toutes celles de la classe dont il est professeur principal.
@@ -51,28 +68,31 @@ export async function loadGradeSheet(options: {
 }): Promise<GradeSheetData> {
   const { schoolId, classIds, teacherId, params } = options;
 
-  const classRows = await prisma.classRoom.findMany({
-    where: {
-      schoolId,
-      ...CURRENT_YEAR,
-      ...(classIds ? { id: { in: classIds } } : {}),
-    },
-    orderBy: { name: "asc" },
-    select: {
-      id: true,
-      name: true,
-      level: true,
-      mainTeacherId: true,
-      classSubjects: {
-        select: {
-          subjectId: true,
-          teacherId: true,
-          coefficientOverride: true,
-          subject: { select: { name: true, coefficient: true, isActive: true } },
+  const [classRows, rule] = await Promise.all([
+    prisma.classRoom.findMany({
+      where: {
+        schoolId,
+        ...CURRENT_YEAR,
+        ...(classIds ? { id: { in: classIds } } : {}),
+      },
+      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        name: true,
+        level: true,
+        mainTeacherId: true,
+        classSubjects: {
+          select: {
+            subjectId: true,
+            teacherId: true,
+            coefficientOverride: true,
+            subject: { select: { name: true, coefficient: true, isActive: true } },
+          },
         },
       },
-    },
-  });
+    }),
+    currentGradingConfig(schoolId),
+  ]);
 
   const classes = classRows.map((c) => {
     const level = schoolLevelOf(c.level, c.name);
@@ -80,7 +100,7 @@ export async function loadGradeSheet(options: {
   });
 
   // Par défaut, la première classe du collège ou du lycée : c'est pour elles
-  // que la grille existe.
+  // que la grille a été dessinée.
   const selected =
     classRows.find((c) => c.id === params.classe) ??
     classRows.find((c) => classes.find((x) => x.id === c.id)?.scheme === "SECONDARY") ??
@@ -91,6 +111,18 @@ export async function loadGradeSheet(options: {
     ? (params.trimestre as (typeof TERMS)[number])
     : defaultTermForDate(new Date());
 
+  const level = selected ? schoolLevelOf(selected.level, selected.name) : null;
+  const formula = formulaFor(rule.config, level);
+  const partsOf = (columnsByPart: GradeSheetColumn[][]): GradeSheetPart[] =>
+    formula.parts.map((p, index) => ({
+      id: p.id,
+      label: p.label,
+      weight: p.weight,
+      multiple: p.multiple,
+      required: p.required,
+      columns: columnsByPart[index] ?? [],
+    }));
+
   const empty: GradeSheetData = {
     classes,
     classId: selected?.id ?? null,
@@ -98,10 +130,10 @@ export async function loadGradeSheet(options: {
     subjectId: null,
     term,
     students: [],
-    devoirs: [],
-    composition: null,
+    formula,
+    parts: partsOf([]),
     grades: {},
-    canAddDevoir: false,
+    canAddColumn: false,
   };
   if (!selected) return empty;
 
@@ -120,8 +152,8 @@ export async function loadGradeSheet(options: {
     });
 
   const subject = subjects.find((s) => s.id === params.matiere) ?? subjects[0] ?? null;
-  const base = { ...empty, subjects, subjectId: subject?.id ?? null, canAddDevoir: true };
-  if (!subject || classes.find((c) => c.id === selected.id)?.scheme !== "SECONDARY") return base;
+  const base = { ...empty, subjects, subjectId: subject?.id ?? null };
+  if (!subject) return base;
 
   const [students, exams] = await Promise.all([
     prisma.student.findMany({
@@ -143,20 +175,19 @@ export async function loadGradeSheet(options: {
     }),
   ]);
 
-  const toColumn = (e: (typeof exams)[number]): GradeSheetColumn => ({
-    id: e.id,
-    title: e.title,
-    date: e.date.toISOString(),
-    maxScore: e.maxScore,
-  });
-  const compositions = exams.filter((e) => isCompositionExam(e));
-  // Une seule composition par trimestre ; la plus récente fait foi, comme
-  // dans le calcul du bulletin.
-  const composition = compositions.at(-1) ?? null;
-  const shown = [...exams.filter((e) => !isCompositionExam(e)), ...(composition ? [composition] : [])];
-
+  // Chaque examen rejoint le bloc qui accepte son type ; ceux qu'aucun bloc
+  // ne prend (type retiré de la formule) restent visibles dans Examens.
+  const columnsByPart: GradeSheetColumn[][] = formula.parts.map(() => []);
   const grades: GradeSheetData["grades"] = {};
-  for (const exam of shown) {
+  for (const exam of exams) {
+    const part = partForKind(formula, examKindOf(exam));
+    if (!part) continue;
+    columnsByPart[formula.parts.indexOf(part)].push({
+      id: exam.id,
+      title: exam.title,
+      date: exam.date.toISOString(),
+      maxScore: exam.maxScore,
+    });
     for (const g of exam.grades) {
       grades[`${exam.id}:${g.studentId}`] = { score: g.score, isAbsent: g.isAbsent };
     }
@@ -166,9 +197,8 @@ export async function loadGradeSheet(options: {
   return {
     ...base,
     students,
-    devoirs: exams.filter((e) => !isCompositionExam(e)).map(toColumn),
-    composition: composition ? toColumn(composition) : null,
+    parts: partsOf(columnsByPart),
     grades,
-    canAddDevoir: teachesAll || classSubject?.teacherId === teacherId,
+    canAddColumn: teachesAll || classSubject?.teacherId === teacherId,
   };
 }

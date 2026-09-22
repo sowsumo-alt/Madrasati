@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
+import { saveGradingConfig } from "@/lib/grading-config-data";
+import type { GradingConfig } from "@/lib/grading-config";
 import { ROLES } from "@/lib/roles";
 import { isPlan } from "@/lib/plans";
 
@@ -213,4 +215,19 @@ export async function setCurrentYear(yearId: string) {
 
   revalidatePath("/directeur/parametres");
   revalidatePath("/directeur");
+}
+
+/**
+ * Enregistre la règle de calcul des moyennes de cette école. Une nouvelle
+ * version est créée : les bulletins déjà remis aux parents continuent d'être
+ * calculés avec la règle de leur époque (voir lib/report-card-data.ts).
+ */
+export async function saveGradingRule(config: GradingConfig) {
+  const user = await requireRole(ROLES.DIRECTOR);
+  await saveGradingConfig(user.schoolId, config, user.id);
+
+  revalidatePath("/directeur/parametres");
+  revalidatePath("/directeur/bulletins");
+  revalidatePath("/directeur/notes");
+  revalidatePath("/enseignant/saisie-notes");
 }

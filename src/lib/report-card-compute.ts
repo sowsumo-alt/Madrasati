@@ -8,24 +8,31 @@ import {
 import {
   generalAverage,
   gradingSchemeFor,
-  isCompositionExam,
   onTwenty,
   roundHundredth,
   schoolLevelOf,
-  secondarySubjectAverage,
   weightedScore,
   type GradingScheme,
   type SchoolLevel,
 } from "@/lib/grading";
+import {
+  computeSubjectAverage,
+  defaultGradingConfig,
+  partForKind,
+  type Formula,
+  type GradingConfig,
+  type PartResult,
+} from "@/lib/grading-config";
 
 /**
  * Calcul des bulletins d'une classe à partir de données déjà chargées — sans
  * accès à la base, pour être testé à part (tests/report-card-compute.test.ts).
  * Le chargement vit dans report-card-data.ts.
  *
- * La formule dépend du niveau de la classe (voir lib/grading.ts) :
- * collège et lycée suivent le bulletin officiel (meilleur devoir × 3 +
- * composition, ÷ 4) ; le Fondamental garde le calcul d'origine.
+ * La formule n'est pas écrite ici : elle vient de la configuration de
+ * l'école (lib/grading-config.ts), qui a une règle pour le collège et le
+ * lycée et une autre pour le Fondamental. Deux écoles voisines peuvent donc
+ * calculer différemment les mêmes notes.
  */
 
 export interface ReportCardAttendance {
@@ -34,25 +41,19 @@ export interface ReportCardAttendance {
   late: number;
 }
 
-/** Détail d'une matière au collège et au lycée, pour le bulletin officiel. */
-export interface SecondarySubjectDetail {
-  /** Tous les devoirs du trimestre, dans l'ordre chronologique. */
-  devoirs: { title: string; score: number | null; isAbsent: boolean }[];
-  /** Index du devoir retenu dans `devoirs` ; null sans devoir noté. */
-  bestIndex: number | null;
-  best: number | null;
-  bestTimes3: number | null;
-  composition: number | null;
-  compositionAbsent: boolean;
-  /** Note × Coeff ; null tant que la moyenne de la matière manque. */
-  weighted: number | null;
+/** Détail d'une matière : ce que chaque bloc de la formule a donné. */
+export interface SubjectDetail {
+  /** Un résultat par bloc de la formule, dans son ordre. */
+  parts: PartResult[];
+  /** Titres des examens de chaque bloc, pour les nommer sur le bulletin. */
+  titles: string[][];
   /** Rang de l'élève dans la matière. */
   rank: number | null;
-  /** Observation du professeur, saisie avec la note de composition. */
+  /** Observation du professeur, saisie avec la note de fin (composition). */
   observation: string | null;
 }
 
-export type ReportCardSubject = SubjectResult & { secondary?: SecondarySubjectDetail };
+export type ReportCardSubject = SubjectResult & { detail: SubjectDetail };
 
 export interface ReportCard {
   student: { id: string; firstName: string; lastName: string };
@@ -60,12 +61,15 @@ export interface ReportCard {
   term: string;
   /** Niveau reconnu de la classe ; null s'il ne suit pas la nomenclature. */
   schoolLevel: SchoolLevel | null;
+  /** Modèle de bulletin : officiel du secondaire, ou bulletin d'origine. */
   scheme: GradingScheme;
+  /** La règle appliquée, telle que configurée par l'école. */
+  formula: Formula;
   results: ReportCardSubject[];
   average: number | null;
-  /** Somme des coefficients des matières moyennées (secondaire). */
+  /** Somme des coefficients des matières moyennées. */
   totalCoefficients: number;
-  /** Somme des notes coefficientées (secondaire) ; null au Fondamental. */
+  /** Somme des notes coefficientées ; null au Fondamental. */
   totalPoints: number | null;
   mention: MentionKey;
   rank: number | null;
@@ -90,165 +94,89 @@ export interface ReportCardInput {
   students: { id: string; firstName: string; lastName: string }[];
   exams: ReportCardExam[];
   attendance: Map<string, ReportCardAttendance>;
+  /** Règle de l'école ; le modèle par défaut si elle n'en a pas défini. */
+  config?: GradingConfig;
 }
 
 const NO_ATTENDANCE: ReportCardAttendance = { present: 0, absent: 0, late: 0 };
 
-export function computeReportCards(input: ReportCardInput): ReportCard[] {
-  const schoolLevel = schoolLevelOf(input.classLevel, input.className);
-  const scheme = gradingSchemeFor(schoolLevel);
-  return scheme === "SECONDARY"
-    ? secondaryCards(input, schoolLevel)
-    : standardCards(input, schoolLevel);
+/**
+ * Type d'un examen : celui qui a été choisi à sa création, ou, pour les
+ * examens saisis avant ce champ, celui que dit son titre.
+ */
+export function examKindOf(exam: { kind: string | null; title: string }): string {
+  if (exam.kind) return exam.kind;
+  return /compo/i.test(exam.title) ? "COMPOSITION" : "DEVOIR";
+}
+
+/** La formule que suit une classe, d'après son niveau. */
+export function formulaFor(config: GradingConfig, level: SchoolLevel | null): Formula {
+  return gradingSchemeFor(level) === "SECONDARY" ? config.secondary : config.fundamental;
 }
 
 function mean(values: number[]): number | null {
   return values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : null;
 }
 
-/** Classement final : le rang de chaque élève parmi les moyennes de la classe. */
-function withRanks(
-  cards: Omit<ReportCard, "rank" | "classSize">[],
-  classSize: number,
-): ReportCard[] {
-  const allAverages = cards.map((c) => c.average).filter((a): a is number => a != null);
-  return cards.map((card) => ({
-    ...card,
-    rank: rankOf(card.average, allAverages),
-    classSize,
-  }));
-}
-
-/**
- * Fondamental et classes au niveau non reconnu : le calcul d'origine de
- * Madrasati, inchangé. Chaque matière est la moyenne simple de toutes ses
- * notes ramenées sur 20 — devoirs et compositions confondus —, puis la
- * moyenne générale est pondérée par les coefficients.
- */
-function standardCards(input: ReportCardInput, schoolLevel: SchoolLevel | null): ReportCard[] {
-  const { subjects, students, exams } = input;
-
-  // Moyenne de la classe par matière, sur 20.
-  const classAverageBySubject = new Map<string, number | null>();
-  for (const subject of subjects) {
-    const normalized: number[] = [];
-    for (const exam of exams.filter((e) => e.subjectId === subject.id)) {
-      for (const g of exam.grades) {
-        if (g.isAbsent || g.score == null) continue;
-        normalized.push((g.score / exam.maxScore) * 20);
-      }
-    }
-    classAverageBySubject.set(subject.id, mean(normalized));
-  }
-
-  const cards = students.map((student) => {
-    const results: ReportCardSubject[] = subjects.map((subject) => {
-      const normalized: number[] = [];
-      for (const exam of exams.filter((e) => e.subjectId === subject.id)) {
-        const grade = exam.grades.find((g) => g.studentId === student.id);
-        if (!grade || grade.isAbsent || grade.score == null) continue;
-        normalized.push((grade.score / exam.maxScore) * 20);
-      }
-      return {
-        subjectName: subject.name,
-        subjectNameAr: subject.nameAr,
-        coefficient: subject.coefficient,
-        average: mean(normalized),
-        classAverage: classAverageBySubject.get(subject.id) ?? null,
-        examCount: normalized.length,
-      };
-    });
-
-    const average = weightedAverage(results);
-    const scored = results.filter((r) => r.average != null);
-
-    return {
-      student,
-      className: input.className,
-      term: input.term,
-      schoolLevel,
-      scheme: "STANDARD" as const,
-      results,
-      average,
-      totalCoefficients: scored.reduce((sum, r) => sum + r.coefficient, 0),
-      totalPoints: null,
-      mention: mentionFor(average),
-      attendance: input.attendance.get(student.id) ?? NO_ATTENDANCE,
-    };
-  });
-
-  return withRanks(cards, students.length);
-}
-
-/**
- * Collège et lycée : dans chaque matière, (meilleur devoir × 3 +
- * composition) ÷ 4, puis la moyenne générale = somme des notes
- * coefficientées ÷ somme des coefficients.
- */
-function secondaryCards(input: ReportCardInput, schoolLevel: SchoolLevel | null): ReportCard[] {
+export function computeReportCards(input: ReportCardInput): ReportCard[] {
+  const config = input.config ?? defaultGradingConfig();
+  const schoolLevel = schoolLevelOf(input.classLevel, input.className);
+  const scheme = gradingSchemeFor(schoolLevel);
+  const formula = formulaFor(config, schoolLevel);
   const { subjects, students } = input;
+
   // Ordre chronologique : « Devoir 1 » avant « Devoir 2 » sur le bulletin.
   const exams = [...input.exams].sort(
     (a, b) => a.date.getTime() - b.date.getTime() || a.title.localeCompare(b.title),
   );
+  // Chaque examen ne nourrit qu'un seul bloc de la formule : sans cela, une
+  // note pourrait compter deux fois.
+  const partIndexOfExam = new Map<ReportCardExam, number>();
+  for (const exam of exams) {
+    const part = partForKind(formula, examKindOf(exam));
+    if (part) partIndexOfExam.set(exam, formula.parts.indexOf(part));
+  }
 
-  // detailsBySubject[subjectId][studentId]
-  const detailsBySubject = new Map<string, Map<string, SecondarySubjectDetail & { average: number | null }>>();
+  const detailsBySubject = new Map<string, Map<string, SubjectDetail & { average: number | null }>>();
 
   for (const subject of subjects) {
     const subjectExams = exams.filter((e) => e.subjectId === subject.id);
-    const devoirExams = subjectExams.filter((e) => !isCompositionExam(e));
-    // Une seule composition par trimestre. Si une école en a saisi plusieurs,
-    // la plus récente fait foi.
-    const compositionExams = subjectExams.filter((e) => isCompositionExam(e)).reverse();
+    const examsByPart = formula.parts.map((_, index) =>
+      subjectExams.filter((e) => partIndexOfExam.get(e) === index),
+    );
 
-    const byStudent = new Map<string, SecondarySubjectDetail & { average: number | null }>();
+    const byStudent = new Map<string, SubjectDetail & { average: number | null }>();
     for (const student of students) {
-      const devoirs = devoirExams.map((exam) => {
-        const grade = exam.grades.find((g) => g.studentId === student.id);
-        const score =
-          grade && !grade.isAbsent && grade.score != null
+      const scoresByPart = examsByPart.map((list) =>
+        list.map((exam) => {
+          const grade = exam.grades.find((g) => g.studentId === student.id);
+          return grade && !grade.isAbsent && grade.score != null
             ? onTwenty(grade.score, exam.maxScore)
             : null;
-        return { title: exam.title, score, isAbsent: Boolean(grade?.isAbsent) };
-      });
+        }),
+      );
+      const computed = computeSubjectAverage(formula, scoresByPart);
 
-      let composition: number | null = null;
-      let compositionAbsent = false;
+      // L'observation accompagne la note de fin de trimestre : celle du
+      // dernier bloc qui en a une.
       let observation: string | null = null;
-      for (const exam of compositionExams) {
-        const grade = exam.grades.find((g) => g.studentId === student.id);
-        if (!grade) continue;
-        if (grade.isAbsent || grade.score == null) {
-          compositionAbsent ||= grade.isAbsent;
-          continue;
+      for (let i = examsByPart.length - 1; i >= 0 && !observation; i--) {
+        for (const exam of [...examsByPart[i]].reverse()) {
+          const grade = exam.grades.find((g) => g.studentId === student.id);
+          const comment = grade?.comment?.trim();
+          if (comment) { observation = comment; break; }
         }
-        composition = onTwenty(grade.score, exam.maxScore);
-        compositionAbsent = false;
-        observation = grade.comment?.trim() || null;
-        break;
       }
 
-      const calc = secondarySubjectAverage(
-        devoirs.map((d) => d.score),
-        composition,
-      );
       byStudent.set(student.id, {
-        devoirs,
-        bestIndex: calc.bestIndex,
-        best: calc.best,
-        bestTimes3: calc.bestTimes3,
-        composition,
-        compositionAbsent,
-        average: calc.average,
-        weighted: calc.average == null ? null : weightedScore(calc.average, subject.coefficient),
+        parts: computed.parts,
+        titles: examsByPart.map((list) => list.map((e) => e.title)),
         rank: null,
         observation,
+        average: computed.average,
       });
     }
 
-    // Rang dans la matière et moyenne de la classe, sur les seules moyennes
-    // complètes.
     const averages = [...byStudent.values()]
       .map((d) => d.average)
       .filter((a): a is number => a != null);
@@ -268,39 +196,58 @@ function secondaryCards(input: ReportCardInput, schoolLevel: SchoolLevel | null)
 
   const cards = students.map((student) => {
     const results: ReportCardSubject[] = subjects.map((subject) => {
-      const { average, ...secondary } = detailsBySubject.get(subject.id)!.get(student.id)!;
+      const { average, ...detail } = detailsBySubject.get(subject.id)!.get(student.id)!;
       return {
         subjectName: subject.name,
         subjectNameAr: subject.nameAr,
         coefficient: subject.coefficient,
         average,
         classAverage: classAverageBySubject.get(subject.id) ?? null,
-        examCount:
-          secondary.devoirs.filter((d) => d.score != null).length +
-          (secondary.composition != null ? 1 : 0),
-        secondary,
+        examCount: detail.parts.reduce(
+          (count, p) => count + p.scores.filter((s) => s != null).length,
+          0,
+        ),
+        detail,
       };
     });
 
+    // Le bulletin officiel imprime la note coefficientée de chaque matière et
+    // leur somme : la moyenne générale doit tomber juste à partir des nombres
+    // imprimés. Le bulletin du Fondamental n'affiche pas ces colonnes et garde
+    // la moyenne pondérée d'origine, au centième près.
     const general = generalAverage(results);
-    // Arrondie au centième comme sur le bulletin : la mention et le rang
-    // suivent la moyenne que les parents lisent, pas une décimale cachée.
-    const average = general.average == null ? null : roundHundredth(general.average);
+    const average =
+      scheme === "SECONDARY"
+        ? general.average == null
+          ? null
+          : roundHundredth(general.average)
+        : weightedAverage(results);
 
     return {
       student,
       className: input.className,
       term: input.term,
       schoolLevel,
-      scheme: "SECONDARY" as const,
+      scheme,
+      formula,
       results,
       average,
       totalCoefficients: general.totalCoefficients,
-      totalPoints: average == null ? null : general.totalPoints,
+      totalPoints: scheme === "SECONDARY" && average != null ? general.totalPoints : null,
       mention: mentionFor(average),
       attendance: input.attendance.get(student.id) ?? NO_ATTENDANCE,
     };
   });
 
-  return withRanks(cards, students.length);
+  const allAverages = cards.map((c) => c.average).filter((a): a is number => a != null);
+  return cards.map((card) => ({
+    ...card,
+    rank: rankOf(card.average, allAverages),
+    classSize: students.length,
+  }));
+}
+
+/** Note coefficientée d'une matière, telle qu'imprimée (Moy T × coefficient). */
+export function weightedOf(result: ReportCardSubject): number | null {
+  return result.average == null ? null : weightedScore(result.average, result.coefficient);
 }

@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { termDateRange } from "@/lib/report-card";
+import { currentGradingConfig, gradingConfigById } from "@/lib/grading-config-data";
+import type { GradingConfig } from "@/lib/grading-config";
 import {
   computeReportCards,
   type ReportCard,
@@ -13,15 +15,20 @@ export type { ReportCard } from "@/lib/report-card-compute";
  * Les moyennes par matière sont ramenées sur 20 pour rester comparables même
  * si les examens ont des notes maximales différentes.
  *
- * La formule suit le niveau de la classe — bulletin officiel au collège et
- * au lycée, calcul d'origine au Fondamental : voir lib/report-card-compute.ts.
+ * La formule appliquée est celle que l'école a configurée (Paramètres →
+ * calcul des moyennes), avec une règle pour le collège et le lycée et une
+ * autre pour le Fondamental : voir lib/report-card-compute.ts.
+ *
+ * `config` permet de recalculer un bulletin avec la règle d'une autre
+ * version — celle avec laquelle il a été remis au parent.
  */
 export async function buildReportCards(
   schoolId: string,
   classId: string,
   term: string,
+  config?: GradingConfig,
 ): Promise<ReportCard[]> {
-  const [classRoom, students, exams, academicYear] = await Promise.all([
+  const [classRoom, students, exams, academicYear, current] = await Promise.all([
     prisma.classRoom.findFirst({
       where: { id: classId, schoolId },
       include: {
@@ -45,6 +52,7 @@ export async function buildReportCards(
       },
     }),
     prisma.academicYear.findFirst({ where: { schoolId, isCurrent: true } }),
+    config ? Promise.resolve(null) : currentGradingConfig(schoolId),
   ]);
 
   if (!classRoom) return [];
@@ -83,5 +91,42 @@ export async function buildReportCards(
     students,
     exams,
     attendance,
+    config: config ?? current?.config,
   });
+}
+
+/**
+ * Règle de calcul à appliquer au bulletin d'un élève : celle avec laquelle il
+ * a déjà été remis au parent s'il l'a été, sinon celle en vigueur.
+ *
+ * C'est ce qui empêche un changement de configuration de réécrire des
+ * documents déjà distribués.
+ */
+export async function reportCardRule(options: {
+  schoolId: string;
+  studentId: string;
+  academicYearId: string | null;
+  term: string;
+}) {
+  const { schoolId, studentId, academicYearId, term } = options;
+  const issue = academicYearId
+    ? await prisma.reportCardIssue.findUnique({
+        where: { studentId_academicYearId_term: { studentId, academicYearId, term } },
+        select: { issuedAt: true, gradingConfigId: true },
+      })
+    : null;
+
+  const pinned = issue?.gradingConfigId
+    ? await gradingConfigById(schoolId, issue.gradingConfigId)
+    : null;
+  const current = await currentGradingConfig(schoolId);
+
+  return {
+    /** La règle à utiliser pour ce bulletin. */
+    config: pinned?.config ?? current.config,
+    current,
+    issuedAt: issue?.issuedAt ?? null,
+    /** Vrai quand le bulletin suit une règle plus ancienne que l'actuelle. */
+    outdated: Boolean(pinned && pinned.id !== current.id),
+  };
 }

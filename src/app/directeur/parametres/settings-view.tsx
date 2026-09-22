@@ -55,12 +55,15 @@ export interface YearRow {
 }
 
 export function SettingsView({
+  gradingRule,
   school,
   years,
   counts,
   plan,
   trialDaysLeft,
 }: {
+  /** Carte « Calcul des moyennes », montée par la page. */
+  gradingRule?: React.ReactNode;
   school: SchoolFormValues;
   years: YearRow[];
   counts: { students: number; teachers: number; classes: number };
@@ -198,6 +201,8 @@ export function SettingsView({
         studentCount={counts.students}
         trialDaysLeft={trialDaysLeft}
       />
+
+      {gradingRule}
 
       {/* Cible de « Année scolaire » dans le menu (#annees). */}
       <Card id="annees" className="scroll-mt-24">
