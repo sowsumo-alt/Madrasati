@@ -16,7 +16,7 @@ export default async function ClassesPage() {
         _count: { select: { students: { where: { status: "ACTIVE" } } } },
         classSubjects: {
           include: {
-            subject: { select: { name: true } },
+            subject: { select: { name: true, coefficient: true } },
             teacher: { select: { firstName: true, lastName: true } },
           },
         },
@@ -45,6 +45,7 @@ export default async function ClassesPage() {
     assignments: c.classSubjects.map((cs) => ({
       subjectId: cs.subjectId,
       subjectName: cs.subject.name,
+      coefficient: cs.coefficientOverride ?? cs.subject.coefficient,
       teacherId: cs.teacherId,
       teacherName: cs.teacher ? `${cs.teacher.firstName} ${cs.teacher.lastName}` : null,
     })),

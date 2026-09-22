@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -18,12 +19,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { assignSubjectToClass, removeSubjectFromClass } from "./actions";
+import { assignSubjectToClass, removeSubjectFromClass, setClassSubjectCoefficient } from "./actions";
 import { useLanguage } from "@/lib/i18n/language-provider";
 
 export interface AssignmentSubject {
   id: string;
   name: string;
+  /** Coefficient de la matière pour toute l'école. */
+  coefficient: number;
 }
 
 export interface AssignmentTeacher {
@@ -35,7 +38,53 @@ export interface AssignmentTeacher {
 export interface ClassAssignmentsTarget {
   classId: string;
   className: string;
-  assignments: { subjectId: string; teacherId: string | null }[];
+  assignments: { subjectId: string; teacherId: string | null; coefficient: number }[];
+}
+
+/**
+ * Coefficient de la matière dans cette classe, enregistré en quittant le
+ * champ. Au collège et au lycée il suit le bulletin officiel ; le directeur
+ * l'ajuste ici si son école compte autrement.
+ */
+function CoefficientInput({
+  value,
+  label,
+  onSave,
+}: {
+  value: number;
+  label: string;
+  onSave: (value: number) => Promise<void>;
+}) {
+  const [text, setText] = useState(String(value));
+  const [saved, setSaved] = useState(value);
+  if (saved !== value) {
+    setSaved(value);
+    setText(String(value));
+  }
+
+  async function commit() {
+    const parsed = Number(text);
+    if (!Number.isInteger(parsed) || parsed < 1 || parsed > 20) {
+      setText(String(value));
+      return;
+    }
+    if (parsed !== value) await onSave(parsed);
+  }
+
+  return (
+    <input
+      type="number"
+      min={1}
+      max={20}
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+      aria-label={label}
+      title={label}
+      className="h-9 w-14 rounded-lg border border-border bg-surface px-2 text-center text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-primary-500"
+    />
+  );
 }
 
 interface ClassAssignmentsDialogProps {
@@ -67,6 +116,20 @@ export function ClassAssignmentsDialog({
       toast.error(t("common.error"));
     }
   }
+
+  async function handleCoefficientChange(subjectId: string, coefficient: number) {
+    if (!target) return;
+    try {
+      await setClassSubjectCoefficient(target.classId, subjectId, coefficient);
+      router.refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t("common.error"));
+    }
+  }
+
+  const totalCoefficients = (target?.assignments ?? [])
+    .filter((a) => subjects.some((s) => s.id === a.subjectId))
+    .reduce((sum, a) => sum + a.coefficient, 0);
 
   async function handleTeacherChange(subjectId: string, teacherId: string) {
     if (!target) return;
@@ -104,12 +167,19 @@ export function ClassAssignmentsDialog({
                   />
                   <span className="text-sm text-foreground">{s.name}</span>
                 </label>
+                {checked && assignment && (
+                  <CoefficientInput
+                    value={assignment.coefficient}
+                    label={`${t("classes.coefficient")} — ${s.name}`}
+                    onSave={(value) => handleCoefficientChange(s.id, value)}
+                  />
+                )}
                 {checked && (
                   <Select
                     value={assignment?.teacherId ?? "none"}
                     onValueChange={(v) => handleTeacherChange(s.id, v)}
                   >
-                    <SelectTrigger className="w-44">
+                    <SelectTrigger className="w-36 sm:w-44">
                       <SelectValue placeholder="Enseignant" />
                     </SelectTrigger>
                     <SelectContent>
@@ -127,7 +197,10 @@ export function ClassAssignmentsDialog({
           })}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="items-center sm:justify-between">
+          <p className="text-sm text-foreground/70" data-testid="class-total-coefficients">
+            {t("classes.totalCoefficients")} : <strong className="tabular-nums">{totalCoefficients}</strong>
+          </p>
           <Button type="button" onClick={() => onOpenChange(false)}>
             Fermer
           </Button>

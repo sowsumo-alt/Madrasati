@@ -6,6 +6,7 @@ import {
   type SchoolType,
 } from "@/lib/school-levels";
 import { initialSubscription, INITIAL_PLAN } from "@/lib/plans";
+import { officialSubjectIndex, SECONDARY_OFFICIAL_SUBJECTS } from "@/lib/grading";
 
 /**
  * Contenu livré avec chaque nouvelle école : le programme mauritanien et les
@@ -31,6 +32,7 @@ export const MAURITANIAN_SUBJECTS = [
   { name: "Anglais", nameAr: "اللغة الإنجليزية", coefficient: 2 },
   { name: "Informatique", nameAr: "المعلوماتية", coefficient: 1 },
   { name: "Éducation Physique", nameAr: "التربية البدنية", coefficient: 1 },
+  { name: "Instruction Civique", nameAr: "التربية المدنية", coefficient: 1 },
 ];
 
 /**
@@ -166,6 +168,7 @@ export async function createStandardClasses(
   ]);
 
   const subjectIdByName = new Map(subjects.map((s) => [s.name, s.id]));
+  const subjectNameById = new Map(subjects.map((s) => [s.id, s.name]));
   const existingLevels = new Set(existing.map((c) => c.level));
 
   const toCreate = standardClassesFor(type).filter(
@@ -198,7 +201,18 @@ export async function createStandardClasses(
     return subjectNamesForCycle(cycle)
       .map((name) => subjectIdByName.get(name))
       .filter((subjectId): subjectId is string => Boolean(subjectId))
-      .map((subjectId) => ({ classId: classRoom.id, subjectId }));
+      .map((subjectId) => {
+        // Au collège et au lycée, chaque matière reçoit le coefficient du
+        // bulletin officiel ; au Fondamental, celui de la matière.
+        if (cycle === "primaire") return { classId: classRoom.id, subjectId };
+        const index = officialSubjectIndex(subjectNameById.get(subjectId) ?? "");
+        return {
+          classId: classRoom.id,
+          subjectId,
+          coefficientOverride:
+            index == null ? null : SECONDARY_OFFICIAL_SUBJECTS[index].coefficient,
+        };
+      });
   });
 
   if (links.length > 0) {

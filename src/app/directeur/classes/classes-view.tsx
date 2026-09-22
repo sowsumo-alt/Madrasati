@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { BookOpen, Plus, RefreshCw, Sparkles } from "lucide-react";
+import { BookOpen, Plus, RefreshCw, Scale, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
@@ -12,6 +12,7 @@ import {
   matchesClassFilters,
   type ClassFilter,
 } from "@/lib/classes-list";
+import { gradingSchemeFor, schoolLevelOf } from "@/lib/grading";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import {
   ClassFormDialog,
@@ -26,6 +27,7 @@ import {
 } from "./class-assignments-dialog";
 import { SubjectFormDialog, type SubjectEditTarget } from "./subject-form-dialog";
 import { StandardClassesDialog } from "./standard-classes-dialog";
+import { OfficialCoefficientsDialog, type SecondaryClassSummary } from "./official-coefficients-dialog";
 import { deleteClass, deleteSubject, setSubjectActive } from "./actions";
 import { SectionPanel, sectionButton } from "./classes-list/section-panel";
 import { ClassesKpis } from "./classes-list/classes-kpis";
@@ -42,7 +44,14 @@ export interface ClassRow {
   capacity: number;
   studentCount: number;
   mainTeacher: { id: string; firstName: string; lastName: string } | null;
-  assignments: { subjectId: string; subjectName: string; teacherId: string | null; teacherName: string | null }[];
+  assignments: {
+    subjectId: string;
+    subjectName: string;
+    /** Coefficient dans cette classe (celui de la matière, sauf ajustement). */
+    coefficient: number;
+    teacherId: string | null;
+    teacherName: string | null;
+  }[];
 }
 
 export interface SubjectRow {
@@ -86,6 +95,7 @@ export function ClassesView({
   const [subjectDeleteTarget, setSubjectDeleteTarget] = useState<SubjectRow | null>(null);
   const [subjectDeleteLoading, setSubjectDeleteLoading] = useState(false);
   const [standardClassesOpen, setStandardClassesOpen] = useState(false);
+  const [officialOpen, setOfficialOpen] = useState(false);
 
   // La couleur suit la place dans la liste complète, pas dans la liste
   // filtrée : une classe garde sa teinte pendant une recherche.
@@ -104,12 +114,25 @@ export function ClassesView({
         assignments: assignmentsClass.assignments.map((a) => ({
           subjectId: a.subjectId,
           teacherId: a.teacherId,
+          coefficient: a.coefficient,
         })),
       }
     : null;
 
   const activeSubjects = subjects.filter((s) => s.isActive);
-  const assignmentSubjects: AssignmentSubject[] = activeSubjects.map((s) => ({ id: s.id, name: s.name }));
+  const assignmentSubjects: AssignmentSubject[] = activeSubjects.map((s) => ({
+    id: s.id,
+    name: s.name,
+    coefficient: s.coefficient,
+  }));
+  // Classes du collège et du lycée : celles qui suivent le bulletin officiel.
+  const secondaryClasses: SecondaryClassSummary[] = classes
+    .filter((c) => gradingSchemeFor(schoolLevelOf(c.level, c.name)) === "SECONDARY")
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      totalCoefficients: c.assignments.reduce((sum, a) => sum + a.coefficient, 0),
+    }));
   const assignmentTeachers: AssignmentTeacher[] = teachers;
 
   function openClassForm(row: ClassRow | null) {
@@ -240,16 +263,29 @@ export function ClassesView({
         subtitle={t("classes.subjectsSubtitle")}
         size="sm"
         actions={
-          <Button
-            className={sectionButton.primary}
-            onClick={() => {
-              setSubjectEditTarget(null);
-              setSubjectFormOpen(true);
-            }}
-          >
-            <Plus className="h-4 w-4" />
-            {t("classes.newSubject")}
-          </Button>
+          <>
+            {secondaryClasses.length > 0 && (
+              <Button
+                variant="secondary"
+                className={sectionButton.secondary}
+                onClick={() => setOfficialOpen(true)}
+                data-testid="open-official-coefficients"
+              >
+                <Scale className="h-4 w-4 text-primary-600" />
+                {t("classes.officialButton")}
+              </Button>
+            )}
+            <Button
+              className={sectionButton.primary}
+              onClick={() => {
+                setSubjectEditTarget(null);
+                setSubjectFormOpen(true);
+              }}
+            >
+              <Plus className="h-4 w-4" />
+              {t("classes.newSubject")}
+            </Button>
+          </>
         }
       >
         <div className="mt-3">
@@ -286,6 +322,7 @@ export function ClassesView({
         editTarget={classEditTarget}
       />
       <StandardClassesDialog open={standardClassesOpen} onOpenChange={setStandardClassesOpen} />
+      <OfficialCoefficientsDialog open={officialOpen} onOpenChange={setOfficialOpen} classes={secondaryClasses} />
       <ClassAssignmentsDialog
         target={assignmentsTarget}
         onOpenChange={(open) => !open && setAssignmentsClassId(null)}

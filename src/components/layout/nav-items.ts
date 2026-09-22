@@ -24,6 +24,7 @@ import {
   Bell,
   UserCog,
   CalendarRange,
+  NotebookPen,
 } from "lucide-react";
 
 export interface NavItem {
@@ -64,6 +65,7 @@ const directorNavGroups: NavGroup[] = [
       { href: "/directeur/emploi-du-temps", labelKey: "nav.schedule", icon: CalendarDays },
       { href: "/directeur/presences", labelKey: "nav.attendance", icon: ClipboardCheck },
       { href: "/directeur/examens", labelKey: "nav.exams", icon: GraduationCap },
+      { href: "/directeur/notes", labelKey: "nav.grades", icon: NotebookPen },
       { href: "/directeur/bulletins", labelKey: "nav.reportCards", icon: FileText },
       { href: "/directeur/discipline", labelKey: "nav.discipline", icon: ShieldAlert },
       {
@@ -121,6 +123,7 @@ const teacherNavGroups: NavGroup[] = [
       { href: "/enseignant", labelKey: "nav.dashboard", icon: LayoutDashboard },
       { href: "/enseignant/presences", labelKey: "nav.attendance", icon: ClipboardCheck },
       { href: "/enseignant/notes", labelKey: "nav.exams", icon: GraduationCap },
+      { href: "/enseignant/saisie-notes", labelKey: "nav.grades", icon: NotebookPen },
       { href: "/enseignant/emploi-du-temps", labelKey: "nav.schedule", icon: CalendarDays },
       {
         href: "/enseignant/eleves-a-surveiller",

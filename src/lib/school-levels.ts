@@ -48,7 +48,24 @@ export const SCHOOL_TYPE_HINTS: Record<SchoolType, string> = {
  * les SVT, les rattacher automatiquement encombrerait les bulletins de
  * colonnes vides. Les noms correspondent à MAURITANIAN_SUBJECTS
  * (src/lib/school-setup.ts), créées en même temps que l'école.
+ *
+ * Au collège et au lycée : les neuf matières du bulletin officiel (voir
+ * SECONDARY_OFFICIAL_SUBJECTS dans src/lib/grading.ts), avec ses
+ * coefficients — total 24. La physique-chimie et l'informatique restent dans
+ * la liste des matières de l'école, à rattacher aux classes qui les ont.
  */
+const SECONDARY_SUBJECTS = [
+  "Arabe",
+  "Français",
+  "Anglais",
+  "Mathématiques",
+  "Sciences de la Vie et de la Terre",
+  "Histoire-Géographie",
+  "Études Islamiques",
+  "Instruction Civique",
+  "Éducation Physique",
+];
+
 const SUBJECTS_BY_CYCLE: Record<Cycle, string[]> = {
   primaire: [
     "Mathématiques",
@@ -58,30 +75,8 @@ const SUBJECTS_BY_CYCLE: Record<Cycle, string[]> = {
     "Histoire-Géographie",
     "Éducation Physique",
   ],
-  college: [
-    "Mathématiques",
-    "Français",
-    "Arabe",
-    "Études Islamiques",
-    "Physique-Chimie",
-    "Sciences de la Vie et de la Terre",
-    "Histoire-Géographie",
-    "Anglais",
-    "Informatique",
-    "Éducation Physique",
-  ],
-  lycee: [
-    "Mathématiques",
-    "Français",
-    "Arabe",
-    "Études Islamiques",
-    "Physique-Chimie",
-    "Sciences de la Vie et de la Terre",
-    "Histoire-Géographie",
-    "Anglais",
-    "Informatique",
-    "Éducation Physique",
-  ],
+  college: SECONDARY_SUBJECTS,
+  lycee: SECONDARY_SUBJECTS,
 };
 
 export interface StandardClass {

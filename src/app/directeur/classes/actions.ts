@@ -6,6 +6,13 @@ import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { createStandardClasses } from "@/lib/school-setup";
 import { isSchoolType } from "@/lib/school-levels";
+import { CURRENT_YEAR } from "@/lib/school-year";
+import {
+  gradingSchemeFor,
+  officialSubjectIndex,
+  schoolLevelOf,
+  SECONDARY_OFFICIAL_SUBJECTS,
+} from "@/lib/grading";
 import { classSchema, subjectSchema, type ClassFormValues, type SubjectFormValues } from "./schema";
 
 async function getCurrentAcademicYear(schoolId: string) {
@@ -200,4 +207,104 @@ export async function removeSubjectFromClass(classId: string, subjectId: string)
 
   await prisma.classSubject.deleteMany({ where: { classId, subjectId } });
   revalidatePath("/directeur/classes");
+}
+
+/**
+ * Coefficient d'une matière dans une classe. Vide (null) : la classe suit le
+ * coefficient de la matière pour toute l'école.
+ */
+export async function setClassSubjectCoefficient(
+  classId: string,
+  subjectId: string,
+  coefficient: number | null,
+) {
+  const user = await requireRole(ROLES.DIRECTOR);
+  if (coefficient != null && (!Number.isInteger(coefficient) || coefficient < 1 || coefficient > 20)) {
+    throw new Error("Le coefficient doit être un nombre entier entre 1 et 20.");
+  }
+
+  const link = await prisma.classSubject.findFirst({
+    where: { classId, subjectId, classRoom: { schoolId: user.schoolId } },
+    select: { id: true, subject: { select: { coefficient: true } } },
+  });
+  if (!link) throw new Error("Cette matière n'est pas rattachée à cette classe.");
+
+  await prisma.classSubject.update({
+    where: { id: link.id },
+    data: {
+      coefficientOverride:
+        coefficient == null || coefficient === link.subject.coefficient ? null : coefficient,
+    },
+  });
+
+  revalidatePath("/directeur/classes");
+  revalidatePath("/directeur/bulletins");
+}
+
+/**
+ * Applique aux classes du collège et du lycée de l'année les neuf matières du
+ * bulletin officiel et leurs coefficients (total 24) : Arabe 5, Français 4,
+ * Anglais 1, Mathématiques 5, Sciences Naturelles 2, Histoire-Géographie 2,
+ * Instruction Religieuse 3, Instruction Civique 1, Éducation Physique 1.
+ *
+ * Une matière que l'école a déjà, sous ce nom ou un autre (« Études
+ * Islamiques » pour l'Instruction Religieuse…), est réutilisée ; seule une
+ * matière absente est créée. Les classes du Fondamental ne sont pas touchées,
+ * ni les autres matières des classes AS, ni leurs enseignants.
+ */
+export async function applyOfficialSecondaryCoefficients() {
+  const user = await requireRole(ROLES.DIRECTOR);
+
+  const [classes, subjects] = await Promise.all([
+    prisma.classRoom.findMany({
+      where: { schoolId: user.schoolId, ...CURRENT_YEAR },
+      select: { id: true, name: true, level: true },
+    }),
+    prisma.subject.findMany({
+      where: { schoolId: user.schoolId },
+      orderBy: [{ isActive: "desc" }, { name: "asc" }],
+      select: { id: true, name: true, isActive: true },
+    }),
+  ]);
+  const secondary = classes.filter(
+    (c) => gradingSchemeFor(schoolLevelOf(c.level, c.name)) === "SECONDARY",
+  );
+  if (secondary.length === 0) throw new Error("Aucune classe du collège ou du lycée cette année.");
+
+  const created: string[] = [];
+  await prisma.$transaction(
+    async (tx) => {
+      for (const [index, official] of SECONDARY_OFFICIAL_SUBJECTS.entries()) {
+        let subject = subjects.find((s) => officialSubjectIndex(s.name) === index);
+        if (!subject) {
+          subject = await tx.subject.create({
+            data: {
+              schoolId: user.schoolId,
+              name: official.name,
+              nameAr: official.nameAr,
+              coefficient: official.coefficient,
+            },
+            select: { id: true, name: true, isActive: true },
+          });
+          created.push(official.name);
+        } else if (!subject.isActive) {
+          await tx.subject.update({ where: { id: subject.id }, data: { isActive: true } });
+        }
+
+        for (const c of secondary) {
+          await tx.classSubject.upsert({
+            where: { classId_subjectId: { classId: c.id, subjectId: subject.id } },
+            create: { classId: c.id, subjectId: subject.id, coefficientOverride: official.coefficient },
+            update: { coefficientOverride: official.coefficient },
+          });
+        }
+      }
+    },
+    { timeout: 30_000 },
+  );
+
+  revalidatePath("/directeur/classes");
+  revalidatePath("/directeur/bulletins");
+  revalidatePath("/directeur/notes");
+  return { classes: secondary.length, created };
 }
