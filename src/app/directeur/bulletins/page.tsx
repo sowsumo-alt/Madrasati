@@ -2,7 +2,11 @@ import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { FEATURES, schoolHasFeature } from "@/lib/plans";
-import { buildReportCards, buildAnnualReportCards } from "@/lib/report-card-data";
+import {
+  annualMissingTerms,
+  buildReportCards,
+  buildAnnualReportCards,
+} from "@/lib/report-card-data";
 import { ANNUAL_TERM } from "@/lib/report-card-compute";
 import { currentGradingConfig } from "@/lib/grading-config-data";
 import { TERMS } from "@/app/directeur/examens/schema";
@@ -53,11 +57,16 @@ export default async function BulletinsPage({
       ? params.term
       : (TERMS.find((t) => termsWithExams.has(t)) ?? TERMS[0]);
   const isAnnual = selectedTerm === ANNUAL_TERM;
+  // Le bulletin annuel ne s'établit qu'une fois les trois compositions saisies.
+  const annualMissing =
+    isAnnual && selectedClassId ? await annualMissingTerms(user.schoolId, selectedClassId) : [];
 
   const [cards, parents, school, template] = await Promise.all([
     selectedClassId
       ? isAnnual
-        ? buildAnnualReportCards(user.schoolId, selectedClassId, rule.config)
+        ? annualMissing.length > 0
+          ? Promise.resolve([])
+          : buildAnnualReportCards(user.schoolId, selectedClassId, rule.config)
         : buildReportCards(user.schoolId, selectedClassId, selectedTerm, rule.config)
       : Promise.resolve([]),
     prisma.studentParent.findMany({
@@ -105,6 +114,7 @@ export default async function BulletinsPage({
       rows={rows}
       classes={classes}
       terms={terms}
+      annualMissing={annualMissing}
       selectedClassId={selectedClassId}
       selectedTerm={selectedTerm}
       hasExamThisTerm={hasExamThisTerm}

@@ -3,7 +3,16 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
-import { buildReportCards, buildAnnualReportCards, reportCardRule } from "@/lib/report-card-data";
+import {
+  annualMissingTerms,
+  buildReportCards,
+  buildAnnualReportCards,
+  reportCardRule,
+  termRecap,
+} from "@/lib/report-card-data";
+import { parseHonors, suggestDecision, isDecisionKey } from "@/lib/annual-decision";
+import { AnnualDecisionPanel } from "./annual-decision-panel";
+import Link from "next/link";
 import { ANNUAL_TERM } from "@/lib/report-card-compute";
 import { markReportCardIssued } from "../actions";
 import { RuleBanner } from "./rule-banner";
@@ -81,6 +90,38 @@ export default async function ReportCardPage({
     }),
   ]);
 
+  // Le bulletin annuel ne s'établit qu'une fois l'année finie : quand les
+  // compositions des trois trimestres sont saisies.
+  if (isAnnual) {
+    const missing = rule.config.annual.enabled
+      ? await annualMissingTerms(user.schoolId, student.classId)
+      : null;
+    if (missing === null || missing.length > 0) {
+      const { t: tr } = await getTranslations();
+      return (
+        <div className="mx-auto max-w-2xl px-4 py-16">
+          <div
+            className="rounded-2xl border border-amber-200 bg-amber-50/70 p-6 text-amber-900"
+            data-testid="annual-unavailable"
+          >
+            <h1 className="text-lg font-semibold">{tr("annual.unavailableTitle")}</h1>
+            <p className="mt-2 text-sm leading-relaxed">
+              {missing === null
+                ? tr("annual.disabled")
+                : tr("annual.missingTerms").replace("{terms}", missing.join(", "))}
+            </p>
+            <Link
+              href={`/directeur/bulletins?classId=${student.classId}`}
+              className="mt-4 inline-block text-sm font-semibold underline"
+            >
+              {tr("annual.back")}
+            </Link>
+          </div>
+        </div>
+      );
+    }
+  }
+
   const card = cards.find((c) => c.student.id === studentId);
   if (!card) notFound();
 
@@ -110,6 +151,45 @@ export default async function ReportCardPage({
     : "";
 
   const pdfFileName = `Bulletin-${studentName}-${term}.pdf`;
+
+  // Bulletin annuel : l'évolution sur les trimestres, et la fin d'année.
+  const annualData = isAnnual
+    ? await (async () => {
+        const academicYearId = student.classRoom?.academicYearId ?? activeYear?.id ?? null;
+        const [recap, decision] = await Promise.all([
+          termRecap({
+            schoolId: user.schoolId,
+            classId: student.classId!,
+            studentId,
+            academicYearId,
+          }),
+          academicYearId
+            ? prisma.annualDecision.findUnique({
+                where: { studentId_academicYearId: { studentId, academicYearId } },
+              })
+            : null,
+        ]);
+        return {
+          termRecap: recap,
+          honors: parseHonors(decision?.honors),
+          decision: isDecisionKey(decision?.decision) ? decision.decision : null,
+          validatedAt: decision?.validatedAt ?? null,
+          threshold: rule.config.annual.passThreshold,
+          suggestion: suggestDecision(card.average, rule.config.annual.passThreshold),
+        };
+      })()
+    : null;
+  const decisionPanel = annualData ? (
+    <AnnualDecisionPanel
+      studentId={studentId}
+      average={card.average}
+      threshold={annualData.threshold}
+      suggestion={annualData.suggestion}
+      initialHonors={annualData.honors}
+      initialDecision={annualData.decision}
+      validatedAt={annualData.validatedAt ? formatDate(annualData.validatedAt) : null}
+    />
+  ) : null;
   // Imprimer ou envoyer le bulletin le fige sur la règle du jour.
   const onIssued = markReportCardIssued.bind(null, studentId, term);
   const ruleBanner =
@@ -169,8 +249,19 @@ export default async function ReportCardPage({
             suspensions={suspensions}
             comment={comment ? { body: comment.body, bodyAr: comment.bodyAr } : null}
             issuedAt={new Date()}
+            annual={
+              annualData
+                ? {
+                    termRecap: annualData.termRecap,
+                    honors: annualData.honors,
+                    decision: annualData.decision,
+                  }
+                : undefined
+            }
           />
         </div>
+
+        {decisionPanel}
 
         {/* L'observation générale s'écrit ici et s'imprime dans le cadre
             Conduite du bulletin, pas en double sous le document. */}
@@ -371,6 +462,8 @@ export default async function ReportCardPage({
           {t("bulletin.footer")}
         </p>
       </div>
+
+      {decisionPanel}
     </div>
   );
 }

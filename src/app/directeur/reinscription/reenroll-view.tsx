@@ -17,6 +17,9 @@ import { useLanguage } from "@/lib/i18n/language-provider";
 import { PAYMENT_METHOD_LABELS } from "@/lib/payment-methods";
 import { PaymentMethodLogo } from "@/components/ui/payment-method-logo";
 import { reenrollStudent, reenrollClass, markNotReenrolled } from "./actions";
+import Link from "next/link";
+import { cn } from "@/lib/utils";
+import { decisionLabel, type DecisionKey } from "@/lib/annual-decision";
 
 export interface ReenrollStudent {
   id: string;
@@ -25,6 +28,53 @@ export interface ReenrollStudent {
   classId: string | null;
   className: string | null;
   yearLabel: string | null;
+  /** Fin d'année validée sur le bulletin annuel ; null si rien n'est validé. */
+  annual: { average: number | null; decision: DecisionKey | null } | null;
+}
+
+/**
+ * Moyenne annuelle et décision de passage, à côté du nom : une information
+ * pour choisir la classe de destination, jamais une décision appliquée.
+ */
+function AnnualBadge({ student }: { student: ReenrollStudent }) {
+  const { t, locale } = useLanguage();
+  const decision = student.annual?.decision ?? null;
+  const label = decisionLabel(decision);
+
+  if (!student.annual || !decision) {
+    return (
+      <Link
+        href={`/directeur/bulletins/${student.id}?term=${encodeURIComponent("Année")}`}
+        className="text-xs text-foreground/45 underline-offset-2 hover:underline"
+        data-testid="annual-badge"
+      >
+        {t("reenroll.noAnnualDecision")}
+      </Link>
+    );
+  }
+
+  const average = student.annual.average;
+  return (
+    <span className="flex flex-wrap items-center gap-1.5" data-testid="annual-badge">
+      {average != null && (
+        <span className="rounded-full bg-surface-muted px-2.5 py-0.5 text-xs font-semibold tabular-nums text-foreground/75">
+          {t("reenroll.annualAverage").replace("{value}", average.toFixed(2).replace(".", ","))}
+        </span>
+      )}
+      <span
+        className={cn(
+          "rounded-full px-2.5 py-0.5 text-xs font-semibold",
+          decision === "REPEAT"
+            ? "bg-amber-100 text-amber-800"
+            : decision === "ALLOWED"
+              ? "bg-sky-100 text-sky-800"
+              : "bg-primary-100/80 text-primary-800",
+        )}
+      >
+        {label ? (locale === "ar" ? label.ar : label.fr) : ""}
+      </span>
+    </span>
+  );
 }
 
 export interface ReenrollClassOption {
@@ -193,9 +243,12 @@ export function ReenrollView({
                     key={s.id}
                     className="flex flex-col gap-3 px-5 py-3 sm:flex-row sm:items-center sm:justify-between"
                   >
-                    <p className="text-sm font-medium text-foreground">
-                      {s.firstName} {s.lastName}
-                    </p>
+                    <div className="min-w-0 space-y-1">
+                      <p className="text-sm font-medium text-foreground">
+                        {s.firstName} {s.lastName}
+                      </p>
+                      <AnnualBadge student={s} />
+                    </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <Select
                         value={selections[s.id] || undefined}

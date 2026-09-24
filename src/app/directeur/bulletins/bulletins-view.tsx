@@ -61,6 +61,7 @@ export function BulletinsView({
   selectedClassId,
   selectedTerm,
   hasExamThisTerm,
+  annualMissing = [],
   schoolName,
   gradesTemplate,
   gradesTemplateAr,
@@ -72,6 +73,8 @@ export function BulletinsView({
   selectedTerm: string;
   /** Un examen existe-t-il pour cette classe et ce trimestre ? */
   hasExamThisTerm: boolean;
+  /** Bulletin annuel : trimestres dont la composition manque encore. */
+  annualMissing?: string[];
   schoolName: string;
   gradesTemplate: string;
   gradesTemplateAr?: string;
@@ -137,6 +140,22 @@ export function BulletinsView({
           présentait de la même façon — c'est-à-dire pas du tout. Sans examen
           planifié, aucune note ne peut exister : le dire évite de chercher
           l'erreur du côté de la saisie. */}
+      {/* Le bulletin annuel attend la fin de l'année : on dit ce qui manque. */}
+      {annualMissing.length > 0 && (
+        <div
+          className="flex items-start gap-2.5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm"
+          data-testid="annual-unavailable"
+        >
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+          <div className="text-amber-900">
+            <p className="font-medium">{t("annual.unavailableTitle")}</p>
+            <p className="mt-0.5 text-xs text-amber-800/80">
+              {t("annual.missingTerms").replace("{terms}", annualMissing.join(", "))}
+            </p>
+          </div>
+        </div>
+      )}
+
       {rows.length > 0 && !hasExamThisTerm && (
         <div className="flex items-start gap-2.5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm">
           <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
