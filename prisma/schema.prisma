@@ -70,6 +70,7 @@ model School {
   planUpgradeRequests  PlanUpgradeRequest[]
   gradingConfigs       GradingConfig[]
   reportCardIssues     ReportCardIssue[]
+  annualDecisions      AnnualDecision[]
   teacherContracts     TeacherContract[]
   teacherLeaves        TeacherLeave[]
   payslips             Payslip[]
@@ -285,6 +286,7 @@ model Student {
   reportComments      ReportCardComment[]
   disciplineIncidents DisciplineIncident[]
   reportCardIssues    ReportCardIssue[]
+  annualDecisions     AnnualDecision[]
 
   @@index([schoolId])
   @@index([classId])
@@ -724,4 +726,34 @@ model ReportCardIssue {
   @@unique([studentId, academicYearId, term])
   @@index([schoolId])
   @@map("report_card_issues")
+}
+
+/**
+ * Fin d'année d'un élève : les mentions cochées par le conseil des
+ * professeurs et la décision de passage retenue par le directeur. La
+ * moyenne annuelle y est recopiée au moment de la validation, pour que la
+ * page Réinscription de l'année suivante l'affiche sans rien recalculer.
+ * La décision n'est jamais prise par Madrasati : il la suggère d'après le
+ * seuil de l'école, le directeur la choisit.
+ */
+model AnnualDecision {
+  id                String    @id @default(cuid())
+  schoolId          String
+  school            School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  studentId         String
+  student           Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  academicYearId    String
+  // "FELICITATIONS" | "ENCOURAGEMENTS" | "TABLEAU_HONNEUR" | "AVERTISSEMENT"
+  honors            Json      @default("[]")
+  // "PROMOTED" | "ALLOWED" | "REPEAT" ; null tant que rien n'est validé.
+  decision          String?
+  average           Float?
+  validatedAt       DateTime?
+  validatedByUserId String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([studentId, academicYearId])
+  @@index([schoolId])
+  @@map("annual_decisions")
 }

@@ -19,7 +19,6 @@ import {
   computeSubjectAverage,
   defaultGradingConfig,
   partForKind,
-  type AnnualFormula,
   type Formula,
   type GradingConfig,
   type PartResult,
@@ -80,6 +79,8 @@ export interface ReportCard {
 
 export interface ReportCardExam {
   subjectId: string;
+  /** Trimestre de l'examen : le bulletin annuel en a besoin pour ranger ses notes. */
+  term: string;
   title: string;
   kind: string | null;
   date: Date;
@@ -97,6 +98,11 @@ export interface ReportCardInput {
   attendance: Map<string, ReportCardAttendance>;
   /** Règle de l'école ; le modèle par défaut si elle n'en a pas défini. */
   config?: GradingConfig;
+  /**
+   * Bulletin annuel : les examens des trois trimestres sont fournis, et c'est
+   * la formule annuelle de l'école qui les combine.
+   */
+  annual?: boolean;
 }
 
 const NO_ATTENDANCE: ReportCardAttendance = { present: 0, absent: 0, late: 0 };
@@ -110,9 +116,15 @@ export function examKindOf(exam: { kind: string | null; title: string }): string
   return /compo/i.test(exam.title) ? "COMPOSITION" : "DEVOIR";
 }
 
-/** La formule que suit une classe, d'après son niveau. */
-export function formulaFor(config: GradingConfig, level: SchoolLevel | null): Formula {
-  return gradingSchemeFor(level) === "SECONDARY" ? config.secondary : config.fundamental;
+/** La formule que suit une classe, d'après son niveau — trimestrielle ou annuelle. */
+export function formulaFor(
+  config: GradingConfig,
+  level: SchoolLevel | null,
+  annual = false,
+): Formula {
+  const secondary = gradingSchemeFor(level) === "SECONDARY";
+  if (annual) return secondary ? config.annual.secondary : config.annual.fundamental;
+  return secondary ? config.secondary : config.fundamental;
 }
 
 function mean(values: number[]): number | null {
@@ -123,7 +135,7 @@ export function computeReportCards(input: ReportCardInput): ReportCard[] {
   const config = input.config ?? defaultGradingConfig();
   const schoolLevel = schoolLevelOf(input.classLevel, input.className);
   const scheme = gradingSchemeFor(schoolLevel);
-  const formula = formulaFor(config, schoolLevel);
+  const formula = formulaFor(config, schoolLevel, input.annual);
   const { subjects, students } = input;
 
   // Ordre chronologique : « Devoir 1 » avant « Devoir 2 » sur le bulletin.
@@ -134,7 +146,7 @@ export function computeReportCards(input: ReportCardInput): ReportCard[] {
   // note pourrait compter deux fois.
   const partIndexOfExam = new Map<ReportCardExam, number>();
   for (const exam of exams) {
-    const part = partForKind(formula, examKindOf(exam));
+    const part = partForKind(formula, examKindOf(exam), input.annual ? exam.term : undefined);
     if (part) partIndexOfExam.set(exam, formula.parts.indexOf(part));
   }
 
@@ -255,107 +267,3 @@ export function weightedOf(result: ReportCardSubject): number | null {
 
 /** Libellé du bulletin récapitulatif de fin d'année. */
 export const ANNUAL_TERM = "Année";
-
-/**
- * La moyenne annuelle est calculée comme n'importe quelle moyenne : chaque
- * trimestre devient un « bloc » avec son poids, et la règle de l'école dit
- * par combien diviser. On réutilise donc le même moteur, et le bulletin
- * annuel s'imprime avec le même tableau, une colonne par trimestre.
- */
-export function annualFormula(annual: AnnualFormula): Formula {
-  return {
-    parts: annual.terms.map((t) => ({
-      id: t.term,
-      label: t.term,
-      kinds: [],
-      weight: t.weight,
-      multiple: "LAST" as const,
-      // Un trimestre pas encore noté ne pénalise pas l'élève : il sort du
-      // calcul, poids compris.
-      required: false,
-    })),
-    divisor: annual.divisor,
-  };
-}
-
-/**
- * Bulletin annuel d'une classe, à partir des bulletins de chaque trimestre
- * déjà calculés (dans l'ordre des trimestres de la règle).
- */
-export function computeAnnualCards(
-  termCards: { term: string; cards: ReportCard[] }[],
-  annual: AnnualFormula,
-): ReportCard[] {
-  const formula = annualFormula(annual);
-  const first = termCards[0]?.cards ?? [];
-  if (first.length === 0) return [];
-
-  const cards = first.map((base) => {
-    // Absences et retards de l'année : ceux des trimestres, additionnés.
-    const attendance = termCards.reduce(
-      (total, { cards: list }) => {
-        const card = list.find((c) => c.student.id === base.student.id);
-        return card
-          ? {
-              present: total.present + card.attendance.present,
-              absent: total.absent + card.attendance.absent,
-              late: total.late + card.attendance.late,
-            }
-          : total;
-      },
-      { present: 0, absent: 0, late: 0 },
-    );
-
-    const results: ReportCardSubject[] = base.results.map((subject) => {
-      const scoresByPart = annual.terms.map((t) => {
-        const card = termCards
-          .find((c) => c.term === t.term)
-          ?.cards.find((c) => c.student.id === base.student.id);
-        const line = card?.results.find((r) => r.subjectName === subject.subjectName);
-        return [line?.average ?? null];
-      });
-      const computed = computeSubjectAverage(formula, scoresByPart);
-      return {
-        ...subject,
-        average: computed.average,
-        classAverage: null,
-        examCount: scoresByPart.flat().filter((v) => v != null).length,
-        detail: {
-          parts: computed.parts,
-          titles: annual.terms.map((t) => [t.term]),
-          rank: null,
-          observation: null,
-        },
-      };
-    });
-
-    const general = generalAverage(results);
-    const average = general.average == null ? null : roundHundredth(general.average);
-    return {
-      ...base,
-      term: ANNUAL_TERM,
-      attendance,
-      formula,
-      results,
-      average,
-      totalCoefficients: general.totalCoefficients,
-      totalPoints: average == null ? null : general.totalPoints,
-      mention: mentionFor(average),
-    };
-  });
-
-  // Rangs de l'année : par matière, puis au général.
-  cards[0].results.forEach((_, index) => {
-    const averages = cards
-      .map((c) => c.results[index].average)
-      .filter((a): a is number => a != null);
-    for (const card of cards) {
-      card.results[index].detail.rank = rankOf(card.results[index].average, averages);
-      card.results[index].classAverage =
-        averages.length > 0 ? averages.reduce((a, b) => a + b, 0) / averages.length : null;
-    }
-  });
-
-  const allAverages = cards.map((c) => c.average).filter((a): a is number => a != null);
-  return cards.map((card) => ({ ...card, rank: rankOf(card.average, allAverages) }));
-}

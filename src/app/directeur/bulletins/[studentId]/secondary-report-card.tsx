@@ -5,6 +5,8 @@ import { weightedOf } from "@/lib/report-card-compute";
 import { MENTION_LABELS_FR } from "@/lib/report-card";
 import { SECONDARY_OFFICIAL_SUBJECTS, officialSubjectIndex, roundHundredth } from "@/lib/grading";
 import type { FormulaPart } from "@/lib/grading-config";
+import { DECISIONS, HONORS, type DecisionKey, type HonorKey } from "@/lib/annual-decision";
+import type { TermRecap } from "@/lib/report-card-data";
 import { formatLongDate, formatPhone } from "@/lib/format";
 import styles from "./secondary-report-card.module.css";
 
@@ -43,6 +45,21 @@ export interface SecondaryReportCardProps {
   title?: string;
   /** Intitulé de la période : « 1 · 2026-2027 », ou « Année 2026-2027 ». */
   periodLabel?: string;
+  /**
+   * Bulletin annuel : les moyennes des trois trimestres, et ce que le
+   * directeur a validé pour la fin d'année. Rien n'est coché tant qu'il n'a
+   * rien validé — la suggestion de Madrasati n'apparaît jamais imprimée.
+   */
+  annual?: {
+    termRecap: TermRecap[];
+    honors: HonorKey[];
+    decision: DecisionKey | null;
+  };
+}
+
+/** Case cochée ou non, pour les mentions et la décision imprimées. */
+function Box({ checked }: { checked: boolean }) {
+  return <span className={styles.box}>{checked ? "☒" : "☐"}</span>;
 }
 
 /** 13,75 — virgule française, zéros inutiles retirés (42 et non 42,00). */
@@ -123,7 +140,11 @@ export function SecondaryReportCard({
   issuedAt,
   title,
   periodLabel,
+  annual,
 }: SecondaryReportCardProps) {
+  // Au bulletin annuel, la moyenne de chaque matière est la moyenne de l'année.
+  const averageHeader = annual ? "Moy An /20" : "Moy T /20";
+  const averageHeaderAr = annual ? "المعدل السنوي" : "معدل ف /20";
   const rows = officialOrder(card.results);
   const parts = card.formula.parts;
   const termNumber = card.term.replace(/\D/g, "") || card.term;
@@ -204,6 +225,25 @@ export function SecondaryReportCard({
         </div>
       </div>
 
+      {/* BULLETIN ANNUEL : l'évolution sur les trois trimestres */}
+      {annual && (
+        <div className={styles.termRecap} data-testid="term-recap">
+          {annual.termRecap.map((t, index) => (
+            <div key={t.term} className={styles.synthCard} data-testid="term-recap-card">
+              <div className={styles.synthLabel}>
+                {t.term} · <span lang="ar">{["الفصل الأول", "الفصل الثاني", "الفصل الثالث"][index]}</span>
+              </div>
+              <div className={styles.synthValue}>
+                {t.average != null ? `${twoDecimals(t.average)}/20` : "—"}
+              </div>
+              <div className={styles.recapRank}>
+                {t.rank != null ? `Rang ${rankLabel(t.rank, t.classSize)}` : "\u00a0"}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* TABLEAU DES NOTES — une seule ligne par matière */}
       <div className={styles.tableWrap}>
         <table className={styles.table}>
@@ -213,7 +253,7 @@ export function SecondaryReportCard({
               {parts.map((part) => (
                 <th key={part.id}>{columnHeader(part)}</th>
               ))}
-              <th>Moy T /20</th>
+              <th>{averageHeader}</th>
               <th>Coeff</th>
               <th>Note × Coeff</th>
               <th>Rang</th>
@@ -224,7 +264,7 @@ export function SecondaryReportCard({
               {parts.map((part) => (
                 <th key={part.id}>{part.columnLabelAr ?? ""}</th>
               ))}
-              <th>معدل ف /20</th>
+              <th>{averageHeaderAr}</th>
               <th>الضارب</th>
               <th>النقطة المرجحة</th>
               <th>الرتبة</th>
@@ -291,14 +331,16 @@ export function SecondaryReportCard({
       </div>
 
       <div className={styles.calcNote}>
-        💡 {formulaNote(card)} — calculés automatiquement par Madrasati, selon la règle de
-        calcul enregistrée par l&apos;école.
+        💡 {formulaNote(card, averageHeader)} — calculés automatiquement par Madrasati, selon
+        la règle de calcul enregistrée par l&apos;école.
       </div>
 
       {/* SYNTHÈSE */}
       <div className={styles.synthese}>
         <div className={styles.synthCard}>
-          <div className={styles.synthLabel}>Moyenne générale</div>
+          <div className={styles.synthLabel}>
+            {annual ? "Moyenne générale annuelle" : "Moyenne générale"}
+          </div>
           <div className={styles.synthValue}>
             {card.average != null ? `${twoDecimals(card.average)}/20` : "—"}
           </div>
@@ -320,10 +362,15 @@ export function SecondaryReportCard({
         <b>Conduite :</b> Nombre de renvois : {suspensions} — Nombre d&apos;absences :{" "}
         {card.attendance.absent} — Nombre de retards : {card.attendance.late}
         <br />
-        {/* Le conseil tranche en séance : la décision se coche à la main. */}
-        <b>Décision du conseil des professeurs :</b> ☐ Félicitations · ☐ Encouragements · ☐
-        Avertissement · ☐ Blâme
-        <br />
+        {/* Au trimestre, le conseil tranche en séance : la décision se coche à
+            la main. Au bulletin annuel, elle a son propre cadre plus bas. */}
+        {!annual && (
+          <>
+            <b>Décision du conseil des professeurs :</b> ☐ Félicitations · ☐ Encouragements · ☐
+            Avertissement · ☐ Blâme
+            <br />
+          </>
+        )}
         <b>Observation générale :</b> {comment?.body ?? ""}
         {comment?.bodyAr && (
           <div className={styles.conductAr} lang="ar">
@@ -331,6 +378,40 @@ export function SecondaryReportCard({
           </div>
         )}
       </div>
+
+      {annual && (
+        <>
+          {/* APPRÉCIATIONS DU CONSEIL DES PROFESSEURS */}
+          <div className={styles.conduct} data-testid="council">
+            <div className={styles.decisionTitle}>
+              <b>Appréciations du conseil des professeurs</b>
+              <span lang="ar">ملاحظات مجلس الأساتذة</span>
+            </div>
+            <div className={styles.decisionOptions}>
+              {HONORS.map((h) => (
+                <span key={h.key} data-checked={annual.honors.includes(h.key) ? "" : undefined}>
+                  <Box checked={annual.honors.includes(h.key)} /> {h.fr} · <span lang="ar">{h.ar}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* DÉCISION DE PASSAGE */}
+          <div className={styles.conduct} data-testid="decision">
+            <div className={styles.decisionTitle}>
+              <b>Décision de passage</b>
+              <span lang="ar">قرار الانتقال</span>
+            </div>
+            <div className={styles.decisionOptions}>
+              {DECISIONS.map((d) => (
+                <span key={d.key} data-checked={annual.decision === d.key ? "" : undefined}>
+                  <Box checked={annual.decision === d.key} /> {d.fr} · <span lang="ar">{d.ar}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* SIGNATURES */}
       <div className={styles.signatures}>
@@ -347,7 +428,7 @@ export function SecondaryReportCard({
 }
 
 /** La phrase d'explication sous le tableau, écrite d'après la formule de l'école. */
-function formulaNote(card: ReportCard) {
+function formulaNote(card: ReportCard, averageHeader: string) {
   const terms = card.formula.parts.map((part) => {
     const rule =
       part.multiple === "BEST"
@@ -374,8 +455,8 @@ function formulaNote(card: ReportCard) {
         </span>
       ))}
       {" · "}
-      <b>Moy T /20</b> = tout cela additionné, ÷ {divisor} · <b>Note × Coeff</b> = Moy T ×
-      Coeff
+      <b>{averageHeader}</b> = tout cela additionné, ÷ {divisor} · <b>Note × Coeff</b> ={" "}
+      {averageHeader.replace(" /20", "")} × Coeff
     </>
   );
 }

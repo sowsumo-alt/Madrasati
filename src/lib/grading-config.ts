@@ -42,6 +42,12 @@ export interface FormulaPart {
   columnLabelAr?: string;
   /** Nom donné aux examens créés depuis la grille : « Devoir 3 ». */
   examTitle?: string;
+  /**
+   * Bulletin annuel seulement : le trimestre dont les notes nourrissent ce
+   * bloc (« Composition du Trimestre 2 »). Absent : toute l'année — c'est
+   * ainsi que le meilleur devoir est cherché parmi les trois trimestres.
+   */
+  term?: string;
 }
 
 export interface Formula {
@@ -53,11 +59,17 @@ export interface Formula {
   divisor: { mode: "AUTO" } | { mode: "FIXED"; value: number };
 }
 
-export interface AnnualFormula {
+/**
+ * Bulletin annuel récapitulatif : ses propres formules (une par cycle), qui
+ * puisent dans les notes des trois trimestres, et le seuil de passage qui
+ * sert à suggérer — jamais imposer — la décision de fin d'année.
+ */
+export interface AnnualConfig {
   enabled: boolean;
-  /** Poids de chaque trimestre dans la moyenne annuelle. */
-  terms: { term: string; weight: number }[];
-  divisor: { mode: "AUTO" } | { mode: "FIXED"; value: number };
+  secondary: Formula;
+  fundamental: Formula;
+  /** Moyenne annuelle à partir de laquelle le passage est suggéré. */
+  passThreshold: number;
 }
 
 export interface GradingConfig {
@@ -66,8 +78,8 @@ export interface GradingConfig {
   secondary: Formula;
   /** Fondamental (classes AF) et classes au niveau non reconnu. */
   fundamental: Formula;
-  /** Bulletin annuel récapitulatif, à partir des moyennes trimestrielles. */
-  annual: AnnualFormula;
+  /** Bulletin annuel récapitulatif. */
+  annual: AnnualConfig;
 }
 
 export const TERM_LABELS = ["Trimestre 1", "Trimestre 2", "Trimestre 3"] as const;
@@ -128,11 +140,63 @@ export function defaultGradingConfig(): GradingConfig {
       ],
       divisor: { mode: "AUTO" },
     },
-    annual: {
-      enabled: false,
-      terms: TERM_LABELS.map((term) => ({ term, weight: 1 })),
+    annual: defaultAnnualConfig(),
+  };
+}
+
+/**
+ * Bulletin annuel du modèle officiel relevé à l'École Ngalam :
+ * (meilleur devoir de l'année × 3 + composition T1 × 1 + composition T2 × 2
+ * + composition T3 × 3) ÷ 9. Le poids des compositions grandit au fil de
+ * l'année : c'est le niveau de fin d'année qui compte le plus.
+ */
+export function defaultAnnualConfig(): AnnualConfig {
+  const compo = (term: (typeof TERM_LABELS)[number], index: number) => ({
+    id: `composition-t${index + 1}`,
+    label: `Composition ${term}`,
+    kinds: ["COMPOSITION"] as ExamKind[],
+    weight: index + 1,
+    multiple: "LAST" as const,
+    required: true,
+    term,
+    columnLabel: index === 0 ? "Compo T1" : `Compo T${index + 1} × ${index + 1}`,
+    columnLabelAr: index === 0 ? "تأليف ف1" : `تأليف ف${index + 1}×${index + 1}`,
+  });
+
+  return {
+    enabled: true,
+    secondary: {
+      parts: [
+        {
+          id: "devoir",
+          label: "Meilleur devoir de l'année",
+          kinds: DEVOIR_KINDS,
+          weight: 3,
+          multiple: "BEST",
+          required: true,
+          columnLabel: "Moy Int × 3",
+          columnLabelAr: "معدل فردي×3",
+        },
+        ...TERM_LABELS.map(compo),
+      ],
       divisor: { mode: "AUTO" },
     },
+    // Tant qu'aucun bulletin annuel du Fondamental n'a été fourni : la
+    // moyenne simple de toutes les notes de l'année, comme au trimestre.
+    fundamental: {
+      parts: [
+        {
+          id: "toutes",
+          label: "Toutes les notes de l'année",
+          kinds: [],
+          weight: 1,
+          multiple: "AVERAGE",
+          required: true,
+        },
+      ],
+      divisor: { mode: "AUTO" },
+    },
+    passThreshold: 10,
   };
 }
 
@@ -151,6 +215,7 @@ const partSchema = z.object({
   columnLabel: z.string().trim().max(60).optional(),
   columnLabelAr: z.string().trim().max(60).optional(),
   examTitle: z.string().trim().max(60).optional(),
+  term: z.string().trim().max(40).optional(),
 });
 
 const formulaSchema = z.object({
@@ -164,8 +229,9 @@ export const gradingConfigSchema = z.object({
   fundamental: formulaSchema,
   annual: z.object({
     enabled: z.boolean(),
-    terms: z.array(z.object({ term: z.string().min(1), weight: z.number().min(0).max(100) })).max(6),
-    divisor: divisorSchema,
+    secondary: formulaSchema,
+    fundamental: formulaSchema,
+    passThreshold: z.number().min(0).max(20),
   }),
 });
 
@@ -175,15 +241,45 @@ export const gradingConfigSchema = z.object({
  * on repart du modèle par défaut plutôt que de ne rien afficher.
  */
 export function parseGradingConfig(value: unknown): GradingConfig {
-  const parsed = gradingConfigSchema.safeParse(value);
+  const parsed = gradingConfigSchema.safeParse(upgradeAnnual(value));
   return parsed.success ? (parsed.data as GradingConfig) : defaultGradingConfig();
 }
 
-/** Le bloc qui reçoit un examen de ce type ; null si aucun ne le prend. */
-export function partForKind(formula: Formula, kind: string | null): FormulaPart | null {
-  const exact = formula.parts.find((p) => p.kinds.length > 0 && kind != null && p.kinds.includes(kind as ExamKind));
+/**
+ * Les premières règles enregistrées (septembre 2026) décrivaient l'année
+ * par le seul poids de chaque trimestre. Ce format ne dit rien des notes à
+ * prendre : on le remplace par le modèle annuel par défaut, en gardant le
+ * choix de l'école d'avoir ou non un bulletin annuel. Le reste de sa règle
+ * — trimestres, Fondamental — est conservé tel quel.
+ */
+function upgradeAnnual(value: unknown): unknown {
+  if (!value || typeof value !== "object") return value;
+  const config = value as { annual?: { terms?: unknown; enabled?: unknown } };
+  if (!config.annual || !("terms" in config.annual)) return value;
+  return {
+    ...config,
+    annual: {
+      ...defaultAnnualConfig(),
+      enabled: config.annual.enabled === true,
+    },
+  };
+}
+
+/**
+ * Le bloc qui reçoit un examen de ce type (et, au bulletin annuel, de ce
+ * trimestre) ; null si aucun ne le prend.
+ */
+export function partForKind(
+  formula: Formula,
+  kind: string | null,
+  term?: string,
+): FormulaPart | null {
+  const inTerm = formula.parts.filter((p) => !p.term || term === undefined || p.term === term);
+  const exact = inTerm.find(
+    (p) => p.kinds.length > 0 && kind != null && p.kinds.includes(kind as ExamKind),
+  );
   if (exact) return exact;
-  return formula.parts.find((p) => p.kinds.length === 0) ?? null;
+  return inTerm.find((p) => p.kinds.length === 0) ?? null;
 }
 
 export interface PartResult {
@@ -300,22 +396,4 @@ export function describeFormula(formula: Formula, labels: Record<MultiRule, stri
     return p.weight === 1 ? base : `${base} × ${p.weight}`;
   });
   return `(${terms.join(" + ")}) ÷ ${divisorOf(formula)}`;
-}
-
-/** Moyenne annuelle à partir des moyennes de chaque trimestre. */
-export function computeAnnualAverage(
-  annual: AnnualFormula,
-  averagesByTerm: Record<string, number | null>,
-): number | null {
-  let numerator = 0;
-  let autoDivisor = 0;
-  for (const { term, weight } of annual.terms) {
-    const average = averagesByTerm[term];
-    if (average == null || weight <= 0) continue;
-    numerator += average * weight;
-    autoDivisor += weight;
-  }
-  const divisor = annual.divisor.mode === "FIXED" ? annual.divisor.value : autoDivisor;
-  if (divisor <= 0 || autoDivisor === 0) return null;
-  return roundHundredth(numerator / divisor);
 }

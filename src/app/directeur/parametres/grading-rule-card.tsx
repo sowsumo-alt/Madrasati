@@ -21,7 +21,9 @@ import { cn } from "@/lib/utils";
 import { EXAM_KINDS, type ExamKind } from "@/lib/exams";
 import {
   computeSubjectAverage,
+  defaultAnnualConfig,
   defaultGradingConfig,
+  TERM_LABELS,
   describeFormula,
   divisorOf,
   MULTI_RULES,
@@ -45,6 +47,8 @@ import { saveGradingRule } from "./actions";
  */
 
 type Cycle = "secondary" | "fundamental";
+/** Formule en cours d'édition : celle des bulletins trimestriels, ou l'annuelle. */
+type Period = "TERM" | "ANNUAL";
 
 /** Notes d'exemple, modifiables, pour montrer le calcul en direct. */
 type SampleScores = Record<string, string>;
@@ -82,17 +86,27 @@ export function GradingRuleCard({
   const router = useRouter();
   const [config, setConfig] = useState<GradingConfig>(initialConfig);
   const [cycle, setCycle] = useState<Cycle>("secondary");
+  const [period, setPeriod] = useState<Period>("TERM");
   const [sample, setSample] = useState<SampleScores>(() => sampleFor(initialConfig.secondary));
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
 
-  const formula = config[cycle];
+  const formula = period === "TERM" ? config[cycle] : config.annual[cycle];
   const ruleLabels = Object.fromEntries(
     MULTI_RULES.map((rule) => [rule, t(`grading.rule.${rule}` as TranslationKey)]),
   ) as Record<MultiRule, string>;
 
   function update(next: Formula) {
-    setConfig((current) => ({ ...current, [cycle]: next }));
+    setConfig((current) =>
+      period === "TERM"
+        ? { ...current, [cycle]: next }
+        : { ...current, annual: { ...current.annual, [cycle]: next } },
+    );
+    setDirty(true);
+  }
+
+  function updateAnnual(patch: Partial<GradingConfig["annual"]>) {
+    setConfig((current) => ({ ...current, annual: { ...current.annual, ...patch } }));
     setDirty(true);
   }
 
@@ -101,7 +115,10 @@ export function GradingRuleCard({
     // que pour le modèle d'origine : dès que l'école change le nom, le poids
     // ou la règle d'un bloc, la colonne prend simplement le nom du bloc.
     const renames =
-      patch.label !== undefined || patch.weight !== undefined || patch.multiple !== undefined;
+      patch.label !== undefined ||
+      patch.weight !== undefined ||
+      patch.multiple !== undefined ||
+      "term" in patch;
     update({
       ...formula,
       parts: formula.parts.map((p, i) =>
@@ -138,14 +155,18 @@ export function GradingRuleCard({
 
   function switchCycle(next: Cycle) {
     setCycle(next);
-    setSample(sampleFor(config[next]));
+    setSample(sampleFor(period === "TERM" ? config[next] : config.annual[next]));
+  }
+
+  function switchPeriod(next: Period) {
+    setPeriod(next);
+    setSample(sampleFor(next === "TERM" ? config[cycle] : config.annual[cycle]));
   }
 
   function resetToDefault() {
-    const fresh = defaultGradingConfig();
-    setConfig((current) => ({ ...current, [cycle]: fresh[cycle] }));
-    setSample(sampleFor(fresh[cycle]));
-    setDirty(true);
+    const fresh = period === "TERM" ? defaultGradingConfig()[cycle] : defaultAnnualConfig()[cycle];
+    update(fresh);
+    setSample(sampleFor(fresh));
   }
 
   async function handleSave() {
@@ -161,23 +182,6 @@ export function GradingRuleCard({
       setSaving(false);
     }
   }
-
-  // L'exemple annuel : trois moyennes trimestrielles de démonstration.
-  const ANNUAL_SAMPLE = [12, 14, 15];
-  const annualWeights = config.annual.terms.map((x) => x.weight);
-  const annualDivisor =
-    config.annual.divisor.mode === "FIXED"
-      ? config.annual.divisor.value
-      : annualWeights.reduce((sum, w) => sum + w, 0);
-  const annualValue =
-    annualDivisor > 0
-      ? ANNUAL_SAMPLE.reduce((sum, v, i) => sum + v * (annualWeights[i] ?? 0), 0) / annualDivisor
-      : null;
-  const annualText = config.annual.terms
-    .map((x, i) => `${ANNUAL_SAMPLE[i]}${x.weight === 1 ? "" : ` × ${x.weight}`}`)
-    .join(" + ");
-  const annualExample = annualValue == null ? "—" : formatNumber(annualValue);
-  const annualTotal = annualWeights.reduce((sum, w) => sum + w, 0);
 
   // L'exemple : les notes saisies plus haut, passées dans la formule en cours.
   const sampleScores = formula.parts.map((p) => parseSample(sample[p.id] ?? ""));
@@ -210,6 +214,59 @@ export function GradingRuleCard({
           {t("grading.intro")}
         </p>
 
+        {/* Bulletin concerné : trimestriel, ou annuel récapitulatif. */}
+        <div className="inline-flex rounded-xl border border-border bg-surface-muted/40 p-1">
+          {(["TERM", "ANNUAL"] as Period[]).map((value) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => switchPeriod(value)}
+              data-testid={`period-${value}`}
+              className={cn(
+                "rounded-lg px-4 py-1.5 text-sm font-semibold transition-colors",
+                period === value
+                  ? "bg-surface text-primary-800 shadow-sm"
+                  : "text-foreground/60 hover:text-foreground",
+              )}
+            >
+              {t(value === "TERM" ? "grading.periodTerm" : "grading.periodAnnual")}
+            </button>
+          ))}
+        </div>
+
+        {period === "ANNUAL" && (
+          <div className="space-y-3 rounded-xl border border-border bg-surface-muted/30 p-3">
+            <label className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <input
+                type="checkbox"
+                checked={config.annual.enabled}
+                onChange={(e) => updateAnnual({ enabled: e.target.checked })}
+                className="h-4 w-4 rounded border-border text-primary-700 focus:ring-primary-500"
+                data-testid="annual-enabled"
+              />
+              {t("grading.annualTitle")}
+            </label>
+            <p className="text-sm text-foreground/60">{t("grading.annualHint")}</p>
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="pass-threshold">{t("grading.passThreshold")}</Label>
+                <Input
+                  id="pass-threshold"
+                  type="number"
+                  min={0}
+                  max={20}
+                  step={0.5}
+                  value={config.annual.passThreshold}
+                  onChange={(e) => updateAnnual({ passThreshold: Number(e.target.value) || 0 })}
+                  className="w-28"
+                  data-testid="pass-threshold"
+                />
+              </div>
+              <p className="max-w-xl pb-2 text-xs text-foreground/55">{t("grading.passThresholdHint")}</p>
+            </div>
+          </div>
+        )}
+
         {/* Cycle concerné : les deux ne comptent pas forcément pareil. */}
         <div className="flex flex-wrap gap-2">
           {(["secondary", "fundamental"] as Cycle[]).map((value) => (
@@ -238,7 +295,12 @@ export function GradingRuleCard({
               className="rounded-xl border border-border bg-surface-muted/30 p-3"
               data-testid="formula-part"
             >
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div
+                className={cn(
+                  "grid grid-cols-1 gap-3 sm:grid-cols-2",
+                  period === "ANNUAL" ? "lg:grid-cols-5" : "lg:grid-cols-4",
+                )}
+              >
                 <div className="space-y-1.5">
                   <Label htmlFor={`label-${part.id}`}>{t("grading.partName")}</Label>
                   <Input
@@ -280,6 +342,28 @@ export function GradingRuleCard({
                     </SelectContent>
                   </Select>
                 </div>
+
+                {period === "ANNUAL" && (
+                  <div className="space-y-1.5">
+                    <Label>{t("grading.termOfPart")}</Label>
+                    <Select
+                      value={part.term ?? "ALL"}
+                      onValueChange={(v) => updatePart(index, { term: v === "ALL" ? undefined : v })}
+                    >
+                      <SelectTrigger aria-label={t("grading.termOfPart")} data-testid={`term-${index}`}>
+                        <SelectValue>{part.term ?? t("grading.wholeYear")}</SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ALL">{t("grading.wholeYear")}</SelectItem>
+                        {TERM_LABELS.map((term) => (
+                          <SelectItem key={term} value={term}>
+                            {term}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
                 <div className="space-y-1.5">
                   <Label>{t("grading.kinds")}</Label>
@@ -435,117 +519,6 @@ export function GradingRuleCard({
           </p>
           {example.average == null && (
             <p className="mt-1 text-sm text-amber-700">{t("grading.exampleMissing")}</p>
-          )}
-        </div>
-
-        {/* Bulletin annuel : les trimestres et leurs poids */}
-        <div className="rounded-xl border border-border bg-surface-muted/30 p-3" data-testid="annual">
-          <label className="flex items-center gap-2 text-sm font-semibold text-foreground">
-            <input
-              type="checkbox"
-              checked={config.annual.enabled}
-              onChange={(e) => {
-                setConfig((c) => ({ ...c, annual: { ...c.annual, enabled: e.target.checked } }));
-                setDirty(true);
-              }}
-              className="h-4 w-4 rounded border-border text-primary-700 focus:ring-primary-500"
-              data-testid="annual-enabled"
-            />
-            {t("grading.annualTitle")}
-          </label>
-          <p className="mt-1 text-sm text-foreground/60">{t("grading.annualHint")}</p>
-
-          {config.annual.enabled && (
-            <>
-              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                {config.annual.terms.map((term, index) => (
-                  <div key={term.term} className="space-y-1.5">
-                    <Label htmlFor={`term-${index}`}>{term.term}</Label>
-                    <Input
-                      id={`term-${index}`}
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={term.weight}
-                      onChange={(e) => {
-                        const weight = Number(e.target.value) || 0;
-                        setConfig((c) => ({
-                          ...c,
-                          annual: {
-                            ...c.annual,
-                            terms: c.annual.terms.map((x, i) => (i === index ? { ...x, weight } : x)),
-                          },
-                        }));
-                        setDirty(true);
-                      }}
-                    />
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-3 flex flex-wrap items-end gap-3">
-                <div className="space-y-1.5">
-                  <Label>{t("grading.annualDivisor")}</Label>
-                  <Select
-                    value={config.annual.divisor.mode}
-                    onValueChange={(mode) => {
-                      const total = config.annual.terms.reduce((sum, x) => sum + x.weight, 0) || 1;
-                      setConfig((c) => ({
-                        ...c,
-                        annual: {
-                          ...c.annual,
-                          divisor:
-                            mode === "AUTO" ? { mode: "AUTO" } : { mode: "FIXED", value: total },
-                        },
-                      }));
-                      setDirty(true);
-                    }}
-                  >
-                    <SelectTrigger className="w-64" aria-label={t("grading.annualDivisor")}>
-                      <SelectValue>
-                        {config.annual.divisor.mode === "AUTO"
-                          ? t("grading.divisorAuto").replace("{n}", String(annualTotal))
-                          : t("grading.divisorFixed")}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="AUTO">
-                        {t("grading.divisorAuto").replace("{n}", String(annualTotal))}
-                      </SelectItem>
-                      <SelectItem value="FIXED">{t("grading.divisorFixed")}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                {config.annual.divisor.mode === "FIXED" && (
-                  <div className="space-y-1.5">
-                    <Label htmlFor="annual-divisor">{t("grading.divisorValue")}</Label>
-                    <Input
-                      id="annual-divisor"
-                      type="number"
-                      min={1}
-                      max={100}
-                      value={config.annual.divisor.value}
-                      onChange={(e) => {
-                        const value = Number(e.target.value) || 1;
-                        setConfig((c) => ({
-                          ...c,
-                          annual: { ...c.annual, divisor: { mode: "FIXED", value } },
-                        }));
-                        setDirty(true);
-                      }}
-                      className="w-28"
-                    />
-                  </div>
-                )}
-              </div>
-
-              <p className="mt-3 text-sm text-foreground/70" data-testid="annual-example">
-                {t("grading.annualExample")
-                  .replace("{formula}", annualText)
-                  .replace("{divisor}", String(annualDivisor))
-                  .replace("{value}", annualExample)}
-              </p>
-            </>
           )}
         </div>
 

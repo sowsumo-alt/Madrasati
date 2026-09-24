@@ -36,6 +36,7 @@
 .table,
 .calcNote,
 .synthCard,
+.recapRank,
 .conduct,
 .signatures,
 .footerDate {
@@ -290,6 +291,44 @@
 }
 .synthMention {
   color: #c9973a;
+}
+
+/* BULLETIN ANNUEL : les trois trimestres, avant le tableau */
+.termRecap {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.recapRank {
+  margin-top: 2px;
+  font-size: 10px;
+  color: #6b7280;
+}
+
+/* Mentions du conseil et décision de passage */
+.decisionTitle {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.decisionTitle span {
+  direction: rtl;
+  font-weight: 700;
+  color: #111827;
+}
+.decisionOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 22px;
+}
+.decisionOptions [data-checked] {
+  color: #0b5e38;
+  font-weight: 700;
+}
+.box {
+  font-size: 13px;
 }
 
 /* CONDUITE */

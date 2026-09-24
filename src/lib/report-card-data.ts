@@ -4,8 +4,8 @@ import { currentGradingConfig, gradingConfigById } from "@/lib/grading-config-da
 import type { GradingConfig } from "@/lib/grading-config";
 import {
   ANNUAL_TERM,
-  computeAnnualCards,
   computeReportCards,
+  examKindOf,
   type ReportCard,
   type ReportCardAttendance,
 } from "@/lib/report-card-compute";
@@ -31,6 +31,8 @@ export async function buildReportCards(
   term: string,
   config?: GradingConfig,
 ): Promise<ReportCard[]> {
+  // Le bulletin annuel prend les examens des trois trimestres.
+  const annual = term === ANNUAL_TERM;
   const [classRoom, students, exams, academicYear, current] = await Promise.all([
     prisma.classRoom.findFirst({
       where: { id: classId, schoolId },
@@ -44,9 +46,10 @@ export async function buildReportCards(
       select: { id: true, firstName: true, lastName: true },
     }),
     prisma.exam.findMany({
-      where: { schoolId, classId, term },
+      where: annual ? { schoolId, classId } : { schoolId, classId, term },
       select: {
         subjectId: true,
+        term: true,
         title: true,
         kind: true,
         date: true,
@@ -95,6 +98,7 @@ export async function buildReportCards(
     exams,
     attendance,
     config: config ?? current?.config,
+    annual,
   });
 }
 
@@ -135,9 +139,11 @@ export async function reportCardRule(options: {
 }
 
 /**
- * Bulletin annuel d'une classe : les moyennes des trois trimestres,
- * combinées selon la règle de l'école (poids de chaque trimestre et
- * diviseur). N'existe que si l'école a activé le bulletin annuel.
+ * Bulletin annuel d'une classe, calculé directement sur les notes des trois
+ * trimestres avec la formule annuelle de l'école — par défaut : meilleur
+ * devoir de l'année × 3 + compositions T1 × 1, T2 × 2, T3 × 3, ÷ 9. Rien
+ * n'est ressaisi : ce sont les notes déjà enregistrées pour les bulletins
+ * trimestriels. Vide si l'école n'a pas de bulletin annuel.
  */
 export async function buildAnnualReportCards(
   schoolId: string,
@@ -146,15 +152,57 @@ export async function buildAnnualReportCards(
 ): Promise<ReportCard[]> {
   const rule = config ?? (await currentGradingConfig(schoolId)).config;
   if (!rule.annual.enabled) return [];
+  return buildReportCards(schoolId, classId, ANNUAL_TERM, rule);
+}
 
-  const terms = rule.annual.terms.map((t) => t.term);
-  const cards = await Promise.all(
-    terms.map(async (term) => ({
-      term,
-      cards: await buildReportCards(schoolId, classId, term, rule),
-    })),
+/**
+ * Le bulletin annuel ne s'établit qu'une fois l'année finie : quand chacun
+ * des trois trimestres a une composition notée dans la classe. Renvoie les
+ * trimestres qui en manquent encore.
+ */
+export async function annualMissingTerms(schoolId: string, classId: string): Promise<string[]> {
+  const exams = await prisma.exam.findMany({
+    where: { schoolId, classId, grades: { some: { OR: [{ score: { not: null } }, { isAbsent: true }] } } },
+    select: { term: true, kind: true, title: true },
+  });
+  const done = new Set(
+    exams.filter((e) => examKindOf(e) === "COMPOSITION").map((e) => e.term),
   );
-  return computeAnnualCards(cards, rule.annual);
+  return TERM_LABELS.filter((term) => !done.has(term));
+}
+
+export interface TermRecap {
+  term: string;
+  average: number | null;
+  rank: number | null;
+  classSize: number;
+}
+
+/**
+ * Moyennes générales d'un élève à chaque trimestre, reprises des bulletins
+ * trimestriels — avec la règle de calcul de chacun d'eux s'il a déjà été
+ * remis — pour montrer son évolution sur le bulletin annuel.
+ */
+export async function termRecap(options: {
+  schoolId: string;
+  classId: string;
+  studentId: string;
+  academicYearId: string | null;
+}): Promise<TermRecap[]> {
+  const { schoolId, classId, studentId, academicYearId } = options;
+  return Promise.all(
+    TERM_LABELS.map(async (term) => {
+      const rule = await reportCardRule({ schoolId, studentId, academicYearId, term });
+      const cards = await buildReportCards(schoolId, classId, term, rule.config);
+      const card = cards.find((c) => c.student.id === studentId);
+      return {
+        term,
+        average: card?.average ?? null,
+        rank: card?.average != null ? card.rank : null,
+        classSize: card?.classSize ?? cards.length,
+      };
+    }),
+  );
 }
 
 export { ANNUAL_TERM, TERM_LABELS };

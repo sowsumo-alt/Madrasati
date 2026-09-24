@@ -4,7 +4,13 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
-import { buildReportCards } from "@/lib/report-card-data";
+import {
+  ANNUAL_TERM,
+  buildAnnualReportCards,
+  buildReportCards,
+  reportCardRule,
+} from "@/lib/report-card-data";
+import { isDecisionKey, parseHonors } from "@/lib/annual-decision";
 import { generateAppreciation, isAiEnabled } from "@/lib/ai";
 import { currentGradingConfig, saveGradingConfig } from "@/lib/grading-config-data";
 import { defaultGradingConfig } from "@/lib/grading-config";
@@ -156,4 +162,53 @@ export async function refreshReportCardRule(studentId: string, term: string) {
   });
 
   revalidatePath(`/directeur/bulletins/${studentId}`);
+}
+
+/**
+ * Mentions du conseil et décision de passage d'un élève, validées par le
+ * directeur sur son bulletin annuel. La moyenne annuelle du jour est
+ * recopiée, pour que la page Réinscription l'affiche l'an prochain.
+ */
+export async function saveAnnualDecision(
+  studentId: string,
+  values: { honors: string[]; decision: string | null },
+) {
+  const user = await requireRole(ROLES.DIRECTOR);
+
+  const honors = parseHonors(values.honors);
+  const decision = values.decision == null ? null : isDecisionKey(values.decision) ? values.decision : null;
+  if (values.decision != null && decision == null) throw new Error("Décision inconnue.");
+
+  const student = await prisma.student.findFirst({
+    where: { id: studentId, schoolId: user.schoolId },
+    select: { id: true, classId: true, classRoom: { select: { academicYearId: true } } },
+  });
+  if (!student?.classId || !student.classRoom) throw new Error("Élève introuvable ou sans classe.");
+  const academicYearId = student.classRoom.academicYearId;
+
+  const rule = await reportCardRule({
+    schoolId: user.schoolId,
+    studentId,
+    academicYearId,
+    term: ANNUAL_TERM,
+  });
+  const cards = await buildAnnualReportCards(user.schoolId, student.classId, rule.config);
+  const average = cards.find((c) => c.student.id === studentId)?.average ?? null;
+
+  const data = {
+    honors,
+    decision,
+    average,
+    validatedAt: decision ? new Date() : null,
+    validatedByUserId: decision ? user.id : null,
+  };
+  await prisma.annualDecision.upsert({
+    where: { studentId_academicYearId: { studentId, academicYearId } },
+    create: { schoolId: user.schoolId, studentId, academicYearId, ...data },
+    update: data,
+  });
+
+  revalidatePath(`/directeur/bulletins/${studentId}`);
+  revalidatePath("/directeur/bulletins");
+  revalidatePath("/directeur/reinscription");
 }
