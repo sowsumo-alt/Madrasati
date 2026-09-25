@@ -11,6 +11,7 @@ import {
   Check,
   CircleCheck,
   Globe,
+  IdCard,
   GraduationCap,
   Loader2,
   MapPin,
@@ -36,12 +37,7 @@ import { PAYMENT_METHOD_LABELS } from "@/lib/payment-methods";
 import { DEFAULT_NATIONALITY, NATIONALITY_SUGGESTIONS } from "@/lib/student-form";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { studentSchema, type StudentFormValues } from "./schema";
-import {
-  createStudent,
-  updateStudent,
-  findDuplicateStudents,
-  type DuplicateStudent,
-} from "./actions";
+import { createStudent, updateStudent, findDuplicateStudents, type DuplicateStudent, checkStudentNnis } from "./actions";
 import { FormSection } from "@/components/forms/form-section";
 import { FormField, IconInput } from "@/components/forms/form-field";
 import { PhotoAvatarPicker } from "./student-form/photo-avatar-picker";
@@ -63,6 +59,7 @@ export interface StudentEditTarget {
   photoUrl: string | null;
   placeOfBirth: string | null;
   nationality: string | null;
+  nni: string | null;
   motherName: string | null;
   enrollmentDate: string | null;
   parentName: string;
@@ -92,6 +89,7 @@ function newStudentValues(): StudentFormValues {
     gender: "",
     placeOfBirth: "",
     nationality: DEFAULT_NATIONALITY,
+    nni: "",
     classId: "",
     status: "ACTIVE",
     enrollmentDate: new Date().toISOString().slice(0, 10),
@@ -123,6 +121,7 @@ export function StudentFormDialog({
     handleSubmit,
     reset,
     setValue,
+    setError,
     watch,
     formState: { errors, isSubmitting },
   } = useForm<StudentFormValues>({
@@ -148,6 +147,7 @@ export function StudentFormDialog({
               // Pas de nationalité préremplie sur un dossier existant : elle
               // serait enregistrée sans que personne ne l'ait vérifiée.
               nationality: editTarget.nationality ?? "",
+              nni: editTarget.nni ?? "",
               classId: editTarget.classId ?? "",
               status: editTarget.status as StudentFormValues["status"],
               enrollmentDate: editTarget.enrollmentDate ?? "",
@@ -170,6 +170,14 @@ export function StudentFormDialog({
         const found = await findDuplicateStudents(values.firstName, values.lastName);
         if (found.length > 0) {
           setDuplicates(found);
+          return;
+        }
+      }
+
+      if (values.nni) {
+        const conflict = await checkStudentNnis([values.nni], editTarget?.id);
+        if (conflict) {
+          setError("nni", { message: conflict });
           return;
         }
       }
@@ -309,6 +317,18 @@ export function StudentFormDialog({
                     <option key={n} value={n} />
                   ))}
                 </datalist>
+              </FormField>
+              <FormField label={t("students.nni")} htmlFor="nni" error={errors.nni?.message}>
+                <IconInput
+                  icon={IdCard}
+                  id="nni"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  maxLength={14}
+                  dir="ltr"
+                  placeholder={t("students.nniPlaceholder")}
+                  {...register("nni")}
+                />
               </FormField>
             </FormSection>
 

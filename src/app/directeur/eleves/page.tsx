@@ -56,6 +56,7 @@ export default async function StudentsPage({
       photoUrl: s.photoUrl,
       placeOfBirth: s.placeOfBirth,
       nationality: s.nationality,
+      nni: s.nni,
       motherName: s.motherName,
       enrollmentDate: s.enrollmentDate.toISOString(),
       parent: parent

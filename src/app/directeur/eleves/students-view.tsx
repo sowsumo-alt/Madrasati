@@ -41,6 +41,7 @@ export interface StudentRow {
   photoUrl: string | null;
   placeOfBirth: string | null;
   nationality: string | null;
+  nni: string | null;
   motherName: string | null;
   enrollmentDate: string;
   parent: {
@@ -71,6 +72,7 @@ function toEditTarget(s: StudentRow): StudentEditTarget {
     photoUrl: s.photoUrl,
     placeOfBirth: s.placeOfBirth,
     nationality: s.nationality,
+    nni: s.nni,
     motherName: s.motherName,
     enrollmentDate: s.enrollmentDate.slice(0, 10),
     parentName: s.parent ? joinFullName(s.parent.firstName, s.parent.lastName) : "",

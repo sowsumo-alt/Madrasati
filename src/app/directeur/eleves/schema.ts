@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { optionalPhoneSchema } from "@/lib/phone";
 import { PAYMENT_METHODS } from "@/lib/payment-methods";
+import { optionalNniSchema } from "@/lib/nni";
 
 const optionalText = (max: number) => z.string().trim().max(max).optional().or(z.literal(""));
 
@@ -17,6 +18,8 @@ export const studentSchema = z
     gender: z.string().refine((v) => ["M", "F"].includes(v), "Choisissez le genre de l'élève"),
     placeOfBirth: optionalText(120),
     nationality: optionalText(60),
+    /** Numéro National d'Identification : 10 chiffres, facultatif. */
+    nni: optionalNniSchema,
     // Obligatoire : un élève sans classe n'apparaît dans aucun appel, aucun
     // bulletin et aucune liste de classe — le directeur perd sa trace sans
     // qu'aucun écran ne le signale.

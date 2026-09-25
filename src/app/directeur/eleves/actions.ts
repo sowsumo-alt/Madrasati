@@ -9,6 +9,8 @@ import { generateReceiptNumber, runWithReceipt } from "@/lib/receipts";
 import { splitFullName } from "@/lib/student-form";
 import { studentSchema, type StudentFormValues } from "./schema";
 import { CURRENT_YEAR } from "@/lib/school-year";
+import { assertNnisAvailable, nniConflict } from "@/lib/nni-data";
+import { storedNni } from "@/lib/nni";
 
 /** Compare deux noms en ignorant casse, accents composés et espaces multiples. */
 function normalizeName(value: string) {
@@ -68,6 +70,7 @@ function studentFields(data: StudentFormValues) {
     gender: data.gender,
     placeOfBirth: data.placeOfBirth || null,
     nationality: data.nationality || null,
+    nni: storedNni(data.nni),
     motherName: data.motherName || null,
     classId: data.classId || null,
     status: data.status,
@@ -78,6 +81,7 @@ function studentFields(data: StudentFormValues) {
 export async function createStudent(values: StudentFormValues) {
   const user = await requireRole(ROLES.DIRECTOR);
   const data = studentSchema.parse(values);
+  await assertNnisAvailable(user.schoolId, [data.nni]);
 
   // classId non vérifié : un ID d'une autre école ferait apparaître son nom
   // de classe (et fausserait ses effectifs) dans les listings de ce
@@ -202,6 +206,7 @@ export async function updateStudent(studentId: string, values: StudentFormValues
     include: { parentLinks: { include: { parent: true } } },
   });
   if (!existing) throw new Error("Élève introuvable.");
+  await assertNnisAvailable(user.schoolId, [data.nni], studentId);
 
   if (data.classId) {
     const cls = await prisma.classRoom.findFirst({
@@ -426,4 +431,14 @@ export async function importStudents(rows: ImportRow[]) {
     unmatchedClassNames: [...unmatchedClassNames],
     missingDateCount,
   };
+}
+
+/**
+ * Le NNI saisi appartient-il déjà à un autre élève de l'école ? Appelé par
+ * les formulaires avant d'enregistrer, pour afficher le message sous le
+ * champ plutôt qu'une erreur générique.
+ */
+export async function checkStudentNnis(nnis: string[], exceptStudentId?: string) {
+  const user = await requireRole(ROLES.DIRECTOR);
+  return nniConflict(user.schoolId, nnis, exceptStudentId);
 }

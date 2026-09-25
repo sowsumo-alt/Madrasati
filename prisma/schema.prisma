@@ -275,6 +275,8 @@ model Student {
   placeOfBirth   String?
   nationality    String? // ex: "Mauritanienne", texte libre
   motherName     String?
+  // Numéro National d'Identification mauritanien : 10 chiffres, facultatif.
+  nni            String?
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
 
@@ -290,6 +292,7 @@ model Student {
 
   @@index([schoolId])
   @@index([classId])
+  @@index([schoolId, nni])
   @@map("students")
 }
 

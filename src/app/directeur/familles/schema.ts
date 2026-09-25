@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { phoneSchema } from "@/lib/phone";
 import { PAYMENT_METHODS } from "@/lib/payment-methods";
+import { optionalNniSchema } from "@/lib/nni";
 
 const optionalText = (max: number) => z.string().trim().max(max).optional().or(z.literal(""));
 
@@ -11,6 +12,9 @@ export const familyChildSchema = z.object({
   lastName: z.string().trim().min(1, "Le nom est requis").max(80),
   dateOfBirth: z.string().trim().optional().or(z.literal("")),
   gender: z.string().refine((v) => ["M", "F"].includes(v), "Choisissez le genre"),
+  placeOfBirth: optionalText(120),
+  /** Numéro National d'Identification : 10 chiffres, facultatif. */
+  nni: optionalNniSchema,
   classId: z.string().trim().min(1, "Choisissez la classe"),
   /** Frais d'inscription de cet enfant, en MRU ; 0 = aucun frais. */
   amount: z.number().int().nonnegative().max(100_000_000),

@@ -99,6 +99,9 @@ export function StudentProfileSheet({
                   {student.gender ? t(`students.gender.${student.gender}` as TranslationKey) : empty}
                 </Row>
                 <Row label={t("students.nationality")}>{student.nationality || empty}</Row>
+                <Row label={t("students.nni")}>
+                  {student.nni ? <span dir="ltr">{student.nni}</span> : empty}
+                </Row>
               </Section>
 
               <Section title={t("students.sectionSchooling")}>

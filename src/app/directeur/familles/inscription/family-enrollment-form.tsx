@@ -13,6 +13,7 @@ import { splitFullName } from "@/lib/student-form";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { cn } from "@/lib/utils";
 import { enrollFamily, findFamiliesByPhone, type KnownFamily } from "../actions";
+import { checkStudentNnis } from "@/app/directeur/eleves/actions";
 import type { FamilyPaymentMode } from "../schema";
 import {
   childrenStepErrors,
@@ -194,12 +195,26 @@ export function FamilyEnrollmentForm({
     setStep(2);
   }
 
-  function goToPayment() {
+  async function goToPayment() {
     const errors = childrenStepErrors(children);
     setChildErrors(errors);
     if (Object.keys(errors).length > 0) {
       toast.error(t("family.fixErrors"));
       return;
+    }
+    // Un NNI déjà connu de l'école (ou saisi deux fois) : on le dit sur
+    // l'enfant concerné, avant d'aller plus loin.
+    const withNni = children.filter((c) => c.nni.trim());
+    if (withNni.length > 0) {
+      const conflict = await checkStudentNnis(withNni.map((c) => c.nni));
+      if (conflict) {
+        const digits = conflict.match(/\d{10}/)?.[0];
+        const child =
+          withNni.find((c) => c.nni.replace(/[\s.-]/g, "") === digits) ?? withNni[0];
+        setChildErrors({ [child.key]: { nni: conflict } });
+        toast.error(conflict);
+        return;
+      }
     }
     setStep(3);
   }

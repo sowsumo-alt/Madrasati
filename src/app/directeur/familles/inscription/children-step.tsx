@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, School, Trash2 } from "lucide-react";
+import { IdCard, MapPin, Plus, School, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { DateInput } from "@/components/ui/date-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -48,8 +48,8 @@ function GenderToggle({
 }
 
 /**
- * Étape 2 : chaque enfant sur sa carte — prénom, nom, date de naissance,
- * genre et classe — sans ressaisir le parent. « Ajouter un autre enfant »
+ * Étape 2 : chaque enfant sur sa carte — prénom, nom, date et lieu de
+ * naissance, genre, NNI et classe — sans ressaisir le parent. « Ajouter un autre enfant »
  * en ajoute autant que nécessaire.
  */
 export function ChildrenStep({
@@ -137,6 +137,35 @@ export function ChildrenStep({
                   value={child.gender}
                   onChange={(gender) => onChange(child.key, { gender })}
                 />
+              </FormField>
+              <FormField label={t("students.placeOfBirth")} htmlFor={id("placeOfBirth")}>
+                <div className="relative">
+                  <MapPin className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/40" />
+                  <Input
+                    id={id("placeOfBirth")}
+                    value={child.placeOfBirth}
+                    onChange={(ev) => onChange(child.key, { placeOfBirth: ev.target.value })}
+                    placeholder={t("students.placeOfBirthPlaceholder")}
+                    className="ps-9"
+                    autoComplete="off"
+                  />
+                </div>
+              </FormField>
+              <FormField label={t("students.nni")} htmlFor={id("nni")} error={e.nni}>
+                <div className="relative">
+                  <IdCard className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/40" />
+                  <Input
+                    id={id("nni")}
+                    value={child.nni}
+                    onChange={(ev) => onChange(child.key, { nni: ev.target.value })}
+                    placeholder={t("students.nniPlaceholder")}
+                    inputMode="numeric"
+                    maxLength={14}
+                    dir="ltr"
+                    className="ps-9"
+                    autoComplete="off"
+                  />
+                </div>
               </FormField>
               <FormField
                 label={t("students.class")}

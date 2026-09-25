@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { assertNnisAvailable } from "@/lib/nni-data";
+import { storedNni } from "@/lib/nni";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { familyPartReceiptNumber, generateReceiptNumber, runWithReceipt } from "@/lib/receipts";
@@ -101,6 +103,8 @@ export interface FamilyEnrollmentResult {
 export async function enrollFamily(values: FamilyEnrollmentValues): Promise<FamilyEnrollmentResult> {
   const user = await requireRole(ROLES.DIRECTOR);
   const data = familyEnrollmentSchema.parse(values);
+  // Un NNI n'appartient qu'à un seul enfant, dans la saisie comme dans l'école.
+  await assertNnisAvailable(user.schoolId, data.children.map((c) => c.nni));
 
   // Classes vérifiées d'un coup : un identifiant d'une autre école ferait
   // apparaître un élève dans une classe qui n'est pas la sienne.
@@ -168,6 +172,8 @@ export async function enrollFamily(values: FamilyEnrollmentValues): Promise<Fami
           lastName: child.lastName,
           dateOfBirth: child.dateOfBirth ? new Date(child.dateOfBirth) : null,
           gender: child.gender,
+          placeOfBirth: child.placeOfBirth || null,
+          nni: storedNni(child.nni),
           classId: child.classId,
           nationality: DEFAULT_NATIONALITY,
           status: "ACTIVE",
