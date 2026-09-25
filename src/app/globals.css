@@ -352,4 +352,8 @@ body {
   .no-print {
     display: none !important;
   }
+  /* Bulletins d'une classe imprimés en lot : un élève par page. */
+  .print-page-break {
+    break-after: page;
+  }
 }

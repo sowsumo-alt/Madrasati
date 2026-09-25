@@ -67,3 +67,55 @@ export async function exportElementToPdf(element: HTMLElement, fileName: string)
 
   pdf.save(fileName);
 }
+
+/**
+ * Plusieurs documents dans un seul PDF — les bulletins de toute une classe,
+ * imprimables en une fois. Chaque document commence sur une nouvelle page ;
+ * `onProgress` suit la préparation, un document à la fois.
+ */
+export async function exportElementsToPdf(
+  elements: HTMLElement[],
+  fileName: string,
+  onProgress?: (done: number, total: number) => void,
+): Promise<void> {
+  const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+    import("html2canvas-pro"),
+    import("jspdf"),
+  ]);
+  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+
+  for (const [index, element] of elements.entries()) {
+    const canvas = await html2canvas(element, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: "#ffffff",
+      // Même préparation que pour un seul document (voir plus haut).
+      onclone: (doc: Document) => {
+        doc.querySelectorAll(".no-print, [data-pdf-ignore]").forEach((el) => el.remove());
+        doc.querySelectorAll<HTMLElement>("[data-pdf-show]").forEach((el) => {
+          el.classList.remove("hidden");
+          el.style.display = "block";
+        });
+      },
+    });
+    const imgData = canvas.toDataURL("image/jpeg", 0.92);
+    const imgHeight = (canvas.height * pageWidth) / canvas.width;
+
+    if (index > 0) pdf.addPage();
+    let heightLeft = imgHeight;
+    let position = 0;
+    pdf.addImage(imgData, "JPEG", 0, position, pageWidth, imgHeight);
+    heightLeft -= pageHeight;
+    while (heightLeft > 0) {
+      position = heightLeft - imgHeight;
+      pdf.addPage();
+      pdf.addImage(imgData, "JPEG", 0, position, pageWidth, imgHeight);
+      heightLeft -= pageHeight;
+    }
+    onProgress?.(index + 1, elements.length);
+  }
+
+  pdf.save(fileName);
+}

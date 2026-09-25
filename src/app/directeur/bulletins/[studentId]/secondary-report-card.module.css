@@ -37,6 +37,7 @@
 .calcNote,
 .synthCard,
 .recapRank,
+.incomplete,
 .conduct,
 .signatures,
 .footerDate {
@@ -329,6 +330,33 @@
 }
 .box {
   font-size: 13px;
+}
+
+/* Évolution depuis le trimestre précédent */
+.subjectTrend {
+  margin-top: 1px;
+  font-size: 9.5px;
+  white-space: nowrap;
+}
+.generalTrend {
+  margin-top: 3px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.trendUp {
+  color: #15803d;
+}
+.trendDown {
+  color: #b91c1c;
+}
+.trendStable {
+  color: #6b7280;
+}
+.incomplete {
+  margin-top: 12px;
+  font-size: 9.5px;
+  font-style: italic;
+  color: #6b7280;
 }
 
 /* CONDUITE */

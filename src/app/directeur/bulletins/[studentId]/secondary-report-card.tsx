@@ -7,6 +7,7 @@ import { SECONDARY_OFFICIAL_SUBJECTS, officialSubjectIndex, roundHundredth } fro
 import type { FormulaPart } from "@/lib/grading-config";
 import { DECISIONS, HONORS, type DecisionKey, type HonorKey } from "@/lib/annual-decision";
 import type { TermRecap } from "@/lib/report-card-data";
+import { formatDelta, type CardEvolution, type Evolution } from "@/lib/report-card-checks";
 import { formatLongDate, formatPhone } from "@/lib/format";
 import styles from "./secondary-report-card.module.css";
 
@@ -55,6 +56,25 @@ export interface SecondaryReportCardProps {
     honors: HonorKey[];
     decision: DecisionKey | null;
   };
+  /** Évolution depuis le trimestre précédent ; absente au premier trimestre. */
+  evolution?: CardEvolution | null;
+  /** Vrai s'il manquait des notes quand le bulletin a été établi. */
+  incomplete?: boolean;
+}
+
+const TREND_ARROW = { UP: "↗", DOWN: "↘", STABLE: "→" } as const;
+
+/** Flèche et écart, en vert si l'élève progresse, en rouge s'il recule. */
+function Trend({ value, long }: { value: Evolution; long?: boolean }) {
+  const className =
+    value.trend === "UP" ? styles.trendUp : value.trend === "DOWN" ? styles.trendDown : styles.trendStable;
+  return (
+    <span className={className} data-testid={long ? "general-evolution" : "subject-evolution"}>
+      {TREND_ARROW[value.trend]}{" "}
+      {value.trend === "STABLE" ? "stable" : formatDelta(value.delta)}
+      {long ? ` par rapport au ${value.previousTerm}` : ""}
+    </span>
+  );
 }
 
 /** Case cochée ou non, pour les mentions et la décision imprimées. */
@@ -141,6 +161,8 @@ export function SecondaryReportCard({
   title,
   periodLabel,
   annual,
+  evolution,
+  incomplete,
 }: SecondaryReportCardProps) {
   // Au bulletin annuel, la moyenne de chaque matière est la moyenne de l'année.
   const averageHeader = annual ? "Moy An /20" : "Moy T /20";
@@ -297,6 +319,11 @@ export function SecondaryReportCard({
                   })}
                   <td data-testid="subject-average">
                     {r.average != null ? twoDecimals(r.average) : EMPTY}
+                    {evolution?.bySubject[r.subjectName] && (
+                      <div className={styles.subjectTrend}>
+                        <Trend value={evolution.bySubject[r.subjectName]} />
+                      </div>
+                    )}
                   </td>
                   <td data-testid="coefficient">{r.coefficient}</td>
                   <td className={styles.weighted} data-testid="weighted">
@@ -344,6 +371,11 @@ export function SecondaryReportCard({
           <div className={styles.synthValue}>
             {card.average != null ? `${twoDecimals(card.average)}/20` : "—"}
           </div>
+          {evolution?.general && (
+            <div className={styles.generalTrend}>
+              <Trend value={evolution.general} long />
+            </div>
+          )}
         </div>
         <div className={styles.synthCard}>
           <div className={styles.synthLabel}>Mention</div>
@@ -419,6 +451,13 @@ export function SecondaryReportCard({
         <div>Le Tuteur</div>
         <div>Le Directeur des Études</div>
       </div>
+
+      {/* Bulletin établi alors que des notes manquaient : on le dit, discrètement. */}
+      {incomplete && (
+        <p className={styles.incomplete} data-testid="incomplete-mention">
+          Certaines notes n&apos;étaient pas disponibles à la génération de ce bulletin.
+        </p>
+      )}
 
       <div className={styles.footerDate}>
         {school.city ? `${school.city}, le ${date}` : `Le ${date}`}

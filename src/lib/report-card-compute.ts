@@ -51,9 +51,18 @@ export interface SubjectDetail {
   rank: number | null;
   /** Observation du professeur, saisie avec la note de fin (composition). */
   observation: string | null;
+  /**
+   * Par bloc : l'élève a été marqué absent à une épreuve de ce bloc. Une
+   * absence est une note saisie — pas un oubli de l'enseignant.
+   */
+  absent: boolean[];
 }
 
-export type ReportCardSubject = SubjectResult & { detail: SubjectDetail };
+export type ReportCardSubject = SubjectResult & {
+  detail: SubjectDetail;
+  /** Matière encore active dans l'école : une matière désactivée n'attend plus de note. */
+  active: boolean;
+};
 
 export interface ReportCard {
   student: { id: string; firstName: string; lastName: string };
@@ -92,7 +101,14 @@ export interface ReportCardInput {
   className: string;
   classLevel: string;
   term: string;
-  subjects: { id: string; name: string; nameAr: string | null; coefficient: number }[];
+  subjects: {
+    id: string;
+    name: string;
+    nameAr: string | null;
+    coefficient: number;
+    /** Absent : la matière est considérée active. */
+    active?: boolean;
+  }[];
   students: { id: string; firstName: string; lastName: string }[];
   exams: ReportCardExam[];
   attendance: Map<string, ReportCardAttendance>;
@@ -186,6 +202,9 @@ export function computeReportCards(input: ReportCardInput): ReportCard[] {
         titles: examsByPart.map((list) => list.map((e) => e.title)),
         rank: null,
         observation,
+        absent: examsByPart.map((list) =>
+          list.some((exam) => exam.grades.some((g) => g.studentId === student.id && g.isAbsent)),
+        ),
         average: computed.average,
       });
     }
@@ -214,6 +233,7 @@ export function computeReportCards(input: ReportCardInput): ReportCard[] {
         subjectName: subject.name,
         subjectNameAr: subject.nameAr,
         coefficient: subject.coefficient,
+        active: subject.active ?? true,
         average,
         classAverage: classAverageBySubject.get(subject.id) ?? null,
         examCount: detail.parts.reduce(

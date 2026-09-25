@@ -93,6 +93,7 @@ export async function buildReportCards(
       name: cs.subject.name,
       nameAr: cs.subject.nameAr,
       coefficient: cs.coefficientOverride ?? cs.subject.coefficient,
+      active: cs.subject.isActive,
     })),
     students,
     exams,
@@ -206,3 +207,53 @@ export async function termRecap(options: {
 }
 
 export { ANNUAL_TERM, TERM_LABELS };
+
+/**
+ * Bulletins de toute une classe pour un trimestre, chacun avec sa règle de
+ * calcul : celle du jour où il a été remis au parent s'il l'a été, sinon la
+ * règle actuelle. Renvoyés dans l'ordre alphabétique de la classe.
+ *
+ * Un calcul par règle distincte, pas par élève : d'ordinaire toute la classe
+ * suit la même, et tout se fait en un passage.
+ */
+export async function classCardsWithRules(
+  schoolId: string,
+  classId: string,
+  term: string,
+): Promise<ReportCard[]> {
+  const classRoom = await prisma.classRoom.findFirst({
+    where: { id: classId, schoolId },
+    select: { academicYearId: true },
+  });
+  if (!classRoom) return [];
+
+  const [current, issues] = await Promise.all([
+    currentGradingConfig(schoolId),
+    prisma.reportCardIssue.findMany({
+      where: { schoolId, academicYearId: classRoom.academicYearId, term, student: { classId } },
+      select: { studentId: true, gradingConfigId: true },
+    }),
+  ]);
+
+  const cards = await buildReportCards(schoolId, classId, term, current.config);
+  const pinnedIds = [
+    ...new Set(
+      issues
+        .map((i) => i.gradingConfigId)
+        .filter((id): id is string => id != null && id !== current.id),
+    ),
+  ];
+  if (pinnedIds.length === 0) return cards;
+
+  const byStudent = new Map(cards.map((c) => [c.student.id, c]));
+  for (const configId of pinnedIds) {
+    const pinned = await gradingConfigById(schoolId, configId);
+    if (!pinned) continue;
+    const pinnedCards = await buildReportCards(schoolId, classId, term, pinned.config);
+    for (const issue of issues.filter((i) => i.gradingConfigId === configId)) {
+      const card = pinnedCards.find((c) => c.student.id === issue.studentId);
+      if (card) byStudent.set(issue.studentId, card);
+    }
+  }
+  return cards.map((c) => byStudent.get(c.student.id) ?? c);
+}

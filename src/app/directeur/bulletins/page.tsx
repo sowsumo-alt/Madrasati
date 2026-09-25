@@ -4,9 +4,10 @@ import { prisma } from "@/lib/prisma";
 import { FEATURES, schoolHasFeature } from "@/lib/plans";
 import {
   annualMissingTerms,
-  buildReportCards,
   buildAnnualReportCards,
+  classCardsWithRules,
 } from "@/lib/report-card-data";
+import { missingGrades } from "@/lib/report-card-checks";
 import { ANNUAL_TERM } from "@/lib/report-card-compute";
 import { currentGradingConfig } from "@/lib/grading-config-data";
 import { TERMS } from "@/app/directeur/examens/schema";
@@ -67,7 +68,7 @@ export default async function BulletinsPage({
         ? annualMissing.length > 0
           ? Promise.resolve([])
           : buildAnnualReportCards(user.schoolId, selectedClassId, rule.config)
-        : buildReportCards(user.schoolId, selectedClassId, selectedTerm, rule.config)
+        : classCardsWithRules(user.schoolId, selectedClassId, selectedTerm)
       : Promise.resolve([]),
     prisma.studentParent.findMany({
       where: { isPrimary: true, student: { schoolId: user.schoolId } },
@@ -99,6 +100,7 @@ export default async function BulletinsPage({
       rank: c.rank,
       classSize: c.classSize,
       subjectsScored: c.results.filter((r) => r.average != null).length,
+      missing: missingGrades(c),
       parent: parent
         ? {
             firstName: parent.firstName,

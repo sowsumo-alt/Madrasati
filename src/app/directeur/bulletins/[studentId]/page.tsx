@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
@@ -7,24 +6,24 @@ import {
   annualMissingTerms,
   buildReportCards,
   buildAnnualReportCards,
+  classCardsWithRules,
   reportCardRule,
   termRecap,
 } from "@/lib/report-card-data";
 import { parseHonors, suggestDecision, isDecisionKey } from "@/lib/annual-decision";
 import { AnnualDecisionPanel } from "./annual-decision-panel";
+import { ReportCardActions } from "./report-card-actions";
+import { StandardReportCard } from "./standard-report-card";
+import { compareCards, missingGrades, previousTermOf } from "@/lib/report-card-checks";
 import Link from "next/link";
 import { ANNUAL_TERM } from "@/lib/report-card-compute";
 import { markReportCardIssued } from "../actions";
 import { RuleBanner } from "./rule-banner";
 import { formatDate } from "@/lib/format";
 import { TERMS } from "@/app/directeur/examens/schema";
-import { PrintButton } from "@/components/ui/print-button";
-import { GraduationCap } from "lucide-react";
 import { isAiEnabled } from "@/lib/ai";
 import { CommentEditor } from "./comment-editor";
-import { PdfButton } from "@/components/ui/pdf-button";
 import { getTranslations } from "@/lib/i18n/server";
-import type { TranslationKey } from "@/lib/i18n/dictionaries";
 import { FEATURES, schoolHasFeature } from "@/lib/plans";
 import { DEFAULT_TEMPLATES } from "@/lib/school-setup";
 import { fillTemplate, withArabic, schoolSignatureFr, schoolSignatureAr } from "@/lib/whatsapp";
@@ -192,6 +191,33 @@ export default async function ReportCardPage({
   ) : null;
   // Imprimer ou envoyer le bulletin le fige sur la règle du jour.
   const onIssued = markReportCardIssued.bind(null, studentId, term);
+
+  // Avant de générer : les notes qui manquent, et l'évolution depuis le
+  // trimestre précédent (aucune au premier trimestre ni au bulletin annuel).
+  const missing = missingGrades(card);
+  const previousTerm = isAnnual ? null : previousTermOf(term, TERMS);
+  const previousCard = previousTerm
+    ? ((await classCardsWithRules(user.schoolId, student.classId, previousTerm)).find(
+        (c) => c.student.id === studentId,
+      ) ?? null)
+    : null;
+  const cardEvolution = compareCards(card, previousCard);
+  const actions = (
+    <ReportCardActions
+      studentName={studentName}
+      missing={missing}
+      notesHref={
+        isAnnual
+          ? `/directeur/notes?classe=${student.classId}`
+          : `/directeur/notes?classe=${student.classId}&trimestre=${encodeURIComponent(term)}`
+      }
+      elementId="bulletin-card"
+      fileName={pdfFileName}
+      parentPhone={parent?.phone ?? null}
+      message={pdfMessage}
+      onUse={onIssued}
+    />
+  );
   const ruleBanner =
     rule.outdated && rule.issuedAt ? (
       <RuleBanner studentId={studentId} term={term} issuedAt={formatDate(rule.issuedAt)} />
@@ -215,17 +241,7 @@ export default async function ReportCardPage({
     return (
       <div className="mx-auto max-w-[62rem] px-4 py-10 print:max-w-none print:p-0">
         {ruleBanner}
-        <div className="no-print mb-6 flex flex-wrap justify-end gap-2">
-          <PdfButton
-            elementId="bulletin-card"
-            fileName={pdfFileName}
-            labelKey="bulletin.sendPdf"
-            parentPhone={parent?.phone ?? null}
-            message={pdfMessage}
-            onUse={onIssued}
-          />
-          <PrintButton label={t("bulletin.print")} onUse={onIssued} />
-        </div>
+        {actions}
 
         {/* Le document garde sa largeur sur téléphone et défile : le PDF
             envoyé au parent reste ainsi complet. */}
@@ -249,6 +265,8 @@ export default async function ReportCardPage({
             suspensions={suspensions}
             comment={comment ? { body: comment.body, bodyAr: comment.bodyAr } : null}
             issuedAt={new Date()}
+            evolution={cardEvolution}
+            incomplete={missing.length > 0}
             annual={
               annualData
                 ? {
@@ -283,185 +301,33 @@ export default async function ReportCardPage({
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       {ruleBanner}
-      <div className="no-print mb-6 flex flex-wrap justify-end gap-2">
-        <PdfButton
-          elementId="bulletin-card"
-          fileName={pdfFileName}
-          labelKey="bulletin.sendPdf"
-          parentPhone={parent?.phone ?? null}
-          message={pdfMessage}
-          onUse={onIssued}
-        />
-        <PrintButton label={t("bulletin.print")} onUse={onIssued} />
-      </div>
+      {actions}
 
-      <div
+      <StandardReportCard
         id="bulletin-card"
-        className="rounded-xl border border-border bg-surface p-8 shadow-sm print:border-0 print:p-0 print:shadow-none"
-      >
-        <div className="flex items-start justify-between border-b border-border pb-6">
-          <div className="flex items-center gap-3 text-primary-800">
-            {school?.logoUrl ? (
-              <Image
-                src={school.logoUrl}
-                alt=""
-                width={320}
-                height={320}
-                unoptimized
-                className="h-14 w-14 rounded object-contain"
-              />
-            ) : (
-              <GraduationCap className="h-8 w-8" strokeWidth={2} />
-            )}
-            <div>
-              <p className="text-base font-semibold leading-tight">{school?.name}</p>
-              {school?.address && (
-                <p className="text-xs text-foreground/50">{school.address}</p>
-              )}
-              {school?.phone && (
-                <p className="text-xs text-foreground/50">{school.phone}</p>
-              )}
-            </div>
-          </div>
-          <div className="text-right">
-            <p className="text-xs font-medium uppercase tracking-wide text-foreground/40">
-              {t("bulletin.reportCardTitle")}
-            </p>
-            <p className="text-sm font-semibold text-foreground">{card.term}</p>
-            {academicYear && (
-              <p className="text-xs text-foreground/50">
-                {t("bulletin.year")} {academicYear.label}
-              </p>
-            )}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-3 gap-6 py-6">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-foreground/40">
-              {t("finance.student")}
-            </p>
-            <p className="mt-1 flex items-center gap-2 text-sm font-medium text-foreground">
-              {student.photoUrl && (
-                <Image
-                  src={student.photoUrl}
-                  alt=""
-                  width={240}
-                  height={240}
-                  unoptimized
-                  className="h-10 w-10 rounded-full object-cover"
-                />
-              )}
-              {card.student.firstName} {card.student.lastName}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-foreground/40">
-              {t("students.class")}
-            </p>
-            <p className="mt-1 text-sm font-medium text-foreground">
-              {card.className}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-foreground/40">
-              {t("bulletin.attendance")}
-            </p>
-            <p className="mt-1 text-sm text-foreground">
-              {card.attendance.absent} {t("bulletin.absences")}, {card.attendance.late}{" "}
-              {t("bulletin.lates")}
-            </p>
-          </div>
-        </div>
-
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-y border-border bg-surface-muted/60 text-left text-xs font-medium uppercase tracking-wide text-foreground/50">
-              <th className="px-3 py-2.5">{t("bulletin.subject")}</th>
-              <th className="px-3 py-2.5 text-center">{t("bulletin.coefficient")}</th>
-              <th className="px-3 py-2.5 text-center">{t("bulletin.average")}</th>
-              <th className="px-3 py-2.5 text-center">{t("bulletin.classAverage")}</th>
-              <th className="px-3 py-2.5 text-right" dir="rtl" lang="ar">
-                المادة
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {card.results.map((r) => (
-              <tr key={r.subjectName}>
-                <td className="px-3 py-2.5 text-foreground">{r.subjectName}</td>
-                <td className="px-3 py-2.5 text-center text-foreground/70">
-                  {r.coefficient}
-                </td>
-                <td className="px-3 py-2.5 text-center font-medium text-foreground">
-                  {r.average != null ? r.average.toFixed(2) : "—"}
-                </td>
-                <td className="px-3 py-2.5 text-center text-foreground/60">
-                  {r.classAverage != null ? r.classAverage.toFixed(2) : "—"}
-                </td>
-                <td
-                  className="px-3 py-2.5 text-right text-foreground"
-                  dir="rtl"
-                  lang="ar"
-                >
-                  {r.subjectNameAr ?? "—"}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        <div className="mt-6 grid grid-cols-3 gap-4 rounded-lg bg-surface-muted px-4 py-4">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-foreground/40">
-              {t("bulletin.overallAverage")}
-            </p>
-            <p className="mt-1 text-xl font-semibold text-primary-800">
-              {card.average != null ? `${card.average.toFixed(2)} / 20` : "—"}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-foreground/40">
-              {t("bulletin.mentionLabel")}
-            </p>
-            <p className="mt-1 text-xl font-semibold text-foreground">
-              {t(`bulletin.mention.${card.mention}` as TranslationKey)}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-foreground/40">
-              {t("bulletin.rank")}
-            </p>
-            <p className="mt-1 text-xl font-semibold text-foreground">
-              {card.rank != null ? `${card.rank} / ${card.classSize}` : "—"}
-            </p>
-          </div>
-        </div>
-
-        <CommentEditor
-          studentId={studentId}
-          term={term}
-          initialBody={comment?.body ?? ""}
-          initialBodyAr={comment?.bodyAr ?? ""}
-          isAiGenerated={comment?.isAiGenerated ?? false}
-          aiEnabled={isAiEnabled()}
-        />
-
-        <div className="mt-8 flex justify-between text-xs text-foreground/50">
-          <div>
-            <p className="mb-8">{t("bulletin.directorSignature")}</p>
-            <div className="w-40 border-t border-border" />
-          </div>
-          <div className="text-right">
-            <p className="mb-8">{t("bulletin.parentSignature")}</p>
-            <div className="ml-auto w-40 border-t border-border" />
-          </div>
-        </div>
-
-        <p className="mt-8 text-center text-xs text-foreground/40">
-          {t("bulletin.footer")}
-        </p>
-      </div>
+        card={card}
+        t={t}
+        school={{
+          name: school?.name ?? "Madrasati",
+          address: school?.address ?? null,
+          phone: school?.phone ?? null,
+          logoUrl: school?.logoUrl ?? null,
+        }}
+        yearLabel={academicYear?.label ?? null}
+        photoUrl={student.photoUrl}
+        evolution={cardEvolution}
+        incomplete={missing.length > 0}
+        commentSlot={
+          <CommentEditor
+            studentId={studentId}
+            term={term}
+            initialBody={comment?.body ?? ""}
+            initialBodyAr={comment?.bodyAr ?? ""}
+            isAiGenerated={comment?.isAiGenerated ?? false}
+            aiEnabled={isAiEnabled()}
+          />
+        }
+      />
 
       {decisionPanel}
     </div>

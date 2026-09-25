@@ -2,7 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { FileText, Info } from "lucide-react";
+import { AlertTriangle, FileText, Info, Layers } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import type { MissingGrade } from "@/lib/report-card-checks";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import {
   Select,
@@ -27,6 +30,8 @@ export interface BulletinRow {
   classSize: number;
   subjectsScored: number;
   parent: { firstName: string; lastName: string; phone: string } | null;
+  /** Notes attendues mais pas saisies pour ce trimestre. */
+  missing: MissingGrade[];
 }
 
 const MENTION_VARIANT: Record<MentionKey, BadgeProps["variant"]> = {
@@ -136,6 +141,30 @@ export function BulletinsView({
         </div>
       </div>
 
+      {/* Tous les bulletins de la classe en une fois, pour le trimestre choisi. */}
+      {/* Le bulletin annuel se valide élève par élève (mentions, décision) :
+          la génération groupée ne concerne que les trimestres. */}
+      {selectedClassId && rows.length > 0 && selectedTerm !== "Année" && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary-200 bg-primary-50/50 px-4 py-3">
+          <p className="text-sm text-foreground/70">
+            {rows.some((r) => r.missing.length > 0)
+              ? t("bulletin.bulkHintMissing").replace(
+                  "{n}",
+                  String(rows.filter((r) => r.missing.length > 0).length),
+                )
+              : t("bulletin.bulkHint")}
+          </p>
+          <Link
+            href={`/directeur/bulletins/classe?classId=${selectedClassId}&term=${encodeURIComponent(selectedTerm)}`}
+            className={cn(buttonVariants(), "shrink-0")}
+            data-testid="bulk-generate"
+          >
+            <Layers className="h-4 w-4" />
+            {t("bulletin.bulkButton")}
+          </Link>
+        </div>
+      )}
+
       {/* Un bulletin vide a deux causes très différentes, et la page les
           présentait de la même façon — c'est-à-dire pas du tout. Sans examen
           planifié, aucune note ne peut exister : le dire évite de chercher
@@ -212,6 +241,17 @@ export function BulletinsView({
                         {r.subjectsScored === 0 && (
                           <span className="ml-1.5 text-xs font-normal text-foreground/40">
                             {t("bulletin.noGrade")}
+                          </span>
+                        )}
+                        {/* Pas encore prêt : les notes qui manquent, au survol. */}
+                        {r.missing.length > 0 && r.subjectsScored > 0 && (
+                          <span
+                            className="ms-2 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800"
+                            title={r.missing.map((m) => `${m.part} — ${m.subject}`).join("\n")}
+                            data-testid="missing-badge"
+                          >
+                            <AlertTriangle className="h-3 w-3" />
+                            {t("bulletin.missingCount").replace("{n}", String(r.missing.length))}
                           </span>
                         )}
                       </td>

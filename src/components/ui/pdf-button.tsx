@@ -19,6 +19,8 @@ interface PdfButtonProps {
   message?: string;
   /** Appelé au moment de l'export : sert à marquer un document comme remis. */
   onUse?: () => Promise<void>;
+  /** Dernière vérification avant l'export ; renvoie faux pour l'annuler. */
+  beforeUse?: () => Promise<boolean>;
 }
 
 /**
@@ -34,12 +36,14 @@ export function PdfButton({
   parentPhone = null,
   message = "",
   onUse,
+  beforeUse,
 }: PdfButtonProps) {
   const { t } = useLanguage();
   const [isGenerating, setIsGenerating] = useState(false);
   const sendsToParent = Boolean(parentPhone && message);
 
   async function handleClick() {
+    if (beforeUse && !(await beforeUse())) return;
     const element = document.getElementById(elementId);
     if (!element) {
       toast.error(t("pdf.failed"));
