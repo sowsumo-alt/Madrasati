@@ -5,8 +5,6 @@ import { weightedOf } from "@/lib/report-card-compute";
 import { MENTION_LABELS_FR } from "@/lib/report-card";
 import { SECONDARY_OFFICIAL_SUBJECTS, officialSubjectIndex, roundHundredth } from "@/lib/grading";
 import type { FormulaPart } from "@/lib/grading-config";
-import { DECISIONS, HONORS, type DecisionKey, type HonorKey } from "@/lib/annual-decision";
-import type { TermRecap } from "@/lib/report-card-data";
 import { formatDelta, type CardEvolution, type Evolution } from "@/lib/report-card-checks";
 import { formatLongDate, formatPhone } from "@/lib/format";
 import styles from "./secondary-report-card.module.css";
@@ -28,13 +26,7 @@ import styles from "./secondary-report-card.module.css";
 export interface SecondaryReportCardProps {
   id: string;
   card: ReportCard;
-  school: {
-    name: string;
-    address: string | null;
-    city: string | null;
-    phone: string | null;
-    logoUrl: string | null;
-  };
+  school: SchoolIdentity;
   yearLabel: string | null;
   /** Place de l'élève dans la liste alphabétique de la classe. */
   studentNumber: number;
@@ -46,16 +38,6 @@ export interface SecondaryReportCardProps {
   title?: string;
   /** Intitulé de la période : « 1 · 2026-2027 », ou « Année 2026-2027 ». */
   periodLabel?: string;
-  /**
-   * Bulletin annuel : les moyennes des trois trimestres, et ce que le
-   * directeur a validé pour la fin d'année. Rien n'est coché tant qu'il n'a
-   * rien validé — la suggestion de Madrasati n'apparaît jamais imprimée.
-   */
-  annual?: {
-    termRecap: TermRecap[];
-    honors: HonorKey[];
-    decision: DecisionKey | null;
-  };
   /** Évolution depuis le trimestre précédent ; absente au premier trimestre. */
   evolution?: CardEvolution | null;
   /** Vrai s'il manquait des notes quand le bulletin a été établi. */
@@ -75,11 +57,6 @@ function Trend({ value, long }: { value: Evolution; long?: boolean }) {
       {long ? ` par rapport au ${value.previousTerm}` : ""}
     </span>
   );
-}
-
-/** Case cochée ou non, pour les mentions et la décision imprimées. */
-function Box({ checked }: { checked: boolean }) {
-  return <span className={styles.box}>{checked ? "☒" : "☐"}</span>;
 }
 
 /** 13,75 — virgule française, zéros inutiles retirés (42 et non 42,00). */
@@ -149,6 +126,78 @@ function PartScores({ result, index }: { result: ReportCardSubject; index: numbe
   );
 }
 
+export interface SchoolIdentity {
+  name: string;
+  address: string | null;
+  city: string | null;
+  phone: string | null;
+  logoUrl: string | null;
+}
+
+/**
+ * Les deux en-têtes communs à tous les bulletins officiels : le bloc de la
+ * République, identique pour toutes les écoles, puis celui de l'école.
+ */
+export function OfficialHeaders({ school }: { school: SchoolIdentity }) {
+  const place = [school.address, school.city]
+    .filter((part): part is string => Boolean(part?.trim()))
+    .filter((part, i, parts) => i === 0 || !parts[0].toLowerCase().includes(part.toLowerCase()));
+  const meta = (
+    place.some((part) => /mauritanie/i.test(part)) ? place : [...place, "Mauritanie"]
+  ).join(", ");
+  const phone = school.phone ? formatPhone(school.phone) : null;
+
+  return (
+    <>
+        {/* BLOC OFFICIEL MAURITANIEN */}
+        <div className={styles.officialHeader}>
+          <div className={styles.officialFr}>
+            <div className={styles.line1}>République Islamique de Mauritanie</div>
+            <div>Honneur — Fraternité — Justice</div>
+            <div>Ministère de l&apos;Éducation Nationale</div>
+            <div>Direction de l&apos;Enseignement Fondamental et Secondaire</div>
+          </div>
+          <div className={styles.crest}>
+            {school.logoUrl ? (
+              <Image
+                src={school.logoUrl}
+                alt=""
+                width={104}
+                height={104}
+                unoptimized
+                className={styles.crestLogo}
+              />
+            ) : (
+              <GraduationCap className="h-6 w-6" strokeWidth={2} aria-hidden />
+            )}
+          </div>
+          <div className={styles.officialAr} lang="ar">
+            <div className={styles.line1}>الجمهورية الإسلامية الموريتانية</div>
+            <div>شرف – إخاء – عدالة</div>
+            <div>وزارة التهذيب الوطني</div>
+            <div>مديرية التعليم الأساسي والثانوي</div>
+          </div>
+        </div>
+  
+        {/* EN-TÊTE DE L'ÉCOLE (depuis Paramètres) */}
+        <div className={styles.schoolHeader}>
+          <div className={styles.schoolName}>{school.name}</div>
+          <div className={styles.schoolMeta}>
+            {meta}
+            {phone && <> · <span dir="ltr">{phone}</span></>}
+          </div>
+        </div>
+    </>
+  );
+}
+
+/** « Bulletin du 1er trimestre », « Bulletin du 2e trimestre »… */
+export function termTitle(term: string): string {
+  const n = Number(term.replace(/\D/g, ""));
+  if (!n) return "Bulletin de notes";
+  return `Bulletin du ${n === 1 ? "1er" : `${n}e`} trimestre`;
+}
+
 export function SecondaryReportCard({
   id,
   card,
@@ -160,68 +209,22 @@ export function SecondaryReportCard({
   issuedAt,
   title,
   periodLabel,
-  annual,
   evolution,
   incomplete,
 }: SecondaryReportCardProps) {
-  // Au bulletin annuel, la moyenne de chaque matière est la moyenne de l'année.
-  const averageHeader = annual ? "Moy An /20" : "Moy T /20";
-  const averageHeaderAr = annual ? "المعدل السنوي" : "معدل ف /20";
+  const averageHeader = "Moy T /20";
+  const averageHeaderAr = "معدل ف /20";
   const rows = officialOrder(card.results);
   const parts = card.formula.parts;
   const termNumber = card.term.replace(/\D/g, "") || card.term;
   const rank = rankLabel(card.rank, card.classSize);
-  const place = [school.address, school.city]
-    .filter((part): part is string => Boolean(part?.trim()))
-    .filter((part, i, parts) => i === 0 || !parts[0].toLowerCase().includes(part.toLowerCase()));
-  const meta = (
-    place.some((part) => /mauritanie/i.test(part)) ? place : [...place, "Mauritanie"]
-  ).join(", ");
-  const phone = school.phone ? formatPhone(school.phone) : null;
   const date = formatLongDate(issuedAt);
 
   return (
     <div id={id} className={styles.bulletin} dir="ltr" lang="fr" data-testid="secondary-report-card">
-      {/* BLOC OFFICIEL MAURITANIEN */}
-      <div className={styles.officialHeader}>
-        <div className={styles.officialFr}>
-          <div className={styles.line1}>République Islamique de Mauritanie</div>
-          <div>Honneur — Fraternité — Justice</div>
-          <div>Ministère de l&apos;Éducation Nationale</div>
-          <div>Direction de l&apos;Enseignement Fondamental et Secondaire</div>
-        </div>
-        <div className={styles.crest}>
-          {school.logoUrl ? (
-            <Image
-              src={school.logoUrl}
-              alt=""
-              width={104}
-              height={104}
-              unoptimized
-              className={styles.crestLogo}
-            />
-          ) : (
-            <GraduationCap className="h-6 w-6" strokeWidth={2} aria-hidden />
-          )}
-        </div>
-        <div className={styles.officialAr} lang="ar">
-          <div className={styles.line1}>الجمهورية الإسلامية الموريتانية</div>
-          <div>شرف – إخاء – عدالة</div>
-          <div>وزارة التهذيب الوطني</div>
-          <div>مديرية التعليم الأساسي والثانوي</div>
-        </div>
-      </div>
+      <OfficialHeaders school={school} />
 
-      {/* EN-TÊTE DE L'ÉCOLE (depuis Paramètres) */}
-      <div className={styles.schoolHeader}>
-        <div className={styles.schoolName}>{school.name}</div>
-        <div className={styles.schoolMeta}>
-          {meta}
-          {phone && <> · <span dir="ltr">{phone}</span></>}
-        </div>
-      </div>
-
-      <div className={styles.title}>{title ?? "Bulletin de notes du Secondaire"}</div>
+      <div className={styles.title}>{title ?? termTitle(card.term)}</div>
 
       {/* INFORMATIONS DE L'ÉLÈVE */}
       <div className={styles.studentInfo}>
@@ -246,25 +249,6 @@ export function SecondaryReportCard({
           </strong>
         </div>
       </div>
-
-      {/* BULLETIN ANNUEL : l'évolution sur les trois trimestres */}
-      {annual && (
-        <div className={styles.termRecap} data-testid="term-recap">
-          {annual.termRecap.map((t, index) => (
-            <div key={t.term} className={styles.synthCard} data-testid="term-recap-card">
-              <div className={styles.synthLabel}>
-                {t.term} · <span lang="ar">{["الفصل الأول", "الفصل الثاني", "الفصل الثالث"][index]}</span>
-              </div>
-              <div className={styles.synthValue}>
-                {t.average != null ? `${twoDecimals(t.average)}/20` : "—"}
-              </div>
-              <div className={styles.recapRank}>
-                {t.rank != null ? `Rang ${rankLabel(t.rank, t.classSize)}` : "\u00a0"}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* TABLEAU DES NOTES — une seule ligne par matière */}
       <div className={styles.tableWrap}>
@@ -365,9 +349,7 @@ export function SecondaryReportCard({
       {/* SYNTHÈSE */}
       <div className={styles.synthese}>
         <div className={styles.synthCard}>
-          <div className={styles.synthLabel}>
-            {annual ? "Moyenne générale annuelle" : "Moyenne générale"}
-          </div>
+          <div className={styles.synthLabel}>Moyenne générale</div>
           <div className={styles.synthValue}>
             {card.average != null ? `${twoDecimals(card.average)}/20` : "—"}
           </div>
@@ -394,62 +376,16 @@ export function SecondaryReportCard({
         <b>Conduite :</b> Nombre de renvois : {suspensions} — Nombre d&apos;absences :{" "}
         {card.attendance.absent} — Nombre de retards : {card.attendance.late}
         <br />
-        {/* Au trimestre, le conseil tranche en séance : la décision se coche à
-            la main. Au bulletin annuel, elle a son propre cadre plus bas. */}
-        {!annual && (
-          <>
-            <b>Décision du conseil des professeurs :</b> ☐ Félicitations · ☐ Encouragements · ☐
-            Avertissement · ☐ Blâme
-            <br />
-          </>
-        )}
+        {/* Le conseil tranche en séance : la décision se coche à la main. */}
+        <b>Décision du conseil des professeurs :</b> ☐ Félicitations · ☐ Encouragements · ☐
+        Avertissement · ☐ Blâme
+        <br />
         <b>Observation générale :</b> {comment?.body ?? ""}
         {comment?.bodyAr && (
           <div className={styles.conductAr} lang="ar">
             {comment.bodyAr}
           </div>
         )}
-      </div>
-
-      {annual && (
-        <>
-          {/* APPRÉCIATIONS DU CONSEIL DES PROFESSEURS */}
-          <div className={styles.conduct} data-testid="council">
-            <div className={styles.decisionTitle}>
-              <b>Appréciations du conseil des professeurs</b>
-              <span lang="ar">ملاحظات مجلس الأساتذة</span>
-            </div>
-            <div className={styles.decisionOptions}>
-              {HONORS.map((h) => (
-                <span key={h.key} data-checked={annual.honors.includes(h.key) ? "" : undefined}>
-                  <Box checked={annual.honors.includes(h.key)} /> {h.fr} · <span lang="ar">{h.ar}</span>
-                </span>
-              ))}
-            </div>
-          </div>
-
-          {/* DÉCISION DE PASSAGE */}
-          <div className={styles.conduct} data-testid="decision">
-            <div className={styles.decisionTitle}>
-              <b>Décision de passage</b>
-              <span lang="ar">قرار الانتقال</span>
-            </div>
-            <div className={styles.decisionOptions}>
-              {DECISIONS.map((d) => (
-                <span key={d.key} data-checked={annual.decision === d.key ? "" : undefined}>
-                  <Box checked={annual.decision === d.key} /> {d.fr} · <span lang="ar">{d.ar}</span>
-                </span>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* SIGNATURES */}
-      <div className={styles.signatures}>
-        <div>Le Directeur Général</div>
-        <div>Le Tuteur</div>
-        <div>Le Directeur des Études</div>
       </div>
 
       {/* Bulletin établi alors que des notes manquaient : on le dit, discrètement. */}

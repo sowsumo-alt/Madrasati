@@ -159,8 +159,8 @@ export function defaultAnnualConfig(): AnnualConfig {
     multiple: "LAST" as const,
     required: true,
     term,
-    columnLabel: index === 0 ? "Compo T1" : `Compo T${index + 1} × ${index + 1}`,
-    columnLabelAr: index === 0 ? "تأليف ف1" : `تأليف ف${index + 1}×${index + 1}`,
+    columnLabel: `Compo T${index + 1} ×${index + 1}`,
+    columnLabelAr: `امتحان${index + 1}×${index + 1}`,
   });
 
   return {
@@ -174,8 +174,8 @@ export function defaultAnnualConfig(): AnnualConfig {
           weight: 3,
           multiple: "BEST",
           required: true,
-          columnLabel: "Moy Int × 3",
-          columnLabelAr: "معدل فردي×3",
+          columnLabel: "Meilleur Devoir ×3",
+          columnLabelAr: "أحسن فرض×3",
         },
         ...TERM_LABELS.map(compo),
       ],
@@ -255,7 +255,8 @@ export function parseGradingConfig(value: unknown): GradingConfig {
 function upgradeAnnual(value: unknown): unknown {
   if (!value || typeof value !== "object") return value;
   const config = value as { annual?: { terms?: unknown; enabled?: unknown } };
-  if (!config.annual || !("terms" in config.annual)) return value;
+  if (config.annual && !("terms" in config.annual)) return renameAnnualColumns(config);
+  if (!config.annual) return value;
   return {
     ...config,
     annual: {
@@ -263,6 +264,29 @@ function upgradeAnnual(value: unknown): unknown {
       enabled: config.annual.enabled === true,
     },
   };
+}
+
+/**
+ * Les en-têtes annuels livrés avant la maquette du bulletin annuel
+ * (« Compo T2 × 2 », « Moy Int × 3 ») prennent ceux de la maquette validée
+ * (« Compo T2 ×2 », « Meilleur Devoir ×3 ») : seuls ces libellés d'origine
+ * sont remplacés, jamais un en-tête que l'école a choisi elle-même.
+ */
+function renameAnnualColumns<T>(config: T): T {
+  const annual = (config as { annual?: { secondary?: { parts?: Record<string, unknown>[] } } }).annual;
+  for (const part of annual?.secondary?.parts ?? []) {
+    const label = part.columnLabel;
+    if (typeof label !== "string") continue;
+    const compo = /^Compo T(d)(?: × d)?$/.exec(label);
+    if (compo) {
+      part.columnLabel = `Compo T${compo[1]} ×${compo[1]}`;
+      part.columnLabelAr = `امتحان${compo[1]}×${compo[1]}`;
+    } else if (label === "Moy Int × 3" && part.term === undefined && part.multiple === "BEST") {
+      part.columnLabel = "Meilleur Devoir ×3";
+      part.columnLabelAr = "أحسن فرض×3";
+    }
+  }
+  return config;
 }
 
 /**

@@ -12,6 +12,7 @@ import {
 } from "@/lib/report-card-data";
 import { parseHonors, suggestDecision, isDecisionKey } from "@/lib/annual-decision";
 import { AnnualDecisionPanel } from "./annual-decision-panel";
+import { AnnualReportCard } from "./annual-report-card";
 import { ReportCardActions } from "./report-card-actions";
 import { StandardReportCard } from "./standard-report-card";
 import { compareCards, missingGrades, previousTermOf } from "@/lib/report-card-checks";
@@ -223,9 +224,30 @@ export default async function ReportCardPage({
       <RuleBanner studentId={studentId} term={term} issuedAt={formatDate(rule.issuedAt)} />
     ) : null;
 
+  // Au 3e trimestre, l'année est finie : le bulletin annuel de l'élève est à
+  // un clic, sans avoir à le chercher dans la liste des périodes.
+  const annualLink =
+    term === TERMS[TERMS.length - 1] && rule.config.annual.enabled ? (
+      <Link
+        href={`/directeur/bulletins/${studentId}?term=${encodeURIComponent(ANNUAL_TERM)}`}
+        className="no-print mb-4 flex items-center justify-between gap-3 rounded-xl border border-primary-300 bg-primary-50 px-4 py-3 text-sm font-semibold text-primary-800 hover:bg-primary-100"
+        data-testid="annual-link"
+      >
+        <span>{t("bulletin.annualLink")}</span>
+        <span aria-hidden>→</span>
+      </Link>
+    ) : null;
+
   // Collège et lycée : le bulletin officiel mauritanien (meilleur devoir × 3
   // + composition, ÷ 4). Le Fondamental garde plus bas son bulletin d'origine.
   if (card.scheme === "SECONDARY") {
+    const schoolIdentity = {
+      name: school?.name ?? "Madrasati",
+      address: school?.address ?? null,
+      city: school?.city ?? null,
+      phone: school?.phone ?? null,
+      logoUrl: school?.logoUrl ?? null,
+    };
     const range = academicYear ? termDateRange(academicYear, term) : null;
     const suspensions = range
       ? await prisma.disciplineIncident.count({
@@ -243,47 +265,46 @@ export default async function ReportCardPage({
         {ruleBanner}
         {actions}
 
+        {annualLink}
+
         {/* Le document garde sa largeur sur téléphone et défile : le PDF
             envoyé au parent reste ainsi complet. */}
         <div className="overflow-x-auto pb-2 print:overflow-visible print:pb-0">
-          <SecondaryReportCard
-            id="bulletin-card"
-            card={card}
-            school={{
-              name: school?.name ?? "Madrasati",
-              address: school?.address ?? null,
-              city: school?.city ?? null,
-              phone: school?.phone ?? null,
-              logoUrl: school?.logoUrl ?? null,
-            }}
-            yearLabel={academicYear?.label ?? null}
-            title={isAnnual ? "Bulletin annuel" : undefined}
-            periodLabel={
-              isAnnual ? `${ANNUAL_TERM}${academicYear ? ` ${academicYear.label}` : ""}` : undefined
-            }
-            studentNumber={cards.indexOf(card) + 1}
-            suspensions={suspensions}
-            comment={comment ? { body: comment.body, bodyAr: comment.bodyAr } : null}
-            issuedAt={new Date()}
-            evolution={cardEvolution}
-            incomplete={missing.length > 0}
-            annual={
-              annualData
-                ? {
-                    termRecap: annualData.termRecap,
-                    honors: annualData.honors,
-                    decision: annualData.decision,
-                  }
-                : undefined
-            }
-          />
+          {annualData ? (
+            <AnnualReportCard
+              id="bulletin-card"
+              card={card}
+              school={schoolIdentity}
+              yearLabel={academicYear?.label ?? null}
+              studentNumber={cards.indexOf(card) + 1}
+              termRecap={annualData.termRecap}
+              honors={annualData.honors}
+              decision={annualData.decision}
+              suggestion={annualData.suggestion}
+              issuedAt={new Date()}
+              incomplete={missing.length > 0}
+            />
+          ) : (
+            <SecondaryReportCard
+              id="bulletin-card"
+              card={card}
+              school={schoolIdentity}
+              yearLabel={academicYear?.label ?? null}
+              studentNumber={cards.indexOf(card) + 1}
+              suspensions={suspensions}
+              comment={comment ? { body: comment.body, bodyAr: comment.bodyAr } : null}
+              issuedAt={new Date()}
+              evolution={cardEvolution}
+              incomplete={missing.length > 0}
+            />
+          )}
         </div>
 
         {decisionPanel}
 
         {/* L'observation générale s'écrit ici et s'imprime dans le cadre
-            Conduite du bulletin, pas en double sous le document. */}
-        <div className="no-print mx-auto mt-2 max-w-[900px]">
+            Conduite du bulletin trimestriel ; le bulletin annuel n'en a pas. */}
+        <div className={isAnnual ? "hidden" : "no-print mx-auto mt-2 max-w-[900px]"}>
           <CommentEditor
             studentId={studentId}
             term={term}
@@ -302,6 +323,7 @@ export default async function ReportCardPage({
     <div className="mx-auto max-w-3xl px-4 py-10">
       {ruleBanner}
       {actions}
+      {annualLink}
 
       <StandardReportCard
         id="bulletin-card"

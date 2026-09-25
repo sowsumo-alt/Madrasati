@@ -36,8 +36,12 @@
 .table,
 .calcNote,
 .synthCard,
-.recapRank,
 .incomplete,
+.annualTitleRow,
+.annualSub,
+.trimCard,
+.bottomBox,
+.footerNote,
 .conduct,
 .signatures,
 .footerDate {
@@ -294,44 +298,6 @@
   color: #c9973a;
 }
 
-/* BULLETIN ANNUEL : les trois trimestres, avant le tableau */
-.termRecap {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-.recapRank {
-  margin-top: 2px;
-  font-size: 10px;
-  color: #6b7280;
-}
-
-/* Mentions du conseil et décision de passage */
-.decisionTitle {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 4px;
-}
-.decisionTitle span {
-  direction: rtl;
-  font-weight: 700;
-  color: #111827;
-}
-.decisionOptions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 22px;
-}
-.decisionOptions [data-checked] {
-  color: #0b5e38;
-  font-weight: 700;
-}
-.box {
-  font-size: 13px;
-}
-
 /* Évolution depuis le trimestre précédent */
 .subjectTrend {
   margin-top: 1px;
@@ -413,4 +379,164 @@
   .tableWrap {
     overflow: visible;
   }
+}
+
+/* ——— BULLETIN ANNUEL (maquette brand-assets/madrasati-mvp-bulletin-annuel.html) ——— */
+.annualTitleRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 12px 0 6px;
+}
+.annualTitle {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: #0b5e38;
+}
+.annualBadge {
+  background: #c9973a;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 12px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.annualSub {
+  text-align: center;
+  font-size: 11px;
+  color: #6b7280;
+  margin-bottom: 14px;
+}
+.trimRecap {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1.3fr;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.trimCard {
+  background: #f8f9fa;
+  border: 1px solid #9ca3af;
+  border-radius: 6px;
+  padding: 10px 12px;
+  text-align: center;
+}
+.trimLabel {
+  font-size: 9px;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 4px;
+}
+.trimValue {
+  font-size: 17px;
+  font-weight: 800;
+  color: #374151;
+}
+.trimCoef {
+  font-size: 9px;
+  color: #c9973a;
+  font-weight: 700;
+  margin-top: 2px;
+}
+.trimCardAnnual {
+  background: #e6f4ed;
+  border-color: #0b5e38;
+}
+.trimCardAnnual .trimValue {
+  color: #0b5e38;
+  font-size: 19px;
+}
+.annualTable {
+  min-width: 820px;
+  font-size: 11px;
+}
+.table td.compo {
+  font-size: 10.5px;
+}
+.table td.moyt {
+  font-weight: 700;
+}
+.synthese2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.bottomGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.bottomBox {
+  border: 1px solid #9ca3af;
+  border-radius: 6px;
+  padding: 12px 14px;
+}
+.bottomTitle {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #0b5e38;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 10px;
+}
+.checkItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  margin-bottom: 7px;
+  color: #374151;
+}
+.checkItem:last-child {
+  margin-bottom: 0;
+}
+.checkBox {
+  position: relative;
+  width: 15px;
+  height: 15px;
+  border: 1.5px solid #6b7280;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.checkBoxOn {
+  background: #0b5e38;
+  border-color: #0b5e38;
+}
+.checkBoxOn::after {
+  content: "✓";
+  position: absolute;
+  color: #fff;
+  font-size: 11px;
+  top: -2px;
+  left: 2px;
+}
+.checkAr {
+  margin-left: auto;
+  color: #9ca3af;
+  font-size: 10px;
+  direction: rtl;
+}
+.decisionHighlight {
+  background: #e6f4ed;
+  border: 1.5px solid #0b5e38;
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin-top: 10px;
+  font-size: 12px;
+  text-align: center;
+  font-weight: 700;
+  color: #0b5e38;
+}
+.footerNote {
+  font-size: 9.5px;
+  color: #9ca3af;
+  margin-top: 6px;
+  font-style: italic;
 }

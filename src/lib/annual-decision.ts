@@ -11,9 +11,9 @@
  */
 
 export const HONORS = [
-  { key: "FELICITATIONS", fr: "Félicitations", ar: "تهنئة" },
-  { key: "ENCOURAGEMENTS", fr: "Encouragements", ar: "تشجيع" },
-  { key: "TABLEAU_HONNEUR", fr: "Tableau d'honneur", ar: "لوحة الشرف" },
+  { key: "FELICITATIONS", fr: "Félicitation", ar: "تهنئة" },
+  { key: "ENCOURAGEMENTS", fr: "Encouragement", ar: "تشجيع" },
+  { key: "TABLEAU_HONNEUR", fr: "Tableau d'honneur", ar: "لوحة شرف" },
   { key: "AVERTISSEMENT", fr: "Avertissement", ar: "إنذار" },
 ] as const;
 export type HonorKey = (typeof HONORS)[number]["key"];
@@ -50,4 +50,25 @@ export function suggestDecision(average: number | null, threshold: number): Deci
 
 export function decisionLabel(key: string | null | undefined): { fr: string; ar: string } | null {
   return DECISIONS.find((d) => d.key === key) ?? null;
+}
+
+/**
+ * Classe de l'année suivante, pour dire « Passage en 2AS » plutôt que
+ * « classe supérieure » : 1AF → 2AF, 6AF → 1AS, 1°AS → 2°AS, 5C → 6C.
+ * Null quand on ne sait pas (dernière année, nom de classe libre).
+ */
+export function nextClassLabel(className: string): string | null {
+  const levels = /(\d+)\s*([°º]?)\s*A\s*([FS])/i.exec(className);
+  if (levels) {
+    const n = Number(levels[1]);
+    const degree = levels[2];
+    const cycle = levels[3].toUpperCase();
+    if (cycle === "F") return n < 6 ? `${n + 1}AF` : "1AS";
+    return n < 5 ? `${n + 1}${degree}AS` : null;
+  }
+  const series = /(\d)\s*([°º]?)\s*(C|D|LM|LO|O)(?![a-z])/i.exec(className);
+  if (series && Number(series[1]) < 7) {
+    return `${Number(series[1]) + 1}${series[2]}${series[3].toUpperCase()}`;
+  }
+  return null;
 }

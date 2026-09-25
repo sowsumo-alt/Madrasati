@@ -86,6 +86,8 @@ export function BulletinsView({
 }) {
   const router = useRouter();
   const { t, locale } = useLanguage();
+  // La période « Année » est le bulletin annuel de fin de 3e trimestre.
+  const termLabel = (term: string) => (term === "Année" ? t("bulletin.annualOption") : term);
   const schoolFr = schoolSignatureFr(schoolName);
   const schoolAr = schoolSignatureAr(schoolName);
 
@@ -128,12 +130,12 @@ export function BulletinsView({
             onValueChange={(v) => updateFilters(selectedClassId, v)}
           >
             <SelectTrigger id="bulletin-term-select">
-              <SelectValue />
+              <SelectValue>{termLabel(selectedTerm)}</SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {terms.map((t) => (
-                <SelectItem key={t} value={t}>
-                  {t}
+              {terms.map((term) => (
+                <SelectItem key={term} value={term}>
+                  {termLabel(term)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -169,6 +171,19 @@ export function BulletinsView({
           présentait de la même façon — c'est-à-dire pas du tout. Sans examen
           planifié, aucune note ne peut exister : le dire évite de chercher
           l'erreur du côté de la saisie. */}
+      {/* Au 3e trimestre, l'année se termine : les bulletins annuels sont à un clic. */}
+      {selectedTerm === terms[2] && terms.includes("Année") && (
+        <button
+          type="button"
+          onClick={() => updateFilters(selectedClassId, "Année")}
+          className="flex w-full items-center justify-between gap-3 rounded-xl border border-primary-300 bg-primary-50 px-4 py-3 text-start text-sm font-semibold text-primary-800 hover:bg-primary-100"
+          data-testid="annual-banner"
+        >
+          <span>{t("bulletin.annualBanner")}</span>
+          <span aria-hidden>→</span>
+        </button>
+      )}
+
       {/* Le bulletin annuel attend la fin de l'année : on dit ce qui manque. */}
       {annualMissing.length > 0 && (
         <div
