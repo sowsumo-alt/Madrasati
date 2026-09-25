@@ -382,6 +382,15 @@ export function PaymentsTable({
                     <span className="mt-1 block text-xs text-foreground/50 min-[90rem]:hidden">
                       <FeeDate fee={fee} stacked />
                     </span>
+                    {/* Sous 1440 px, la colonne « Mode de paiement » est masquée
+                        faute de place : le mode passe ici, sous le statut,
+                        comme la date. Sans ce report, il n'apparaissait nulle
+                        part sur la plupart des ordinateurs portables. */}
+                    {method && (
+                      <span className="mt-1.5 block min-[90rem]:hidden" data-testid="method-inline">
+                        <PaymentMethodLabel method={method} short compact />
+                      </span>
+                    )}
                   </td>
                   <td className="hidden px-3 py-3 min-[90rem]:table-cell">
                     {method ? (

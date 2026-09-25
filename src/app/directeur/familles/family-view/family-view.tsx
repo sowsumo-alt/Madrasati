@@ -20,7 +20,7 @@ import {
 import { Button, buttonVariants } from "@/components/ui/button";
 import { WhatsAppLink } from "@/components/ui/whatsapp-link";
 import { StudentAvatar } from "@/components/students/student-avatar";
-import { PaymentMethodIcon } from "@/components/payments/payment-method-label";
+import { PaymentMethodLabel } from "@/components/payments/payment-method-label";
 import { formatDateIn, formatMRU, formatPhone } from "@/lib/format";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import type { TranslationKey } from "@/lib/i18n/dictionaries";
@@ -254,10 +254,10 @@ export function FamilyView({ data }: { data: FamilyPageData }) {
                         ? t("family.forChildren").replace("{names}", h.childNames.join(", "))
                         : h.feeLabel}
                     </p>
-                    <p className="mt-0.5 flex items-center gap-1.5 text-xs text-foreground/45">
-                      <span className="[&_img]:h-3.5 [&_img]:w-3.5 [&_svg]:h-3.5 [&_svg]:w-3.5">
-                        <PaymentMethodIcon method={h.method} compact />
-                      </span>
+                    <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-foreground/45">
+                      {/* Le nom du mode, pas seulement son icône : « Espèces »
+                          ou « Virement » ne se devinent pas à un pictogramme. */}
+                      <PaymentMethodLabel method={h.method} short compact />
                       {formatDateIn(locale, h.paidAt, { day: "numeric", month: "short", year: "numeric" })}
                       <span dir="ltr">· {h.receiptNumber}</span>
                     </p>
