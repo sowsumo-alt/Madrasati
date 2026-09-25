@@ -24,7 +24,10 @@ export const examSchema = z.object({
   // rarement une seule classe, et la recréer à l'identique pour chacune était
   // le geste le plus répétitif du module.
   classIds: z.array(z.string().min(1)).min(1, "Sélectionnez au moins une classe"),
-  subjectId: z.string().min(1, "Sélectionnez une matière"),
+  // Plusieurs matières en une fois : une composition trimestrielle porte
+  // sur toutes les matières de la classe, et les planifier une par une était
+  // aussi répétitif que de recréer l'examen classe par classe.
+  subjectIds: z.array(z.string().min(1)).min(1, "Sélectionnez au moins une matière"),
   title: z.string().trim().min(1, "Le nom de l'examen est requis"),
   // `includes` et non une comparaison : TypeScript en ferait un garde de type
   // et restreindrait le champ aux seuls types connus, alors qu'il démarre vide.
@@ -53,5 +56,5 @@ export type ExamFormValues = z.infer<typeof examSchema>;
 
 /** Modification : ni la classe ni la matière ne changent — des notes y sont
  *  déjà rattachées, les déplacer les rendrait incohérentes. */
-export const examEditSchema = examSchema.omit({ classIds: true, subjectId: true });
+export const examEditSchema = examSchema.omit({ classIds: true, subjectIds: true });
 export type ExamEditValues = z.infer<typeof examEditSchema>;

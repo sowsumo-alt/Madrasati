@@ -76,7 +76,7 @@ const readOnlyClass = "bg-surface-muted/60 text-foreground/70";
 function newExamValues(): ExamFormValues {
   return {
     classIds: [],
-    subjectId: "",
+    subjectIds: [],
     title: "",
     kind: "",
     // Proposé d'après la date du jour, puis d'après la date choisie.
@@ -92,7 +92,7 @@ function newExamValues(): ExamFormValues {
 function editValues(target: ExamEditTarget): ExamFormValues {
   return {
     classIds: [target.classId],
-    subjectId: target.subjectId,
+    subjectIds: [target.subjectId],
     title: target.title,
     kind: target.kind ?? "",
     term: target.term as ExamFormValues["term"],
@@ -148,7 +148,7 @@ export function ExamFormDialog({
   }, [open, editTarget, isEdit, reset]);
 
   const classIds = watch("classIds");
-  const subjectId = watch("subjectId");
+  const subjectIds = watch("subjectIds");
   const kind = watch("kind");
   const term = watch("term");
   const date = watch("date");
@@ -176,10 +176,19 @@ export function ExamFormDialog({
   // vient de cocher une classe qui ne l'enseigne pas) est retirée, sinon le
   // formulaire garderait une valeur invisible et incohérente.
   useEffect(() => {
-    if (!isEdit && subjectId && !commonSubjects.some((s) => s.id === subjectId)) {
-      setValue("subjectId", "");
+    if (isEdit) return;
+    const kept = subjectIds.filter((id) => commonSubjects.some((s) => s.id === id));
+    if (kept.length !== subjectIds.length) setValue("subjectIds", kept);
+  }, [isEdit, commonSubjects, subjectIds, setValue]);
+
+  // Une composition porte d'ordinaire sur toutes les matières : on les coche
+  // d'office quand le directeur choisit ce type, sans l'empêcher d'en retirer.
+  useEffect(() => {
+    if (!isEdit && kind === "COMPOSITION" && subjectIds.length === 0 && commonSubjects.length > 0) {
+      setValue("subjectIds", commonSubjects.map((s) => s.id), { shouldValidate: true });
     }
-  }, [isEdit, commonSubjects, subjectId, setValue]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEdit, kind, commonSubjects]);
 
   // Coefficient du bulletin : celui de la matière, dans chaque classe choisie.
   const coefficients = editTarget
@@ -188,7 +197,9 @@ export function ExamFormDialog({
         ...new Set(
           classes
             .filter((c) => classIds.includes(c.id))
-            .flatMap((c) => c.subjects.filter((s) => s.id === subjectId).map((s) => s.coefficient)),
+            .flatMap((c) =>
+              c.subjects.filter((s) => subjectIds.includes(s.id)).map((s) => s.coefficient),
+            ),
         ),
       ];
   const coefficientLabel =
@@ -196,10 +207,12 @@ export function ExamFormDialog({
       ? "—"
       : coefficients.length === 1
         ? String(coefficients[0])
-        : t("exams.coefficientVaries");
+        : subjectIds.length > 1
+          ? t("exams.coefficientBySubject")
+          : t("exams.coefficientVaries");
 
   const subjectError =
-    errors.subjectId?.message ??
+    errors.subjectIds?.message ??
     (!isEdit && classIds.length > 0 && commonSubjects.length === 0
       ? classIds.length > 1
         ? t("exams.noCommonSubject")
@@ -297,7 +310,13 @@ export function ExamFormDialog({
                 )}
               </FormField>
 
-              <FormField label={t("teachers.subject")} htmlFor="exam-subject" required error={subjectError}>
+              <FormField
+                label={isEdit ? t("teachers.subject") : t("exams.subjects")}
+                htmlFor="exam-subject"
+                required
+                error={subjectError}
+                hint={!isEdit && subjectIds.length > 1 ? t("exams.multiSubjectHint") : undefined}
+              >
                 {editTarget ? (
                   <IconInput
                     icon={BookOpen}
@@ -308,27 +327,19 @@ export function ExamFormDialog({
                     className={readOnlyClass}
                   />
                 ) : (
-                  <Select
-                    value={subjectId || undefined}
-                    onValueChange={(v) => setValue("subjectId", v, { shouldValidate: true })}
+                  <ClassMultiSelect
+                    id="exam-subject"
+                    icon={BookOpen}
+                    classes={commonSubjects}
+                    value={subjectIds}
+                    onChange={(ids) => setValue("subjectIds", ids, { shouldValidate: true })}
                     disabled={commonSubjects.length === 0}
-                  >
-                    <SelectTrigger id="exam-subject">
-                      <span className="flex min-w-0 items-center gap-2">
-                        <BookOpen className="h-4 w-4 shrink-0 text-foreground/40" />
-                        <SelectValue placeholder={t("exams.selectSubject")}>
-                          {commonSubjects.find((s) => s.id === subjectId)?.name}
-                        </SelectValue>
-                      </span>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {commonSubjects.map((s) => (
-                        <SelectItem key={s.id} value={s.id}>
-                          {s.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    placeholder={t("exams.selectSubject")}
+                    selectAllLabel={t("exams.selectAllSubjects")}
+                    clearLabel={t("exams.deselectAll")}
+                    emptyLabel={t("exams.assignSubjectsFirst")}
+                    countLabel={t("exams.subjectsCount")}
+                  />
                 )}
               </FormField>
 
@@ -453,8 +464,11 @@ export function ExamFormDialog({
             </Button>
             <Button type="submit" disabled={isSubmitting} className="sm:min-w-36">
               {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              {!isEdit && classIds.length > 1
-                ? t("exams.scheduleForCount").replace("{n}", String(classIds.length))
+              {!isEdit && classIds.length * subjectIds.length > 1
+                ? t("exams.scheduleExamsCount").replace(
+                    "{n}",
+                    String(classIds.length * subjectIds.length),
+                  )
                 : t("common.save")}
             </Button>
           </div>

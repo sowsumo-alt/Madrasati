@@ -20,7 +20,10 @@ import { assertClassAccess } from "@/lib/teacher-scope";
 export interface CreateExamResult {
   /** Nombre d'examens réellement planifiés. */
   created: number;
-  /** Classes qui avaient déjà cet examen, et pour lesquelles rien n'a été refait. */
+  /**
+   * Examens qui existaient déjà (« 1AS · Mathématiques ») et qui n'ont pas
+   * été refaits.
+   */
   alreadyPlanned: string[];
 }
 
@@ -39,12 +42,14 @@ function examDetails(data: ExamEditValues) {
 }
 
 /**
- * Planifie un examen pour une ou plusieurs classes en une seule opération.
+ * Planifie un examen pour une ou plusieurs classes, et une ou plusieurs
+ * matières, en une seule opération — une composition se crée ainsi pour
+ * toutes les matières de toutes les classes d'un coup.
  *
- * Chaque classe reçoit son propre examen — ses élèves, ses notes et parfois
- * son enseignant lui sont propres — mais tous partagent titre, date, matière,
- * durée et note maximale, ce qui suffit à les réunir à l'affichage (voir
- * lib/exam-groups.ts).
+ * Chaque couple classe × matière reçoit son propre examen — ses élèves, ses
+ * notes et parfois son enseignant lui sont propres — mais tous partagent
+ * titre, date, durée et note maximale. Ceux d'une même matière se
+ * retrouvent réunis à l'affichage (voir lib/exam-groups.ts).
  */
 export async function createExam(values: ExamFormValues): Promise<CreateExamResult> {
   const user = await requireRole(ROLES.DIRECTOR);
@@ -58,55 +63,72 @@ export async function createExam(values: ExamFormValues): Promise<CreateExamResu
   // Doublons de la liste ignorés : cocher deux fois la même classe ne doit pas
   // lui créer deux examens identiques.
   const classIds = [...new Set(data.classIds)];
+  const subjectIds = [...new Set(data.subjectIds)];
 
-  const classes = await prisma.classRoom.findMany({
-    where: { id: { in: classIds }, schoolId: user.schoolId, ...CURRENT_YEAR },
-    select: {
-      id: true,
-      name: true,
-      classSubjects: { where: { subjectId: data.subjectId }, select: { id: true } },
-    },
-  });
+  const [classes, subjects] = await Promise.all([
+    prisma.classRoom.findMany({
+      where: { id: { in: classIds }, schoolId: user.schoolId, ...CURRENT_YEAR },
+      select: {
+        id: true,
+        name: true,
+        classSubjects: { where: { subjectId: { in: subjectIds } }, select: { subjectId: true } },
+      },
+    }),
+    prisma.subject.findMany({
+      where: { id: { in: subjectIds }, schoolId: user.schoolId },
+      select: { id: true, name: true },
+    }),
+  ]);
   if (classes.length !== classIds.length) {
     throw new Error("Une des classes sélectionnées est introuvable.");
   }
+  if (subjects.length !== subjectIds.length) {
+    throw new Error("Une des matières sélectionnées est introuvable.");
+  }
 
-  // La matière doit être enseignée dans chaque classe retenue : sans ce
+  // Chaque matière doit être enseignée dans chaque classe retenue : sans ce
   // contrôle, l'examen créerait sur le bulletin une ligne pour une matière qui
   // n'est pas au programme de la classe.
-  const withoutSubject = classes.filter((c) => c.classSubjects.length === 0);
-  if (withoutSubject.length > 0) {
-    throw new Error(
-      `Cette matière n'est pas enseignée en ${withoutSubject.map((c) => c.name).join(", ")}.`,
+  for (const subject of subjects) {
+    const withoutSubject = classes.filter(
+      (c) => !c.classSubjects.some((cs) => cs.subjectId === subject.id),
     );
+    if (withoutSubject.length > 0) {
+      throw new Error(
+        `${subject.name} n'est pas enseignée en ${withoutSubject.map((c) => c.name).join(", ")}.`,
+      );
+    }
   }
 
   const details = examDetails(data);
 
   // Un examen déjà planifié (même titre, même jour, même matière, même classe)
   // n'est pas recréé : le directeur qui revient sur le formulaire pour ajouter
-  // une classe oubliée ne doit pas se retrouver avec des doublons.
+  // une classe ou une matière oubliée ne doit pas se retrouver avec des doublons.
   const existing = await prisma.exam.findMany({
     where: {
       schoolId: user.schoolId,
-      subjectId: data.subjectId,
+      subjectId: { in: subjectIds },
       classId: { in: classIds },
       title: data.title,
       date: details.date,
     },
-    select: { classId: true },
+    select: { classId: true, subjectId: true },
   });
-  const alreadyPlannedIds = new Set(existing.map((e) => e.classId));
+  const exists = (classId: string, subjectId: string) =>
+    existing.some((e) => e.classId === classId && e.subjectId === subjectId);
 
-  const toCreate = classes.filter((c) => !alreadyPlannedIds.has(c.id));
+  const pairs = classes.flatMap((c) => subjects.map((s) => ({ classRoom: c, subject: s })));
+  const toCreate = pairs.filter((p) => !exists(p.classRoom.id, p.subject.id));
+  const skipped = pairs.filter((p) => exists(p.classRoom.id, p.subject.id));
 
   if (toCreate.length > 0) {
     await prisma.exam.createMany({
-      data: toCreate.map((c) => ({
+      data: toCreate.map((p) => ({
         schoolId: user.schoolId,
         academicYearId: year.id,
-        classId: c.id,
-        subjectId: data.subjectId,
+        classId: p.classRoom.id,
+        subjectId: p.subject.id,
         ...details,
       })),
     });
@@ -118,7 +140,9 @@ export async function createExam(values: ExamFormValues): Promise<CreateExamResu
 
   return {
     created: toCreate.length,
-    alreadyPlanned: classes.filter((c) => alreadyPlannedIds.has(c.id)).map((c) => c.name),
+    alreadyPlanned: skipped.map((p) =>
+      subjects.length > 1 ? `${p.classRoom.name} · ${p.subject.name}` : p.classRoom.name,
+    ),
   };
 }
 

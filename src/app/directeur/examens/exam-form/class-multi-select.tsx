@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronDown, Users } from "lucide-react";
+import { Check, ChevronDown, Users, type LucideIcon } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,10 +10,10 @@ import {
 import { cn } from "@/lib/utils";
 
 /**
- * Choix d'une ou de plusieurs classes, présenté comme une liste déroulante
- * (la maquette ne montre qu'une classe) mais qui garde la planification d'un
- * même examen pour plusieurs classes en une fois. Le menu reste ouvert tant
- * qu'on coche.
+ * Choix d'une ou de plusieurs classes — ou matières —, présenté comme une
+ * liste déroulante (la maquette n'en montre qu'une) mais qui garde la
+ * planification d'un même examen pour plusieurs en une fois. Le menu reste
+ * ouvert tant qu'on coche.
  */
 export function ClassMultiSelect({
   id,
@@ -25,6 +25,8 @@ export function ClassMultiSelect({
   clearLabel,
   emptyLabel,
   countLabel,
+  icon: Icon = Users,
+  disabled = false,
 }: {
   id: string;
   classes: { id: string; name: string }[];
@@ -34,8 +36,10 @@ export function ClassMultiSelect({
   selectAllLabel: string;
   clearLabel: string;
   emptyLabel: string;
-  /** Libellé au-delà de deux classes, avec {n}. */
+  /** Libellé au-delà de deux choix, avec {n}. */
   countLabel: string;
+  icon?: LucideIcon;
+  disabled?: boolean;
 }) {
   const selectedNames = classes.filter((c) => value.includes(c.id)).map((c) => c.name);
   const label =
@@ -50,9 +54,10 @@ export function ClassMultiSelect({
     <DropdownMenu>
       <DropdownMenuTrigger
         id={id}
-        className="flex h-10 w-full items-center gap-2 rounded-lg border border-border bg-surface px-3 text-start text-sm text-foreground focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+        disabled={disabled}
+        className="flex h-10 w-full items-center gap-2 rounded-lg border border-border bg-surface px-3 text-start text-sm text-foreground focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        <Users className="h-4 w-4 shrink-0 text-foreground/40" />
+        <Icon className="h-4 w-4 shrink-0 text-foreground/40" />
         <span className={cn("min-w-0 flex-1 truncate", selectedNames.length === 0 && "text-foreground/40")}>
           {label}
         </span>
