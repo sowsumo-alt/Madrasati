@@ -19,7 +19,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { assignSubjectToClass, removeSubjectFromClass, setClassSubjectCoefficient } from "./actions";
+import {
+  assignSubjectToClass,
+  copyClassSubjects,
+  removeSubjectFromClass,
+  setClassSubjectCoefficient,
+} from "./actions";
+import { Copy, Loader2 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/language-provider";
 
 export interface AssignmentSubject {
@@ -87,11 +93,79 @@ function CoefficientInput({
   );
 }
 
+/**
+ * Reprendre les matières et coefficients d'une autre classe — une deuxième
+ * section du même niveau, typiquement. Chaque niveau garde ainsi sa propre
+ * liste, sans ressaisie.
+ */
+function CopyFromClass({
+  targetClassId,
+  classes,
+}: {
+  targetClassId: string;
+  classes: { id: string; name: string }[];
+}) {
+  const { t } = useLanguage();
+  const router = useRouter();
+  const [sourceId, setSourceId] = useState("");
+  const [loading, setLoading] = useState(false);
+  const options = classes.filter((c) => c.id !== targetClassId);
+  if (options.length === 0) return null;
+
+  async function handleCopy() {
+    if (!sourceId) return;
+    const source = options.find((c) => c.id === sourceId)?.name ?? "";
+    if (!window.confirm(t("classes.copyConfirm").replace("{name}", source))) return;
+    setLoading(true);
+    try {
+      const { kept } = await copyClassSubjects(targetClassId, sourceId);
+      toast.success(
+        kept > 0
+          ? t("classes.copiedKept").replace("{n}", String(kept))
+          : t("classes.copied").replace("{name}", source),
+      );
+      setSourceId("");
+      router.refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t("common.error"));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div
+      className="flex flex-wrap items-center gap-2 rounded-lg bg-primary-50/60 px-3 py-2.5"
+      data-testid="copy-from-class"
+    >
+      <span className="text-sm text-foreground/70">{t("classes.copyFrom")}</span>
+      <Select value={sourceId || undefined} onValueChange={setSourceId}>
+        <SelectTrigger className="h-9 w-40" aria-label={t("classes.copyFrom")}>
+          <SelectValue placeholder={t("classes.copyPick")} />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((c) => (
+            <SelectItem key={c.id} value={c.id}>
+              {c.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Button size="sm" variant="secondary" onClick={handleCopy} disabled={!sourceId || loading}>
+        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}
+        {t("classes.copyApply")}
+      </Button>
+    </div>
+  );
+}
+
 interface ClassAssignmentsDialogProps {
   target: ClassAssignmentsTarget | null;
   onOpenChange: (open: boolean) => void;
   subjects: AssignmentSubject[];
   teachers: AssignmentTeacher[];
+  /** Les classes de l'année, pour en reprendre la configuration. */
+  classes?: { id: string; name: string }[];
 }
 
 export function ClassAssignmentsDialog({
@@ -99,6 +173,7 @@ export function ClassAssignmentsDialog({
   onOpenChange,
   subjects,
   teachers,
+  classes = [],
 }: ClassAssignmentsDialogProps) {
   const { t } = useLanguage();
   const router = useRouter();
@@ -148,6 +223,8 @@ export function ClassAssignmentsDialog({
           <DialogTitle>Matières de {target?.className}</DialogTitle>
           <DialogDescription>{t("classes.assignHint")}</DialogDescription>
         </DialogHeader>
+
+        {target && <CopyFromClass targetClassId={target.classId} classes={classes} />}
 
         <div className="max-h-96 space-y-1 overflow-y-auto">
           {subjects.map((s) => {

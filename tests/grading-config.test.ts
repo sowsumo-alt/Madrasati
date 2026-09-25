@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 
 import {
   applyMultiRule,
-  computeAnnualAverage,
   computeSubjectAverage,
   defaultGradingConfig,
   describeFormula,
@@ -100,27 +99,39 @@ test("un examen rejoint le bloc qui accepte son type, sinon le bloc attrape-tout
   assert.equal(partForKind(fundamental, "COMPOSITION")?.id, "toutes");
 });
 
-test("moyenne annuelle : chaque trimestre avec son poids", () => {
-  const annual = {
-    enabled: true,
-    terms: [
-      { term: "Trimestre 1", weight: 1 },
-      { term: "Trimestre 2", weight: 1 },
-      { term: "Trimestre 3", weight: 2 },
+test("modèle annuel par défaut : meilleur devoir × 3 + compositions × 1, × 2, × 3, ÷ 9", () => {
+  const { annual } = defaultGradingConfig();
+  assert.equal(annual.enabled, true);
+  assert.equal(annual.passThreshold, 10);
+  assert.deepEqual(
+    annual.secondary.parts.map((p) => [p.weight, p.term ?? "année"]),
+    [
+      [3, "année"],
+      [1, "Trimestre 1"],
+      [2, "Trimestre 2"],
+      [3, "Trimestre 3"],
     ],
-    divisor: { mode: "AUTO" as const },
-  };
-  const average = computeAnnualAverage(annual, {
-    "Trimestre 1": 12,
-    "Trimestre 2": 14,
-    "Trimestre 3": 15,
-  });
-  assert.equal(average, (12 + 14 + 30) / 4);
-  // Un trimestre pas encore noté ne compte pas, poids compris.
-  assert.equal(
-    computeAnnualAverage(annual, { "Trimestre 1": 12, "Trimestre 2": null, "Trimestre 3": null }),
-    12,
   );
+  assert.equal(divisorOf(annual.secondary), 9);
+});
+
+test("au bulletin annuel, une composition rejoint le bloc de son trimestre", () => {
+  const { annual } = defaultGradingConfig();
+  assert.equal(partForKind(annual.secondary, "COMPOSITION", "Trimestre 2")?.id, "composition-t2");
+  assert.equal(partForKind(annual.secondary, "DEVOIR", "Trimestre 3")?.id, "devoir");
+});
+
+test("une règle enregistrée avec l'ancien format annuel est relue sans rien perdre d'autre", () => {
+  const old = defaultGradingConfig() as unknown as Record<string, unknown>;
+  const secondary = { ...defaultGradingConfig().secondary, divisor: { mode: "FIXED", value: 5 } };
+  const parsed = parseGradingConfig({
+    ...old,
+    secondary,
+    annual: { enabled: false, terms: [{ term: "Trimestre 1", weight: 1 }], divisor: { mode: "AUTO" } },
+  });
+  assert.deepEqual(parsed.secondary.divisor, { mode: "FIXED", value: 5 });
+  assert.equal(parsed.annual.enabled, false);
+  assert.equal(divisorOf(parsed.annual.secondary), 9);
 });
 
 test("une configuration abîmée ne bloque rien : on repart du modèle par défaut", () => {

@@ -25,9 +25,10 @@ export interface SecondaryClassSummary {
 }
 
 /**
- * Coefficients du bulletin officiel du secondaire (total 24), appliqués d'un
- * geste à toutes les classes AS de l'année. Le tableau reste affiché avant
- * de valider : le directeur voit exactement ce qui va changer.
+ * Coefficients du bulletin officiel de la 1°AS (total 24), appliqués d'un
+ * geste aux classes que le directeur coche — pas à toutes : chaque niveau a
+ * ses matières et ses coefficients. Le tableau reste affiché avant de
+ * valider : le directeur voit exactement ce qui va changer.
  */
 export function OfficialCoefficientsDialog({
   open,
@@ -41,11 +42,14 @@ export function OfficialCoefficientsDialog({
   const { t } = useLanguage();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  // Aucune classe cochée d'office : ce modèle est celui de la 1°AS, il ne
+  // convient pas à toutes (une 7°C a d'autres matières et coefficients).
+  const [selected, setSelected] = useState<string[]>([]);
 
   async function handleApply() {
     setLoading(true);
     try {
-      const { classes: count } = await applyOfficialSecondaryCoefficients();
+      const { classes: count } = await applyOfficialSecondaryCoefficients(selected);
       toast.success(t("classes.officialApplied").replace("{n}", String(count)));
       onOpenChange(false);
       router.refresh();
@@ -94,14 +98,32 @@ export function OfficialCoefficientsDialog({
           </table>
 
           <div className="rounded-xl bg-primary-50/60 px-4 py-3 text-sm">
-            <p className="font-medium text-foreground">
-              {t("classes.officialClasses").replace("{n}", String(classes.length))}
-            </p>
-            <p className="mt-1 text-foreground/60">
-              {classes
-                .map((c) => `${c.name} (${t("classes.totalShort")} ${c.totalCoefficients})`)
-                .join(" · ")}
-            </p>
+            <p className="font-medium text-foreground">{t("classes.officialPick")}</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {classes.map((c) => {
+                const on = selected.includes(c.id);
+                return (
+                  <label
+                    key={c.id}
+                    className="flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-surface px-2.5 py-1.5"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      onChange={() =>
+                        setSelected((list) => (on ? list.filter((id) => id !== c.id) : [...list, c.id]))
+                      }
+                      className="h-4 w-4 rounded border-border text-primary-700 focus:ring-primary-500"
+                      data-testid={`official-class-${c.name}`}
+                    />
+                    <span className="font-medium">{c.name}</span>
+                    <span className="text-xs text-foreground/50">
+                      {t("classes.totalShort")} {c.totalCoefficients}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
           </div>
           <p className="text-xs leading-relaxed text-foreground/55">{t("classes.officialNote")}</p>
         </div>
@@ -110,7 +132,7 @@ export function OfficialCoefficientsDialog({
           <Button variant="secondary" onClick={() => onOpenChange(false)} disabled={loading}>
             {t("common.cancel")}
           </Button>
-          <Button onClick={handleApply} disabled={loading || classes.length === 0} data-testid="apply-official">
+          <Button onClick={handleApply} disabled={loading || selected.length === 0} data-testid="apply-official">
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
             {t("classes.officialApply")}
           </Button>

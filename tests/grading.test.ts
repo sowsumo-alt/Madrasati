@@ -73,6 +73,14 @@ test("niveau de la classe : Fondamental, Collège, Lycée", () => {
   assert.equal(schoolLevelOf("Secondaire", "1AS A"), "COLLEGE");
   assert.equal(schoolLevelOf("2 A Sud"), null);
   assert.equal(schoolLevelOf("Terminale"), null);
+  // Les séries du lycée : 5C, 6°D, 7°C, 7 LM, 7 LO.
+  assert.equal(schoolLevelOf("7°C"), "LYCEE");
+  assert.equal(schoolLevelOf("7°D"), "LYCEE");
+  assert.equal(schoolLevelOf("5C"), "LYCEE");
+  assert.equal(schoolLevelOf("6 D"), "LYCEE");
+  assert.equal(schoolLevelOf("7 LM"), "LYCEE");
+  assert.equal(schoolLevelOf("7LO"), "LYCEE");
+  assert.equal(schoolLevelOf("3C"), null); // pas une série de lycée
 });
 
 test("la formule du secondaire ne s'applique qu'au collège et au lycée", () => {

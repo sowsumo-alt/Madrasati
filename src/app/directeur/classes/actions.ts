@@ -252,7 +252,7 @@ export async function setClassSubjectCoefficient(
  * matière absente est créée. Les classes du Fondamental ne sont pas touchées,
  * ni les autres matières des classes AS, ni leurs enseignants.
  */
-export async function applyOfficialSecondaryCoefficients() {
+export async function applyOfficialSecondaryCoefficients(classIds?: string[]) {
   const user = await requireRole(ROLES.DIRECTOR);
 
   const [classes, subjects] = await Promise.all([
@@ -266,10 +266,14 @@ export async function applyOfficialSecondaryCoefficients() {
       select: { id: true, name: true, isActive: true },
     }),
   ]);
+  // Les coefficients changent d'un niveau à l'autre (les maths comptent 5 en
+  // 1°AS, 8 en 7°C) : le directeur choisit les classes qui suivent ce modèle.
   const secondary = classes.filter(
-    (c) => gradingSchemeFor(schoolLevelOf(c.level, c.name)) === "SECONDARY",
+    (c) =>
+      gradingSchemeFor(schoolLevelOf(c.level, c.name)) === "SECONDARY" &&
+      (!classIds || classIds.includes(c.id)),
   );
-  if (secondary.length === 0) throw new Error("Aucune classe du collège ou du lycée cette année.");
+  if (secondary.length === 0) throw new Error("Choisissez au moins une classe du collège ou du lycée.");
 
   const created: string[] = [];
   await prisma.$transaction(
@@ -307,4 +311,67 @@ export async function applyOfficialSecondaryCoefficients() {
   revalidatePath("/directeur/bulletins");
   revalidatePath("/directeur/notes");
   return { classes: secondary.length, created };
+}
+
+/**
+ * Applique à une classe la configuration d'une autre : mêmes matières, mêmes
+ * coefficients. Pratique pour une deuxième section du même niveau (« 7°C 2 »
+ * d'après « 7°C 1 ») : chaque niveau a ses matières et ses coefficients, et
+ * le directeur ne les ressaisit pas.
+ *
+ * Les enseignants déjà désignés dans la classe cible restent en place. Une
+ * matière absente du modèle est retirée de la classe, sauf si des examens y
+ * ont déjà été passés : ses notes resteraient sans bulletin, on la garde.
+ */
+export async function copyClassSubjects(targetClassId: string, sourceClassId: string) {
+  const user = await requireRole(ROLES.DIRECTOR);
+  if (targetClassId === sourceClassId) throw new Error("Choisissez une autre classe.");
+
+  const [target, source] = await Promise.all([
+    prisma.classRoom.findFirst({
+      where: { id: targetClassId, schoolId: user.schoolId },
+      select: {
+        id: true,
+        classSubjects: { select: { subjectId: true } },
+        exams: { select: { subjectId: true }, distinct: ["subjectId"] },
+      },
+    }),
+    prisma.classRoom.findFirst({
+      where: { id: sourceClassId, schoolId: user.schoolId },
+      select: {
+        classSubjects: {
+          select: { subjectId: true, coefficientOverride: true, subject: { select: { coefficient: true } } },
+        },
+      },
+    }),
+  ]);
+  if (!target || !source) throw new Error("Classe introuvable.");
+
+  const sourceIds = new Set(source.classSubjects.map((cs) => cs.subjectId));
+  const graded = new Set(target.exams.map((e) => e.subjectId));
+  const toRemove = target.classSubjects
+    .map((cs) => cs.subjectId)
+    .filter((id) => !sourceIds.has(id) && !graded.has(id));
+  const kept = target.classSubjects.filter(
+    (cs) => !sourceIds.has(cs.subjectId) && graded.has(cs.subjectId),
+  ).length;
+
+  await prisma.$transaction([
+    ...source.classSubjects.map((cs) =>
+      prisma.classSubject.upsert({
+        where: { classId_subjectId: { classId: target.id, subjectId: cs.subjectId } },
+        create: {
+          classId: target.id,
+          subjectId: cs.subjectId,
+          coefficientOverride: cs.coefficientOverride,
+        },
+        update: { coefficientOverride: cs.coefficientOverride },
+      }),
+    ),
+    prisma.classSubject.deleteMany({ where: { classId: target.id, subjectId: { in: toRemove } } }),
+  ]);
+
+  revalidatePath("/directeur/classes");
+  revalidatePath("/directeur/bulletins");
+  return { copied: source.classSubjects.length, removed: toRemove.length, kept };
 }

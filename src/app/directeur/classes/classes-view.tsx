@@ -328,6 +328,7 @@ export function ClassesView({
         onOpenChange={(open) => !open && setAssignmentsClassId(null)}
         subjects={assignmentSubjects}
         teachers={assignmentTeachers}
+        classes={classes.map((c) => ({ id: c.id, name: c.name }))}
       />
       <SubjectFormDialog
         open={subjectFormOpen}

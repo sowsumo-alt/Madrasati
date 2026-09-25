@@ -1,11 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import {
-  computeAnnualCards,
-  computeReportCards,
-  type ReportCardExam,
-} from "../src/lib/report-card-compute";
+import { computeReportCards, type ReportCardExam } from "../src/lib/report-card-compute";
 import { defaultGradingConfig, type GradingConfig } from "../src/lib/grading-config";
 
 const students = [
@@ -23,9 +19,11 @@ function exam(
   kind: string | null,
   day: number,
   scores: Record<string, number | null>,
+  term = "Trimestre 1",
 ): ReportCardExam {
   return {
     subjectId,
+    term,
     title,
     kind,
     date: new Date(Date.UTC(2026, 9, day)),
@@ -203,48 +201,84 @@ test("un bloc facultatif sans note sort du calcul, poids compris", () => {
   assert.equal(mary.results[0].average, 13);
 });
 
-test("bulletin annuel : chaque trimestre avec le poids voulu par l'école", () => {
+// —— Bulletin annuel ——
+
+const T1 = "Trimestre 1";
+const T2 = "Trimestre 2";
+const T3 = "Trimestre 3";
+
+/** Une année complète : devoirs et compositions des trois trimestres. */
+const yearExams = [
+  exam("fr", "Devoir 1", "DEVOIR", 5, { mary: 12 }, T1),
+  exam("fr", "Composition", "COMPOSITION", 28, { mary: 12 }, T1),
+  exam("fr", "Devoir 1", "DEVOIR", 6, { mary: 11 }, T2),
+  exam("fr", "Composition", "COMPOSITION", 27, { mary: 13 }, T2),
+  exam("fr", "Devoir 1", "DEVOIR", 7, { mary: 14 }, T3),
+  exam("fr", "Composition", "COMPOSITION", 26, { mary: 14 }, T3),
+  exam("en", "Devoir 1", "DEVOIR", 8, { mary: 10 }, T1),
+  exam("en", "Composition", "COMPOSITION", 29, { mary: 9 }, T1),
+  exam("en", "Composition", "COMPOSITION", 29, { mary: 10 }, T2),
+  exam("en", "Composition", "COMPOSITION", 29, { mary: 11 }, T3),
+];
+
+function annualCards(list = yearExams, config?: GradingConfig) {
+  return computeReportCards({
+    className: "1AS",
+    classLevel: "1AS",
+    term: "Année",
+    subjects,
+    students: [students[0]],
+    exams: list,
+    attendance: new Map(),
+    config,
+    annual: true,
+  });
+}
+
+test("bulletin annuel : (meilleur devoir de l'année × 3 + T1 × 1 + T2 × 2 + T3 × 3) ÷ 9", () => {
+  const mary = annualCards()[0];
+  const [fr, en] = mary.results;
+
+  // Français : meilleur devoir parmi 12, 11 et 14 → 14 × 3 = 42.
+  assert.deepEqual(fr.detail.parts[0].scores, [12, 11, 14]);
+  assert.equal(fr.detail.parts[0].weighted, 42);
+  // Compositions : 12 × 1, 13 × 2 = 26, 14 × 3 = 42.
+  assert.deepEqual(
+    fr.detail.parts.slice(1).map((p) => p.weighted),
+    [12, 26, 42],
+  );
+  // (42 + 12 + 26 + 42) ÷ 9 = 122 ÷ 9 = 13,555… → 13,56
+  assert.equal(fr.average, 13.56);
+
+  // Anglais : un seul devoir 10 → 30 ; 9 + 20 + 33 → (30 + 62) ÷ 9 = 10,22
+  assert.equal(en.average, 10.22);
+
+  // Moyenne générale annuelle : (13,56 × 4 + 10,22 × 1) ÷ 5 = 64,46 ÷ 5 = 12,89
+  assert.equal(mary.totalPoints, 64.46);
+  assert.equal(mary.average, 12.89);
+});
+
+test("bulletin annuel : sans la composition du 3e trimestre, pas de moyenne annuelle", () => {
+  const mary = annualCards(yearExams.filter((e) => !(e.term === T3 && e.kind === "COMPOSITION")))[0];
+  assert.equal(mary.results[0].average, null);
+  assert.equal(mary.average, null);
+});
+
+test("bulletin annuel : la formule annuelle est celle de l'école, modifiable", () => {
   const config = defaultGradingConfig();
-  config.annual = {
-    enabled: true,
-    terms: [
-      { term: "Trimestre 1", weight: 1 },
-      { term: "Trimestre 2", weight: 1 },
-      { term: "Trimestre 3", weight: 2 },
-    ],
+  // Une école qui compte les trois compositions à égalité, sans devoir.
+  config.annual.secondary = {
+    parts: [T1, T2, T3].map((term, i) => ({
+      id: `c${i}`,
+      label: `Composition ${term}`,
+      kinds: ["COMPOSITION" as const],
+      weight: 1,
+      multiple: "LAST" as const,
+      required: true,
+      term,
+    })),
     divisor: { mode: "AUTO" },
   };
-
-  const term = (average: number) => ({
-    term: "x",
-    cards: computeReportCards({
-      className: "1AS",
-      classLevel: "1AS",
-      term: "x",
-      subjects: [subjects[0]],
-      students: [students[0]],
-      // Un seul devoir et une composition à la même note : moyenne = la note.
-      exams: [
-        exam("fr", "Devoir 1", "DEVOIR", 5, { mary: average }),
-        exam("fr", "Composition", "COMPOSITION", 28, { mary: average }),
-      ],
-      attendance: new Map(),
-      config,
-    }),
-  });
-
-  const annual = computeAnnualCards(
-    [
-      { ...term(12), term: "Trimestre 1" },
-      { ...term(14), term: "Trimestre 2" },
-      { ...term(15), term: "Trimestre 3" },
-    ],
-    config.annual,
-  );
-  const mary = annual.find((c) => c.student.id === "mary")!;
-  assert.equal(mary.term, "Année");
-  // (12 + 14 + 15 × 2) ÷ 4 = 14
-  assert.equal(mary.results[0].average, 14);
-  assert.equal(mary.results[0].detail.parts.length, 3);
-  assert.equal(mary.average, 14);
+  const mary = annualCards(yearExams, config)[0];
+  assert.equal(mary.results[0].average, 13); // (12 + 13 + 14) ÷ 3
 });

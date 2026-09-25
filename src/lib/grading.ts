@@ -30,6 +30,11 @@ function levelFrom(value: string): SchoolLevel | null {
     if (match[2].toUpperCase() === "F") return "FONDAMENTAL";
     return Number(match[1]) >= FIRST_LYCEE_YEAR ? "LYCEE" : "COLLEGE";
   }
+  // Les séries du lycée mauritanien : « 5C », « 6°D », « 7°C », « 7 LM »
+  // (lettres modernes), « 7 LO » (lettres originelles). Sans cela, une 7°C
+  // passait pour une classe de niveau inconnu et perdait sa règle de calcul.
+  const series = /(\d)\s*[°º.]?\s*(C|D|LM|LO|O|E|T)(?![a-z])/i.exec(value);
+  if (series && Number(series[1]) >= FIRST_LYCEE_YEAR && Number(series[1]) <= 7) return "LYCEE";
   const compact = value.replace(/[\s.]/g, "").toUpperCase();
   if (compact.endsWith("AF")) return "FONDAMENTAL";
   if (compact.endsWith("AS")) return "COLLEGE";
