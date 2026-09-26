@@ -3,11 +3,12 @@ import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { ClassesView, type ClassRow, type SubjectRow } from "./classes-view";
 import { CURRENT_YEAR } from "@/lib/school-year";
+import { buildCatalog, compareClasses } from "@/lib/class-catalog";
 
 export default async function ClassesPage() {
   const user = await requireRole(ROLES.DIRECTOR);
 
-  const [classes, subjects, teachers, studentTotal] = await Promise.all([
+  const [classes, subjects, teachers, studentTotal, allLevels] = await Promise.all([
     prisma.classRoom.findMany({
       where: { schoolId: user.schoolId, ...CURRENT_YEAR },
       orderBy: { name: "asc" },
@@ -33,12 +34,21 @@ export default async function ClassesPage() {
       select: { id: true, firstName: true, lastName: true },
     }),
     prisma.student.count({ where: { schoolId: user.schoolId, status: "ACTIVE" } }),
+    // Toutes années confondues : un niveau que l'école a ajouté elle-même
+    // (« Mahadra — Niveau 1 ») lui reste proposé les années suivantes.
+    prisma.classRoom.findMany({
+      where: { schoolId: user.schoolId },
+      distinct: ["category", "level"],
+      select: { category: true, level: true, name: true },
+    }),
   ]);
 
-  const classRows: ClassRow[] = classes.map((c) => ({
+  // Dans l'ordre de la scolarité : Préscolaire, Fondamental, Collège, Lycée.
+  const classRows: ClassRow[] = [...classes].sort(compareClasses).map((c) => ({
     id: c.id,
     name: c.name,
     level: c.level,
+    category: c.category,
     capacity: c.capacity,
     studentCount: c._count.students,
     mainTeacher: c.mainTeacher,
@@ -66,6 +76,7 @@ export default async function ClassesPage() {
       subjects={subjectRows}
       teachers={teachers}
       studentTotal={studentTotal}
+      catalog={buildCatalog(allLevels)}
     />
   );
 }

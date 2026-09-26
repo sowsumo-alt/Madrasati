@@ -36,11 +36,13 @@ import { ClassesTable, type ClassTableRow } from "./classes-list/classes-table";
 import { ClassDetailSheet } from "./classes-list/class-detail-sheet";
 import { SubjectsTable } from "./classes-list/subjects-table";
 import { UsersGroupIcon } from "./classes-list/users-group-icon";
+import type { CatalogGroup } from "@/lib/class-catalog";
 
 export interface ClassRow {
   id: string;
   name: string;
   level: string;
+  category: string | null;
   capacity: number;
   studentCount: number;
   mainTeacher: { id: string; firstName: string; lastName: string } | null;
@@ -70,12 +72,14 @@ export function ClassesView({
   subjects,
   teachers,
   studentTotal,
+  catalog,
 }: {
   classes: ClassRow[];
   subjects: SubjectRow[];
   teachers: ClassTeacherOption[];
   /** Élèves actifs de l'école, classés ou non. */
   studentTotal: number;
+  catalog: CatalogGroup[];
 }) {
   const router = useRouter();
   const { t } = useLanguage();
@@ -142,6 +146,7 @@ export function ClassesView({
             id: row.id,
             name: row.name,
             level: row.level,
+            category: row.category,
             capacity: row.capacity,
             mainTeacherId: row.mainTeacher?.id ?? null,
           }
@@ -319,6 +324,7 @@ export function ClassesView({
         open={classFormOpen}
         onOpenChange={setClassFormOpen}
         teachers={teachers}
+        catalog={catalog}
         editTarget={classEditTarget}
       />
       <StandardClassesDialog open={standardClassesOpen} onOpenChange={setStandardClassesOpen} />

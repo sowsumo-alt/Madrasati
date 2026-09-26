@@ -1,10 +1,19 @@
 /**
- * Liste des classes du directeur : recherche, filtre par cycle, couleur de
- * chaque classe et chiffres d'en-tête. Sans dépendance à React, pour être
+ * Liste des classes du directeur : recherche, filtre par catégorie, couleur
+ * de chaque classe et chiffres d'en-tête. Sans dépendance à React, pour être
  * testée à part.
  */
 
-export const CLASS_FILTERS = ["ALL", "AF", "AS", "INCOMPLETE"] as const;
+import { classCategory } from "@/lib/class-catalog";
+
+export const CLASS_FILTERS = [
+  "ALL",
+  "PRESCOLAIRE",
+  "FONDAMENTAL",
+  "COLLEGE",
+  "LYCEE",
+  "INCOMPLETE",
+] as const;
 export type ClassFilter = (typeof CLASS_FILTERS)[number];
 
 export function isClassFilter(value: string): value is ClassFilter {
@@ -14,18 +23,9 @@ export function isClassFilter(value: string): value is ClassFilter {
 export interface ClassListItem {
   name: string;
   level: string;
+  category?: string | null;
   mainTeacher: { firstName: string; lastName: string } | null;
   assignments: { subjectId: string }[];
-}
-
-/** Cycle d'une classe d'après son niveau mauritanien (1AF…6AF, 1AS…5AS) ;
- *  null pour une classe nommée autrement, qui n'apparaît alors que dans
- *  « Toutes les classes ». */
-export function classCycle(level: string): "AF" | "AS" | null {
-  const compact = level.replace(/\s/g, "").toUpperCase();
-  if (compact.endsWith("AF")) return "AF";
-  if (compact.endsWith("AS")) return "AS";
-  return null;
 }
 
 /**
@@ -44,7 +44,8 @@ const normalize = (value: string) => value.normalize("NFD").replace(/\p{M}/gu, "
 
 export function matchesClassFilters(c: ClassListItem, query: string, filter: ClassFilter): boolean {
   if (filter === "INCOMPLETE" && missingSetup(c).length === 0) return false;
-  if ((filter === "AF" || filter === "AS") && classCycle(c.level) !== filter) return false;
+  // Une classe d'une catégorie propre à l'école n'apparaît que dans « Toutes ».
+  if (filter !== "ALL" && filter !== "INCOMPLETE" && classCategory(c) !== filter) return false;
 
   const q = normalize(query.trim());
   if (!q) return true;
