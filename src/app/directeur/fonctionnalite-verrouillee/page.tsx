@@ -68,9 +68,6 @@ export default async function FeatureLockedPage({
           <MessageCircle className="h-4 w-4" />
           {t("locked.contact")}
         </a>
-        <Link href="/directeur/parametres" className={buttonVariants({ variant: "secondary" })}>
-          {t("locked.seePlans")}
-        </Link>
       </div>
 
       <Link

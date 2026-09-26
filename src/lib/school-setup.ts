@@ -186,6 +186,7 @@ export async function createStandardClasses(
       academicYearId,
       name: c.name,
       level: c.level,
+      category: c.category,
     })),
   });
 

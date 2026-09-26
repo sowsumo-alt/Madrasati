@@ -4,18 +4,28 @@
  * les saisir une par une.
  *
  * La nomenclature est celle utilisée en Mauritanie : Année Fondamentale (AF)
- * pour le fondamental, Année Secondaire (AS) ensuite, jusqu'à la 5AS qui est
- * l'année du baccalauréat. Le découpage français (CI, CP, CM2, 6ème,
- * Terminale) n'a pas cours ici et ne doit pas réapparaître.
+ * pour le fondamental, Année Secondaire (AS) au collège, puis au lycée la 4D
+ * et les séries SN et A de la 5e à la 7e année. Les niveaux viennent du
+ * catalogue des classes (src/lib/class-catalog.ts). Le découpage français
+ * (CI, CP, CM2, 6ème, Terminale) n'a pas cours ici et ne doit pas réapparaître.
  */
+
+import { STANDARD_LEVELS, type StandardCategory } from "@/lib/class-catalog";
 
 export const CYCLES = ["primaire", "college", "lycee"] as const;
 export type Cycle = (typeof CYCLES)[number];
 
+/** Catégorie de classe correspondant à chaque cycle. */
+export const CATEGORY_BY_CYCLE: Record<Cycle, StandardCategory> = {
+  primaire: "FONDAMENTAL",
+  college: "COLLEGE",
+  lycee: "LYCEE",
+};
+
 const LEVELS_BY_CYCLE: Record<Cycle, string[]> = {
-  primaire: ["1AF", "2AF", "3AF", "4AF", "5AF", "6AF"],
-  college: ["1AS", "2AS", "3AS", "4AS"],
-  lycee: ["5AS"],
+  primaire: STANDARD_LEVELS.FONDAMENTAL,
+  college: STANDARD_LEVELS.COLLEGE,
+  lycee: STANDARD_LEVELS.LYCEE,
 };
 
 export const SCHOOL_TYPES = ["primaire", "college_lycee", "complet"] as const;
@@ -39,8 +49,8 @@ export const SCHOOL_TYPE_LABELS: Record<SchoolType, string> = {
 
 export const SCHOOL_TYPE_HINTS: Record<SchoolType, string> = {
   primaire: "1AF à 6AF",
-  college_lycee: "1AS à 5AS",
-  complet: "1AF à 5AS",
+  college_lycee: "1AS à 7SN / 7A",
+  complet: "1AF à 7SN / 7A",
 };
 
 /**
@@ -83,6 +93,7 @@ export interface StandardClass {
   name: string;
   level: string;
   cycle: Cycle;
+  category: StandardCategory;
 }
 
 /**
@@ -96,6 +107,7 @@ export function standardClassesFor(type: SchoolType): StandardClass[] {
       name: level,
       level,
       cycle,
+      category: CATEGORY_BY_CYCLE[cycle],
     })),
   );
 }
@@ -104,7 +116,7 @@ export function subjectNamesForCycle(cycle: Cycle): string[] {
   return SUBJECTS_BY_CYCLE[cycle];
 }
 
-/** Résumé affiché avant création, ex. « 11 classes, de 1AF à 5AS ». */
+/** Résumé affiché avant création, ex. « 16 classes, de 1AF à 7A ». */
 export function describeSchoolType(type: SchoolType): string {
   const classes = standardClassesFor(type);
   return `${classes.length} classes, de ${classes[0].level} à ${classes[classes.length - 1].level}`;

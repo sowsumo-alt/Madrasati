@@ -21,7 +21,6 @@ import {
 } from "@/components/ui/dialog";
 import { ImagePicker } from "@/components/ui/image-picker";
 import { formatDate } from "@/lib/format";
-import type { Plan } from "@/lib/plans";
 import {
   updateSchool,
   createAcademicYear,
@@ -29,7 +28,6 @@ import {
   type SchoolFormValues,
 } from "./actions";
 import { useLanguage } from "@/lib/i18n/language-provider";
-import { PlanCard } from "./plan-card";
 import { DocumentHeader } from "@/components/documents/document-header";
 import { toSchoolIdentity, type OfficialHeaderText } from "@/lib/official-header";
 
@@ -64,8 +62,6 @@ export function SettingsView({
   official,
   years,
   counts,
-  plan,
-  trialDaysLeft,
 }: {
   /** Carte « Calcul des moyennes », montée par la page. */
   gradingRule?: React.ReactNode;
@@ -74,8 +70,6 @@ export function SettingsView({
   official: OfficialHeaderText;
   years: YearRow[];
   counts: { students: number; teachers: number; classes: number };
-  plan: Plan;
-  trialDaysLeft: number | null;
 }) {
   const router = useRouter();
   const { t } = useLanguage();
@@ -255,13 +249,6 @@ export function SettingsView({
           </div>
         </CardContent>
       </Card>
-
-      <PlanCard
-        currentPlan={plan}
-        schoolName={school.name}
-        studentCount={counts.students}
-        trialDaysLeft={trialDaysLeft}
-      />
 
       {gradingRule}
 

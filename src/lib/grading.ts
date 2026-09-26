@@ -35,6 +35,12 @@ function levelFrom(value: string): SchoolLevel | null {
   // passait pour une classe de niveau inconnu et perdait sa règle de calcul.
   const series = /(\d)\s*[°º.]?\s*(C|D|LM|LO|O|E|T)(?![a-z])/i.exec(value);
   if (series && Number(series[1]) >= FIRST_LYCEE_YEAR && Number(series[1]) <= 7) return "LYCEE";
+  // Nomenclature des classes Madrasati (src/lib/class-catalog.ts) : « 4D »,
+  // première année du lycée, puis les séries SN (sciences) et A (lettres) de
+  // la 5e à la 7e année — « 5SN », « 6A », « 7SN B ».
+  if (/^\s*4\s*[°º.]?\s*D(?![a-z])/i.test(value)) return "LYCEE";
+  const track = /^\s*(\d)\s*[°º.]?\s*(SN|A)(?![a-z])/i.exec(value);
+  if (track && Number(track[1]) >= FIRST_LYCEE_YEAR && Number(track[1]) <= 7) return "LYCEE";
   const compact = value.replace(/[\s.]/g, "").toUpperCase();
   if (compact.endsWith("AF")) return "FONDAMENTAL";
   if (compact.endsWith("AS")) return "COLLEGE";

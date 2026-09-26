@@ -206,9 +206,14 @@ model ClassRoom {
   school         School       @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   academicYearId String
   academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
-  name           String // ex: "6ème A"
-  level          String // ex: "6ème"
-  capacity       Int          @default(30)
+  name           String // ex: "1AF A", "5SN"
+  level          String // ex: "1AF", "5SN"
+  // "PRESCOLAIRE" | "FONDAMENTAL" | "COLLEGE" | "LYCEE", ou le nom d'une
+  // catégorie propre à l'école (« Mahadra »). Null pour une classe créée
+  // avant les catégories : elle est alors déduite du niveau (voir
+  // src/lib/class-catalog.ts).
+  category       String?
+  capacity      Int          @default(30)
   mainTeacherId  String?
   mainTeacher    Teacher?     @relation(fields: [mainTeacherId], references: [id])
   createdAt      DateTime     @default(now())

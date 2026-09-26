@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { createStandardClasses } from "@/lib/school-setup";
+import { createClassWithSubjects } from "@/lib/class-setup";
+import { composeClassName } from "@/lib/class-catalog";
 import { isSchoolType } from "@/lib/school-levels";
 import { CURRENT_YEAR } from "@/lib/school-year";
 import {
@@ -37,19 +39,23 @@ export async function createClass(values: ClassFormValues) {
   const year = await getCurrentAcademicYear(user.schoolId);
   if (data.mainTeacherId) await assertOwnTeacher(user.schoolId, data.mainTeacherId);
 
-  await prisma.classRoom.create({
-    data: {
-      schoolId: user.schoolId,
-      academicYearId: year.id,
-      name: data.name,
-      level: data.level,
-      capacity: data.capacity,
-      mainTeacherId: data.mainTeacherId || null,
-    },
-  });
+  const created = await prisma.$transaction(
+    (tx) =>
+      createClassWithSubjects(tx, {
+        schoolId: user.schoolId,
+        academicYearId: year.id,
+        category: data.category,
+        level: data.level,
+        section: data.section,
+        capacity: data.capacity,
+        mainTeacherId: data.mainTeacherId,
+      }),
+    { timeout: 20_000 },
+  );
 
   revalidatePath("/directeur/classes");
   revalidatePath("/directeur");
+  return { name: created.name, subjectsFrom: created.subjectsFrom };
 }
 
 /**
@@ -77,11 +83,29 @@ export async function updateClass(classId: string, values: ClassFormValues) {
   const data = classSchema.parse(values);
   if (data.mainTeacherId) await assertOwnTeacher(user.schoolId, data.mainTeacherId);
 
+  const current = await prisma.classRoom.findFirst({
+    where: { id: classId, schoolId: user.schoolId },
+    select: { academicYearId: true },
+  });
+  if (!current) throw new Error("Classe introuvable.");
+  const name = composeClassName(data.level, data.section);
+  const taken = await prisma.classRoom.findFirst({
+    where: {
+      schoolId: user.schoolId,
+      academicYearId: current.academicYearId,
+      id: { not: classId },
+      name: { equals: name, mode: "insensitive" },
+    },
+    select: { id: true },
+  });
+  if (taken) throw new Error(`La classe « ${name} » existe déjà cette année.`);
+
   await prisma.classRoom.updateMany({
     where: { id: classId, schoolId: user.schoolId },
     data: {
-      name: data.name,
+      name,
       level: data.level,
+      category: data.category,
       capacity: data.capacity,
       mainTeacherId: data.mainTeacherId || null,
     },

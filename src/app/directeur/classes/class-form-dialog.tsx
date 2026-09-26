@@ -26,6 +26,8 @@ import {
 import { classSchema, type ClassFormValues } from "./schema";
 import { createClass, updateClass } from "./actions";
 import { useLanguage } from "@/lib/i18n/language-provider";
+import { ClassLevelPicker } from "@/components/classes/class-level-picker";
+import { classCategory, sectionOf, type CatalogGroup } from "@/lib/class-catalog";
 
 export interface ClassTeacherOption {
   id: string;
@@ -37,6 +39,7 @@ export interface ClassEditTarget {
   id: string;
   name: string;
   level: string;
+  category: string | null;
   capacity: number;
   mainTeacherId: string | null;
 }
@@ -45,12 +48,15 @@ interface ClassFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   teachers: ClassTeacherOption[];
+  /** Catégories et niveaux proposés (voir buildCatalog). */
+  catalog: CatalogGroup[];
   editTarget?: ClassEditTarget | null;
 }
 
 const emptyValues: ClassFormValues = {
-  name: "",
+  category: "",
   level: "",
+  section: "",
   capacity: 30,
   mainTeacherId: "",
 };
@@ -59,6 +65,7 @@ export function ClassFormDialog({
   open,
   onOpenChange,
   teachers,
+  catalog,
   editTarget,
 }: ClassFormDialogProps) {
   const { t } = useLanguage();
@@ -81,8 +88,9 @@ export function ClassFormDialog({
       reset(
         editTarget
           ? {
-              name: editTarget.name,
+              category: classCategory(editTarget) ?? "",
               level: editTarget.level,
+              section: sectionOf(editTarget.name, editTarget.level),
               capacity: editTarget.capacity,
               mainTeacherId: editTarget.mainTeacherId ?? "",
             }
@@ -97,8 +105,14 @@ export function ClassFormDialog({
         await updateClass(editTarget.id, values);
         toast.success(t("classes.updated"));
       } else {
-        await createClass(values);
-        toast.success(t("classes.created"));
+        const created = await createClass(values);
+        toast.success(
+          created.subjectsFrom === "copied"
+            ? `Classe « ${created.name} » créée, avec les matières et coefficients de son niveau.`
+            : created.subjectsFrom === "template"
+              ? `Classe « ${created.name} » créée, avec les matières et coefficients de sa catégorie.`
+              : `Classe « ${created.name} » créée.`,
+        );
       }
       onOpenChange(false);
       router.refresh();
@@ -108,10 +122,11 @@ export function ClassFormDialog({
   }
 
   const mainTeacherId = watch("mainTeacherId");
+  const [category, level, section] = watch(["category", "level", "section"]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle>
             {isEdit ? t("classes.editClass") : t("classes.newClass")}
@@ -119,22 +134,23 @@ export function ClassFormDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="name">{t("classes.name")}</Label>
-              <Input id="name" placeholder="6AF" {...register("name")} />
-              {errors.name && (
-                <p className="text-xs text-danger">{errors.name.message}</p>
-              )}
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="level">Niveau</Label>
-              <Input id="level" placeholder="6AF" {...register("level")} />
-              {errors.level && (
-                <p className="text-xs text-danger">{errors.level.message}</p>
-              )}
-            </div>
-          </div>
+          {open && (
+            <ClassLevelPicker
+              key={editTarget?.id ?? "new"}
+              catalog={catalog}
+              value={{ category: category ?? "", level: level ?? "", section: section ?? "" }}
+              onChange={(v) => {
+                setValue("category", v.category, { shouldValidate: Boolean(errors.category) });
+                setValue("level", v.level, { shouldValidate: Boolean(errors.level) });
+                setValue("section", v.section);
+              }}
+            />
+          )}
+          {(errors.category || errors.level) && (
+            <p className="text-xs text-danger">
+              {errors.category?.message ?? errors.level?.message}
+            </p>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">

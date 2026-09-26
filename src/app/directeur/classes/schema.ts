@@ -1,8 +1,13 @@
 import { z } from "zod";
 
+/**
+ * Une classe se décrit par sa catégorie, son niveau et, s'il y a plusieurs
+ * classes du même niveau, sa section : son nom en découle (« 1AF A »).
+ */
 export const classSchema = z.object({
-  name: z.string().trim().min(1, "Le nom de la classe est requis"),
-  level: z.string().trim().min(1, "Le niveau est requis"),
+  category: z.string().trim().min(1, "Choisissez une catégorie").max(60),
+  level: z.string().trim().min(1, "Choisissez un niveau").max(40),
+  section: z.string().trim().max(20).optional().or(z.literal("")),
   capacity: z.coerce.number().int().positive("La capacité doit être positive"),
   mainTeacherId: z.string().optional().or(z.literal("")),
 });

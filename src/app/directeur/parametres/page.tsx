@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
-import { effectivePlan, trialEndsAt, daysBetween } from "@/lib/plans";
 import { SettingsView, type YearRow } from "./settings-view";
 import { GradingRuleCard } from "./grading-rule-card";
 import { currentGradingConfig } from "@/lib/grading-config-data";
@@ -57,15 +56,6 @@ export default async function SettingsPage() {
       official={{ linesFr: official.linesFr, linesAr: official.linesAr }}
       years={yearRows}
       counts={{ students, teachers, classes }}
-      // Plan réellement accordé, pas le plan inscrit : une école « Restreinte »
-      // lisait « Formule actuelle : Avancé » sur cet écran alors que toutes
-      // les fonctionnalités Avancé lui étaient refusées partout ailleurs.
-      plan={effectivePlan(school)}
-      trialDaysLeft={
-        school.subscriptionStatus === "trial"
-          ? daysBetween(new Date(), trialEndsAt(school))
-          : null
-      }
     />
   );
 }
