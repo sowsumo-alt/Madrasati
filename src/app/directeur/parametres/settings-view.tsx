@@ -40,6 +40,7 @@ const schoolSchema = z.object({
   phone: z.string().trim().optional().or(z.literal("")),
   email: z.string().trim().optional().or(z.literal("")),
   logoUrl: z.string().nullable().optional(),
+  logoIsLetterhead: z.boolean().optional(),
 });
 
 const yearSchema = z.object({
@@ -88,13 +89,20 @@ export function SettingsView({
   const logoUrl = schoolForm.watch("logoUrl") ?? null;
   // L'aperçu suit la saisie : le directeur voit son en-tête changer avant
   // même d'enregistrer.
-  const [name, address, city, phone] = schoolForm.watch(["name", "address", "city", "phone"]);
+  const [name, address, city, phone, logoIsLetterhead] = schoolForm.watch([
+    "name",
+    "address",
+    "city",
+    "phone",
+    "logoIsLetterhead",
+  ]);
   const preview = toSchoolIdentity({
     name: name ?? "",
     address: address ?? null,
     city: city ?? null,
     phone: phone ?? null,
     logoUrl,
+    logoIsLetterhead,
   });
 
   const yearForm = useForm<YearValues>({
@@ -161,10 +169,29 @@ export function SettingsView({
                 onChange={(v) =>
                   schoolForm.setValue("logoUrl", v, { shouldDirty: true })
                 }
-                maxSize={320}
+                // Un logo simple reste léger ; un en-tête complet, large,
+                // garde assez de pixels pour que son texte reste lisible.
+                maxSize={{ width: 1200, height: 400 }}
+                wide
                 label={t("settings.chooseLogo")}
               />
               <p className="text-xs text-foreground/40">{t("settings.logoHint")}</p>
+              {logoUrl && (
+                <label className="mt-2 flex items-start gap-2 text-sm text-foreground">
+                  <input
+                    type="checkbox"
+                    {...schoolForm.register("logoIsLetterhead")}
+                    className="mt-0.5 h-4 w-4 rounded border-border text-primary-700 focus:ring-primary-500"
+                    data-testid="logo-is-letterhead"
+                  />
+                  <span>
+                    {t("settings.logoIsLetterhead")}
+                    <span className="block text-xs text-foreground/50">
+                      {t("settings.logoIsLetterheadHint")}
+                    </span>
+                  </span>
+                </label>
+              )}
             </div>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

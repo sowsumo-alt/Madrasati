@@ -36,7 +36,11 @@ model School {
   phone              String?
   email              String?
   logoUrl            String?
-  currency           String    @default("MRU")
+  // Vrai quand le logo est un en-tête complet (symbole + nom + adresse +
+  // téléphone dans une seule image large) : les documents l'impriment seul,
+  // sans répéter en texte le nom et les coordonnées de l'école.
+  logoIsLetterhead   Boolean   @default(false)
+  currency          String    @default("MRU")
   // Formule d'abonnement — "standard" | "advanced" | "network" (voir src/lib/plans.ts).
   // String plutôt qu'enum Prisma, comme le reste des champs de statut du schéma.
   // Une école naît en "advanced" pour essayer l'application complète.

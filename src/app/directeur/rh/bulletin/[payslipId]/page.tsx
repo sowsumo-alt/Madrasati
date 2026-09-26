@@ -37,7 +37,10 @@ export default async function PayslipPage({
         <PrintButton label="Imprimer" />
       </div>
 
-      <div className="rounded-xl border border-border bg-surface p-8 shadow-sm print:border-0 print:shadow-none">
+      <div
+        id="bulletin-salaire"
+        className="rounded-xl border border-border bg-surface p-8 shadow-sm print:border-0 print:shadow-none"
+      >
         <DocumentHeader school={toSchoolIdentity(payslip.school)} />
 
         <div className="border-b border-border pb-6 text-center">

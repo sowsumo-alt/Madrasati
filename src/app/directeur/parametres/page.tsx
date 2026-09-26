@@ -52,6 +52,7 @@ export default async function SettingsPage() {
         phone: school.phone ?? "",
         email: school.email ?? "",
         logoUrl: school.logoUrl,
+        logoIsLetterhead: school.logoIsLetterhead,
       }}
       official={{ linesFr: official.linesFr, linesAr: official.linesAr }}
       years={yearRows}

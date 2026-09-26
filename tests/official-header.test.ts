@@ -49,3 +49,10 @@ test("l'adresse et la ville forment une seule ligne, sans répéter la ville", (
 test("le texte saisi par le Super Admin est découpé en lignes non vides", () => {
   assert.deepEqual(splitHeaderLines("  Ligne 1 \r\n\n Ligne 2\n"), ["Ligne 1", "Ligne 2"]);
 });
+
+test("un logo « en-tête complet » ne compte que s'il y a bien une image", () => {
+  const base = { name: "Ngalam Avenir", address: null, city: null, phone: null };
+  assert.equal(toSchoolIdentity({ ...base, logoUrl: "data:image/jpeg;base64,xx", logoIsLetterhead: true }).logoIsLetterhead, true);
+  assert.equal(toSchoolIdentity({ ...base, logoUrl: null, logoIsLetterhead: true }).logoIsLetterhead, false);
+  assert.equal(toSchoolIdentity({ ...base, logoUrl: "data:image/jpeg;base64,xx" }).logoIsLetterhead, false);
+});

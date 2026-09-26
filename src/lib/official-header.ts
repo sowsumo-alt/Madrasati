@@ -51,6 +51,11 @@ export interface SchoolIdentity {
   city: string | null;
   phone: string | null;
   logoUrl: string | null;
+  /**
+   * Le logo est un en-tête complet (nom, adresse, téléphone déjà dans
+   * l'image) : il s'imprime seul, en pleine largeur.
+   */
+  logoIsLetterhead: boolean;
 }
 
 /** Ce qu'il faut lire de School pour composer l'en-tête. */
@@ -60,6 +65,7 @@ export const SCHOOL_IDENTITY_SELECT = {
   city: true,
   phone: true,
   logoUrl: true,
+  logoIsLetterhead: true,
 } as const;
 
 export function toSchoolIdentity(
@@ -69,6 +75,7 @@ export function toSchoolIdentity(
     city: string | null;
     phone: string | null;
     logoUrl: string | null;
+    logoIsLetterhead?: boolean;
   } | null,
 ): SchoolIdentity {
   const clean = (value: string | null | undefined) => value?.trim() || null;
@@ -78,6 +85,8 @@ export function toSchoolIdentity(
     city: clean(school?.city),
     phone: clean(school?.phone),
     logoUrl: school?.logoUrl || null,
+    // Sans image, l'option n'a pas de sens : on retombe sur l'en-tête texte.
+    logoIsLetterhead: Boolean(school?.logoUrl && school.logoIsLetterhead),
   };
 }
 

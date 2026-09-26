@@ -18,6 +18,7 @@ const EXAMPLE_SCHOOL = {
   city: "Nouakchott",
   phone: "+22222000000",
   logoUrl: null,
+  logoIsLetterhead: false,
 };
 
 const textareaClass =

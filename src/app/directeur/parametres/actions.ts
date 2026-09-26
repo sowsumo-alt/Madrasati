@@ -9,8 +9,12 @@ import type { GradingConfig } from "@/lib/grading-config";
 import { ROLES } from "@/lib/roles";
 import { isPlan } from "@/lib/plans";
 
-/** Data URI d'image, plafonné pour éviter de gonfler la base. */
-const LOGO_MAX_CHARS = 400_000; // ~300 Ko une fois décodé
+/**
+ * Data URI d'image, plafonné pour éviter de gonfler la base. Assez large pour
+ * un en-tête complet (image large avec le nom et les coordonnées de l'école),
+ * sous la limite d'1 Mo d'une action serveur.
+ */
+const LOGO_MAX_CHARS = 750_000; // ~550 Ko une fois décodé
 
 const schoolSchema = z.object({
   name: z.string().trim().min(1, "Le nom de l'école est requis"),
@@ -23,6 +27,7 @@ const schoolSchema = z.object({
     .max(LOGO_MAX_CHARS, "Image trop lourde")
     .nullable()
     .optional(),
+  logoIsLetterhead: z.boolean().optional(),
 });
 export type SchoolFormValues = z.infer<typeof schoolSchema>;
 
@@ -39,6 +44,7 @@ export async function updateSchool(values: SchoolFormValues) {
       phone: data.phone || null,
       email: data.email || null,
       logoUrl: data.logoUrl || null,
+      logoIsLetterhead: Boolean(data.logoUrl && data.logoIsLetterhead),
     },
   });
 
