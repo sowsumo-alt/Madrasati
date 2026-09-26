@@ -27,6 +27,8 @@ import { CommentEditor } from "./comment-editor";
 import { getTranslations } from "@/lib/i18n/server";
 import { FEATURES, schoolHasFeature } from "@/lib/plans";
 import { DEFAULT_TEMPLATES } from "@/lib/school-setup";
+import { toSchoolIdentity } from "@/lib/official-header";
+import { loadOfficialHeader } from "@/lib/official-header-data";
 import { fillTemplate, withArabic, schoolSignatureFr, schoolSignatureAr } from "@/lib/whatsapp";
 import { termDateRange } from "@/lib/report-card";
 import { SecondaryReportCard } from "./secondary-report-card";
@@ -67,7 +69,7 @@ export default async function ReportCardPage({
     term,
   });
 
-  const [cards, school, academicYear, comment, parentLink, template] = await Promise.all([
+  const [cards, school, academicYear, comment, parentLink, template, official] = await Promise.all([
     isAnnual
       ? buildAnnualReportCards(user.schoolId, student.classId, rule.config)
       : buildReportCards(user.schoolId, student.classId, term, rule.config),
@@ -88,6 +90,7 @@ export default async function ReportCardPage({
       where: { schoolId: user.schoolId, key: "GRADES_AVAILABLE" },
       select: { body: true, bodyAr: true },
     }),
+    loadOfficialHeader(),
   ]);
 
   // Le bulletin annuel ne s'établit qu'une fois l'année finie : quand les
@@ -240,14 +243,9 @@ export default async function ReportCardPage({
 
   // Collège et lycée : le bulletin officiel mauritanien (meilleur devoir × 3
   // + composition, ÷ 4). Le Fondamental garde plus bas son bulletin d'origine.
+  const schoolIdentity = toSchoolIdentity(school);
+
   if (card.scheme === "SECONDARY") {
-    const schoolIdentity = {
-      name: school?.name ?? "Madrasati",
-      address: school?.address ?? null,
-      city: school?.city ?? null,
-      phone: school?.phone ?? null,
-      logoUrl: school?.logoUrl ?? null,
-    };
     const range = academicYear ? termDateRange(academicYear, term) : null;
     const suspensions = range
       ? await prisma.disciplineIncident.count({
@@ -275,6 +273,7 @@ export default async function ReportCardPage({
               id="bulletin-card"
               card={card}
               school={schoolIdentity}
+              official={official}
               yearLabel={academicYear?.label ?? null}
               studentNumber={cards.indexOf(card) + 1}
               termRecap={annualData.termRecap}
@@ -289,6 +288,7 @@ export default async function ReportCardPage({
               id="bulletin-card"
               card={card}
               school={schoolIdentity}
+              official={official}
               yearLabel={academicYear?.label ?? null}
               studentNumber={cards.indexOf(card) + 1}
               suspensions={suspensions}
@@ -329,12 +329,8 @@ export default async function ReportCardPage({
         id="bulletin-card"
         card={card}
         t={t}
-        school={{
-          name: school?.name ?? "Madrasati",
-          address: school?.address ?? null,
-          phone: school?.phone ?? null,
-          logoUrl: school?.logoUrl ?? null,
-        }}
+        school={schoolIdentity}
+        official={official}
         yearLabel={academicYear?.label ?? null}
         photoUrl={student.photoUrl}
         evolution={cardEvolution}

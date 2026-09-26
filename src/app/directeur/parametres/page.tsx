@@ -8,11 +8,12 @@ import { GradingRuleCard } from "./grading-rule-card";
 import { currentGradingConfig } from "@/lib/grading-config-data";
 import { formatDate } from "@/lib/format";
 import { CURRENT_YEAR } from "@/lib/school-year";
+import { loadOfficialHeader } from "@/lib/official-header-data";
 
 export default async function SettingsPage() {
   const user = await requireRole(ROLES.DIRECTOR);
 
-  const [school, years, students, teachers, classes, rule] = await Promise.all([
+  const [school, years, students, teachers, classes, rule, official] = await Promise.all([
     prisma.school.findUnique({ where: { id: user.schoolId } }),
     prisma.academicYear.findMany({
       where: { schoolId: user.schoolId },
@@ -22,6 +23,7 @@ export default async function SettingsPage() {
     prisma.teacher.count({ where: { schoolId: user.schoolId, status: "ACTIVE" } }),
     prisma.classRoom.count({ where: { schoolId: user.schoolId, ...CURRENT_YEAR } }),
     currentGradingConfig(user.schoolId),
+    loadOfficialHeader(),
   ]);
 
   if (!school) notFound();
@@ -46,10 +48,12 @@ export default async function SettingsPage() {
       school={{
         name: school.name,
         address: school.address ?? "",
+        city: school.city ?? "",
         phone: school.phone ?? "",
         email: school.email ?? "",
         logoUrl: school.logoUrl,
       }}
+      official={{ linesFr: official.linesFr, linesAr: official.linesAr }}
       years={yearRows}
       counts={{ students, teachers, classes }}
       // Plan réellement accordé, pas le plan inscrit : une école « Restreinte »

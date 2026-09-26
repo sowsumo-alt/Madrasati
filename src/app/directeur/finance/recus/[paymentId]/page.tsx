@@ -1,11 +1,9 @@
-import Image from "next/image";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import {
   ArrowLeft,
   CalendarDays,
   Check,
-  GraduationCap,
   Info,
   Phone,
   UserRound,
@@ -25,6 +23,8 @@ import {
   formatPhone,
 } from "@/lib/format";
 import { PrintButton } from "@/components/ui/print-button";
+import { DocumentHeader } from "@/components/documents/document-header";
+import { toSchoolIdentity } from "@/lib/official-header";
 import { PdfButton } from "@/components/ui/pdf-button";
 import { PaymentMethodLogo } from "@/components/ui/payment-method-logo";
 import { WhatsAppIcon } from "@/components/brand/whatsapp-icon";
@@ -150,37 +150,10 @@ export default async function ReceiptPage({
         id="recu-card"
         className="mx-auto max-w-3xl rounded-2xl border border-border/80 bg-surface p-6 shadow-soft sm:p-8 print:max-w-none print:border-0 print:shadow-none"
       >
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex items-center gap-4">
-            <span className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-50 text-primary-600">
-              {payment.school.logoUrl ? (
-                <Image
-                  src={payment.school.logoUrl}
-                  alt=""
-                  width={320}
-                  height={320}
-                  unoptimized
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <GraduationCap className="h-10 w-10" strokeWidth={1.75} />
-              )}
-            </span>
-            <div className="min-w-0">
-              <p className="text-2xl font-bold leading-tight text-primary-900">{payment.school.name}</p>
-              {payment.school.address && (
-                <p className="mt-0.5 text-sm text-primary-700/80">{payment.school.address}</p>
-              )}
-              {payment.school.phone && (
-                <p className="mt-1 flex items-center gap-1.5 text-sm text-primary-700">
-                  <Phone className="h-4 w-4" />
-                  <span dir="ltr">{formatPhone(payment.school.phone)}</span>
-                </p>
-              )}
-            </div>
-          </div>
+        <DocumentHeader school={toSchoolIdentity(payment.school)} />
 
-          <div className="sm:text-end">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
             <span className="inline-flex rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary-700">
               {t("finance.receiptTitle")}
             </span>
@@ -191,8 +164,8 @@ export default async function ReceiptPage({
             >
               {payment.receiptNumber}
             </p>
-            <p className="mt-0.5 text-sm text-foreground/50">{formatDateIn(locale, payment.paidAt, { day: "numeric", month: "short", year: "numeric" })}</p>
           </div>
+          <p className="text-sm text-foreground/50">{formatDateIn(locale, payment.paidAt, { day: "numeric", month: "short", year: "numeric" })}</p>
         </div>
 
         <div className="my-6 border-t border-border/70" />

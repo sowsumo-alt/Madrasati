@@ -15,6 +15,7 @@ const LOGO_MAX_CHARS = 400_000; // ~300 Ko une fois décodé
 const schoolSchema = z.object({
   name: z.string().trim().min(1, "Le nom de l'école est requis"),
   address: z.string().trim().optional().or(z.literal("")),
+  city: z.string().trim().optional().or(z.literal("")),
   phone: z.string().trim().optional().or(z.literal("")),
   email: z.string().trim().optional().or(z.literal("")),
   logoUrl: z
@@ -34,14 +35,15 @@ export async function updateSchool(values: SchoolFormValues) {
     data: {
       name: data.name,
       address: data.address || null,
+      city: data.city || null,
       phone: data.phone || null,
       email: data.email || null,
       logoUrl: data.logoUrl || null,
     },
   });
 
-  revalidatePath("/directeur/parametres");
-  revalidatePath("/directeur");
+  // L'en-tête de chaque document imprimé est relu depuis ces informations.
+  revalidatePath("/directeur", "layout");
 }
 
 /**

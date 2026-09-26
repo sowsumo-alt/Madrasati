@@ -30,10 +30,13 @@ import {
 } from "./actions";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { PlanCard } from "./plan-card";
+import { DocumentHeader } from "@/components/documents/document-header";
+import { toSchoolIdentity, type OfficialHeaderText } from "@/lib/official-header";
 
 const schoolSchema = z.object({
   name: z.string().trim().min(1, "Le nom de l'école est requis"),
   address: z.string().trim().optional().or(z.literal("")),
+  city: z.string().trim().optional().or(z.literal("")),
   phone: z.string().trim().optional().or(z.literal("")),
   email: z.string().trim().optional().or(z.literal("")),
   logoUrl: z.string().nullable().optional(),
@@ -57,6 +60,7 @@ export interface YearRow {
 export function SettingsView({
   gradingRule,
   school,
+  official,
   years,
   counts,
   plan,
@@ -65,6 +69,8 @@ export function SettingsView({
   /** Carte « Calcul des moyennes », montée par la page. */
   gradingRule?: React.ReactNode;
   school: SchoolFormValues;
+  /** Bloc officiel des bulletins, pour l'aperçu (non modifiable ici). */
+  official: OfficialHeaderText;
   years: YearRow[];
   counts: { students: number; teachers: number; classes: number };
   plan: Plan;
@@ -80,6 +86,16 @@ export function SettingsView({
     defaultValues: school,
   });
   const logoUrl = schoolForm.watch("logoUrl") ?? null;
+  // L'aperçu suit la saisie : le directeur voit son en-tête changer avant
+  // même d'enregistrer.
+  const [name, address, city, phone] = schoolForm.watch(["name", "address", "city", "phone"]);
+  const preview = toSchoolIdentity({
+    name: name ?? "",
+    address: address ?? null,
+    city: city ?? null,
+    phone: phone ?? null,
+    logoUrl,
+  });
 
   const yearForm = useForm<YearValues>({
     resolver: zodResolver(yearSchema),
@@ -170,12 +186,16 @@ export function SettingsView({
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="address">Adresse</Label>
+                <Label htmlFor="address">{t("settings.address")}</Label>
                 <Input
                   id="address"
-                  placeholder="Nouakchott, Mauritanie"
+                  placeholder="Tevragh Zeina"
                   {...schoolForm.register("address")}
                 />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="city">{t("settings.city")}</Label>
+                <Input id="city" placeholder="Nouakchott" {...schoolForm.register("city")} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="email">Email</Label>
@@ -192,6 +212,20 @@ export function SettingsView({
               </Button>
             </div>
           </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">{t("settings.headerPreview")}</CardTitle>
+          <p className="text-xs text-foreground/50">{t("settings.headerPreviewHint")}</p>
+        </CardHeader>
+        <CardContent className="p-4 pt-0">
+          <div className="overflow-x-auto rounded-lg border border-border bg-white p-5">
+            <div className="min-w-[560px]" data-testid="header-preview">
+              <DocumentHeader school={preview} official={official} />
+            </div>
+          </div>
         </CardContent>
       </Card>
 

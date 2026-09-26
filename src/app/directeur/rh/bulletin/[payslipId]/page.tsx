@@ -5,6 +5,8 @@ import { FEATURES } from "@/lib/plans";
 import { prisma } from "@/lib/prisma";
 import { formatMRU } from "@/lib/format";
 import { PrintButton } from "@/components/ui/print-button";
+import { DocumentHeader } from "@/components/documents/document-header";
+import { toSchoolIdentity } from "@/lib/official-header";
 
 const MONTHS = [
   "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
@@ -36,12 +38,10 @@ export default async function PayslipPage({
       </div>
 
       <div className="rounded-xl border border-border bg-surface p-8 shadow-sm print:border-0 print:shadow-none">
+        <DocumentHeader school={toSchoolIdentity(payslip.school)} />
+
         <div className="border-b border-border pb-6 text-center">
-          <p className="text-base font-semibold text-primary-800">{payslip.school.name}</p>
-          {payslip.school.address && (
-            <p className="text-xs text-foreground/50">{payslip.school.address}</p>
-          )}
-          <p className="mt-3 text-sm font-medium uppercase tracking-wide text-foreground/60">
+          <p className="text-sm font-bold uppercase tracking-wide text-foreground">
             Bulletin de salaire
           </p>
           <p className="text-sm text-foreground/50">

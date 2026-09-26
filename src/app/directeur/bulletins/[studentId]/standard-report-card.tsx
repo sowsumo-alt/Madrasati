@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
-import { GraduationCap } from "lucide-react";
 import type { ReportCard } from "@/lib/report-card-compute";
 import type { TranslationKey } from "@/lib/i18n/dictionaries";
 import { formatDelta, type CardEvolution, type Evolution } from "@/lib/report-card-checks";
 import { cn } from "@/lib/utils";
+import type { OfficialHeaderText, SchoolIdentity } from "@/lib/official-header";
+import { DocumentHeader } from "@/components/documents/document-header";
 
 /**
  * Bulletin d'origine de Madrasati, celui du Fondamental (et des classes au
@@ -33,6 +34,7 @@ export function StandardReportCard({
   card,
   t,
   school,
+  official,
   yearLabel,
   photoUrl,
   commentSlot,
@@ -42,7 +44,9 @@ export function StandardReportCard({
   id: string;
   card: ReportCard;
   t: (key: TranslationKey) => string;
-  school: { name: string; address: string | null; phone: string | null; logoUrl: string | null };
+  school: SchoolIdentity;
+  /** Bloc de l'État, commun à toutes les écoles (voir loadOfficialHeader). */
+  official: OfficialHeaderText;
   yearLabel: string | null;
   photoUrl: string | null;
   /** L'appréciation : l'éditeur sur la page d'un élève, le texte seul en lot. */
@@ -55,37 +59,17 @@ export function StandardReportCard({
       id={id}
       className="rounded-xl border border-border bg-surface p-8 shadow-sm print:border-0 print:p-0 print:shadow-none"
     >
-      <div className="flex items-start justify-between border-b border-border pb-6">
-        <div className="flex items-center gap-3 text-primary-800">
-          {school.logoUrl ? (
-            <Image
-              src={school.logoUrl}
-              alt=""
-              width={320}
-              height={320}
-              unoptimized
-              className="h-14 w-14 rounded object-contain"
-            />
-          ) : (
-            <GraduationCap className="h-8 w-8" strokeWidth={2} />
-          )}
-          <div>
-            <p className="text-base font-semibold leading-tight">{school.name}</p>
-            {school.address && <p className="text-xs text-foreground/50">{school.address}</p>}
-            {school.phone && <p className="text-xs text-foreground/50">{school.phone}</p>}
-          </div>
-        </div>
-        <div className="text-right">
-          <p className="text-xs font-medium uppercase tracking-wide text-foreground/40">
-            {t("bulletin.reportCardTitle")}
+      <DocumentHeader school={school} official={official} />
+
+      <div className="flex items-baseline justify-between border-b border-border pb-4">
+        <p className="text-sm font-bold uppercase tracking-wide text-foreground">
+          {t("bulletin.reportCardTitle")} — {card.term}
+        </p>
+        {yearLabel && (
+          <p className="text-xs text-foreground/50">
+            {t("bulletin.year")} {yearLabel}
           </p>
-          <p className="text-sm font-semibold text-foreground">{card.term}</p>
-          {yearLabel && (
-            <p className="text-xs text-foreground/50">
-              {t("bulletin.year")} {yearLabel}
-            </p>
-          )}
-        </div>
+        )}
       </div>
 
       <div className="grid grid-cols-3 gap-6 py-6">

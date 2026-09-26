@@ -11,7 +11,8 @@ import {
 } from "@/lib/annual-decision";
 import type { TermRecap } from "@/lib/report-card-data";
 import { formatLongDate } from "@/lib/format";
-import { OfficialHeaders, type SchoolIdentity } from "./secondary-report-card";
+import type { OfficialHeaderText, SchoolIdentity } from "@/lib/official-header";
+import { DocumentHeader } from "@/components/documents/document-header";
 import styles from "./secondary-report-card.module.css";
 
 /**
@@ -29,6 +30,7 @@ export interface AnnualReportCardProps {
   id: string;
   card: ReportCard;
   school: SchoolIdentity;
+  official: OfficialHeaderText;
   yearLabel: string | null;
   studentNumber: number;
   termRecap: TermRecap[];
@@ -100,6 +102,7 @@ export function AnnualReportCard({
   id,
   card,
   school,
+  official,
   yearLabel,
   studentNumber,
   termRecap,
@@ -127,7 +130,7 @@ export function AnnualReportCard({
 
   return (
     <div id={id} className={styles.bulletin} dir="ltr" lang="fr" data-testid="annual-report-card">
-      <OfficialHeaders school={school} />
+      <DocumentHeader school={school} official={official} />
 
       <div className={styles.annualTitleRow}>
         <div className={styles.annualTitle}>Bulletin Annuel</div>

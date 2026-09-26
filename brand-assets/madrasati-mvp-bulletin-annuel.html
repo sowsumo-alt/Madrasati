@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Madrasati — Aperçu Bulletin Annuel</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:'Georgia',serif;
+  background:#eef1ee;
+  color:#111827;
+  padding:24px 12px;
+}
+.preview-label{
+  max-width:900px;margin:0 auto 16px;
+  background:#0b5e38;color:#fff;
+  padding:10px 18px;border-radius:10px;
+  font-family:system-ui,sans-serif;
+  font-size:13px;font-weight:600;
+  display:flex;align-items:center;gap:8px;
+}
+.bulletin{
+  max-width:900px;margin:0 auto;
+  background:#fff;
+  border:1px solid #9ca3af;
+  padding:26px 30px;
+  box-shadow:0 2px 14px rgba(0,0,0,.08);
+}
+.official-header{
+  display:grid;
+  grid-template-columns:1fr auto 1fr;
+  align-items:start;
+  gap:14px;
+  padding-bottom:14px;
+  border-bottom:2px solid #0b5e38;
+  margin-bottom:14px;
+}
+.official-fr{font-family:system-ui,sans-serif;font-size:11px;line-height:1.5;color:#111827}
+.official-fr .line1{font-weight:700;font-size:12px}
+.official-ar{font-family:system-ui,sans-serif;font-size:11.5px;line-height:1.65;color:#111827;text-align:right;direction:rtl}
+.official-ar .line1{font-weight:700;font-size:12.5px}
+.crest{
+  width:52px;height:52px;border-radius:50%;background:#0b5e38;color:#c9973a;
+  display:flex;align-items:center;justify-content:center;font-size:24px;
+  border:2px solid #c9973a;
+}
+.school-header{text-align:center;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid #9ca3af}
+.school-name{font-size:19px;font-weight:700;color:#0b5e38;font-family:system-ui,sans-serif;margin-bottom:3px}
+.school-meta{font-family:system-ui,sans-serif;font-size:11px;color:#6b7280}
+
+.bulletin-title-row{
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  margin:12px 0 6px;
+}
+.bulletin-title{
+  font-size:16px;font-weight:800;font-family:system-ui,sans-serif;
+  letter-spacing:.4px;text-transform:uppercase;color:#0b5e38;
+}
+.annual-badge{
+  background:#c9973a;color:#fff;font-family:system-ui,sans-serif;
+  font-size:10px;font-weight:700;padding:3px 12px;border-radius:20px;
+  text-transform:uppercase;letter-spacing:.4px;
+}
+.bulletin-sub{
+  text-align:center;font-family:system-ui,sans-serif;font-size:11px;
+  color:#6b7280;margin-bottom:14px;
+}
+
+.student-info{
+  display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:0;
+  font-family:system-ui,sans-serif;font-size:12px;margin-bottom:16px;
+  border:1px solid #9ca3af;border-radius:4px;overflow:hidden;
+}
+.student-info div{padding:8px 12px;border-right:1px solid #9ca3af}
+.student-info div:last-child{border-right:none}
+.student-info div span{color:#6b7280;display:block;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px}
+.student-info div strong{font-size:12.5px}
+
+.trim-recap{
+  display:grid;grid-template-columns:1fr 1fr 1fr 1.3fr;gap:10px;
+  margin-bottom:18px;
+}
+.trim-card{
+  background:#f8f9fa;border:1px solid #9ca3af;border-radius:6px;
+  padding:10px 12px;text-align:center;font-family:system-ui,sans-serif;
+}
+.trim-card .lbl{font-size:9px;color:#6b7280;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px}
+.trim-card .val{font-size:17px;font-weight:800;color:#374151}
+.trim-card.annuel{background:#e6f4ed;border-color:#0b5e38}
+.trim-card.annuel .val{color:#0b5e38;font-size:19px}
+.trim-card .coef{font-size:9px;color:#c9973a;font-weight:700;margin-top:2px}
+
+.table-wrap{overflow-x:auto;margin-bottom:4px}
+table{width:100%;min-width:820px;border-collapse:collapse;font-family:system-ui,sans-serif;font-size:11px}
+thead tr.fr-row th{
+  background:#0b5e38;color:#fff;padding:6px 4px 2px;font-size:9.5px;font-weight:700;
+  text-align:center;border:1px solid #063d24;border-bottom:none;
+}
+thead tr.ar-row th{
+  background:#0b5e38;color:#d7ecdf;padding:2px 4px 6px;font-size:10px;font-weight:400;
+  text-align:center;border:1px solid #063d24;border-top:none;direction:rtl;
+}
+th.col-matiere{text-align:left !important;direction:ltr}
+td{padding:6px 4px;text-align:center;border:1px solid #9ca3af;vertical-align:middle}
+td.matiere{text-align:left;padding:6px 8px}
+td.matiere .fr{font-weight:700;font-size:11px;color:#111827}
+td.matiere .ar{font-size:10px;color:#6b7280;direction:rtl;font-weight:400;margin-top:1px}
+td.moyx3{font-weight:700;color:#0b5e38}
+td.compo{font-size:10.5px}
+td.moyt{font-weight:700}
+td.notecoeff{font-weight:700}
+tr.total-row td{background:#e6f4ed !important;font-weight:800;border-top:2px solid #0b5e38;font-size:11.5px}
+tr:nth-child(even) td{background:#fafafa}
+
+.calc-note{
+  background:#fffbeb;border:1px dashed #d1a020;border-radius:6px;padding:7px 10px;
+  font-family:system-ui,sans-serif;font-size:9.5px;color:#7a5410;margin-bottom:16px;line-height:1.55;
+}
+
+.synthese{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+.synth-card{background:#f8f9fa;border:1px solid #9ca3af;border-radius:6px;padding:11px 14px;text-align:center;font-family:system-ui,sans-serif}
+.synth-card .lbl{font-size:9.5px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
+.synth-card .val{font-size:19px;font-weight:800;color:#0b5e38}
+
+.bottom-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+.bottom-box{border:1px solid #9ca3af;border-radius:6px;padding:12px 14px;font-family:system-ui,sans-serif}
+.bottom-box .title{font-size:10.5px;font-weight:700;color:#0b5e38;text-transform:uppercase;letter-spacing:.3px;margin-bottom:10px}
+.check-item{display:flex;align-items:center;gap:8px;font-size:11.5px;margin-bottom:7px;color:#374151}
+.check-item:last-child{margin-bottom:0}
+.check-box{width:15px;height:15px;border:1.5px solid #6b7280;border-radius:3px;flex-shrink:0}
+.check-box.checked{background:#0b5e38;border-color:#0b5e38;position:relative}
+.check-box.checked::after{content:'✓';position:absolute;color:#fff;font-size:11px;top:-2px;left:2px}
+.check-item .ar{margin-left:auto;color:#9ca3af;font-size:10px;direction:rtl}
+
+.decision-highlight{
+  background:#e6f4ed;border:1.5px solid #0b5e38;border-radius:6px;
+  padding:10px 14px;margin-top:10px;font-family:system-ui,sans-serif;
+  font-size:12px;text-align:center;font-weight:700;color:#0b5e38;
+}
+
+.signatures{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:22px;font-family:system-ui,sans-serif;font-size:11px;text-align:center}
+.signatures div{border-top:1px solid #6b7280;padding-top:6px;color:#374151}
+.footer-date{text-align:right;font-family:system-ui,sans-serif;font-size:11px;color:#6b7280;margin-top:14px}
+.footer-note{font-family:system-ui,sans-serif;font-size:9.5px;color:#9ca3af;margin-top:6px;font-style:italic}
+</style>
+</head>
+<body>
+
+<div class="preview-label">
+  👁️ Aperçu MVP — Bulletin Annuel (généré automatiquement à la fin du 3ème trimestre)
+</div>
+
+<div class="bulletin">
+
+  <div class="official-header">
+    <div class="official-fr">
+      <div class="line1">République Islamique de Mauritanie</div>
+      <div>Honneur — Fraternité — Justice</div>
+      <div>Ministère de l'Éducation Nationale</div>
+      <div>Direction de l'Enseignement Fondamental et Secondaire</div>
+    </div>
+    <div class="crest">🎓</div>
+    <div class="official-ar">
+      <div class="line1">الجمهورية الإسلامية الموريتانية</div>
+      <div>شرف – إخاء – عدالة</div>
+      <div>وزارة التهذيب الوطني</div>
+      <div>مديرية التعليم الأساسي والثانوي</div>
+    </div>
+  </div>
+
+  <div class="school-header">
+    <div class="school-name">École Privée Ngalam Avenir</div>
+    <div class="school-meta">Tevragh-Zeina, Nouakchott, Mauritanie · +222 45 12 34 56</div>
+  </div>
+
+  <div class="bulletin-title-row">
+    <div class="bulletin-title">Bulletin Annuel</div>
+    <div class="annual-badge">Année 2026-2027</div>
+  </div>
+  <div class="bulletin-sub">Récapitulatif des 3 trimestres — Généré automatiquement par Madrasati</div>
+
+  <div class="student-info">
+    <div><span>Nom et Prénom</span><strong>Mary Oumar Ba</strong></div>
+    <div><span>N°</span><strong>03</strong></div>
+    <div><span>Classe</span><strong>1°AS</strong></div>
+    <div><span>Année scolaire</span><strong>2026-2027</strong></div>
+  </div>
+
+  <div class="trim-recap">
+    <div class="trim-card">
+      <div class="lbl">Trimestre 1</div>
+      <div class="val">12,94</div>
+      <div class="coef">Poids ×1</div>
+    </div>
+    <div class="trim-card">
+      <div class="lbl">Trimestre 2</div>
+      <div class="val">13,60</div>
+      <div class="coef">Poids ×2</div>
+    </div>
+    <div class="trim-card">
+      <div class="lbl">Trimestre 3</div>
+      <div class="val">14,10</div>
+      <div class="coef">Poids ×3</div>
+    </div>
+    <div class="trim-card annuel">
+      <div class="lbl">Moyenne Annuelle</div>
+      <div class="val">13,58/20</div>
+      <div class="coef">Pondérée</div>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr class="fr-row">
+        <th class="col-matiere">Disciplines</th>
+        <th>Meilleur Devoir ×3</th>
+        <th>Compo T1 ×1</th>
+        <th>Compo T2 ×2</th>
+        <th>Compo T3 ×3</th>
+        <th>Moy Annuelle /20</th>
+        <th>Coeff</th>
+        <th>Note × Coeff</th>
+        <th>Rang</th>
+      </tr>
+      <tr class="ar-row">
+        <th class="col-matiere">المواد</th>
+        <th>أحسن فرض×3</th>
+        <th>امتحان1×1</th>
+        <th>امتحان2×2</th>
+        <th>امتحان3×3</th>
+        <th>المعدل السنوي</th>
+        <th>الضارب</th>
+        <th>النقطة المرجحة</th>
+        <th>الرتبة</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="matiere"><div class="fr">Arabe</div><div class="ar">العربية</div></td>
+        <td class="moyx3">43,5</td>
+        <td class="compo">12,5</td>
+        <td class="compo">13×2=26</td>
+        <td class="compo">14×3=42</td>
+        <td class="moyt">13,78</td>
+        <td>5</td>
+        <td class="notecoeff">68,89</td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td class="matiere"><div class="fr">Français</div><div class="ar">اللغة الفرنسية</div></td>
+        <td class="moyx3">42</td>
+        <td class="compo">13</td>
+        <td class="compo">14×2=28</td>
+        <td class="compo">13×3=39</td>
+        <td class="moyt">13,56</td>
+        <td>4</td>
+        <td class="notecoeff">54,22</td>
+        <td>3</td>
+      </tr>
+      <tr>
+        <td class="matiere"><div class="fr">Anglais</div><div class="ar">اللغة الإنجليزية</div></td>
+        <td class="moyx3">30</td>
+        <td class="compo">11</td>
+        <td class="compo">12×2=24</td>
+        <td class="compo">13×3=39</td>
+        <td class="moyt">11,56</td>
+        <td>1</td>
+        <td class="notecoeff">11,56</td>
+        <td>4</td>
+      </tr>
+      <tr>
+        <td class="matiere"><div class="fr">Mathématiques</div><div class="ar">الرياضيات</div></td>
+        <td class="moyx3">36</td>
+        <td class="compo">10</td>
+        <td class="compo">12×2=24</td>
+        <td class="compo">15×3=45</td>
+        <td class="moyt">12,78</td>
+        <td>5</td>
+        <td class="notecoeff">63,89</td>
+        <td>1</td>
+      </tr>
+      <tr class="total-row">
+        <td class="matiere"><div class="fr">Moyenne Générale Annuelle</div><div class="ar">المعدل العام السنوي</div></td>
+        <td></td><td></td><td></td><td></td>
+        <td>13,58</td>
+        <td>24</td>
+        <td>326,00</td>
+        <td>2ème / 9</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="calc-note">
+    💡 Formule : (Meilleur devoir de l'année ×3 + Composition T1 ×1 + Composition T2 ×2 + Composition T3 ×3) ÷ 9. Les moyennes des Trimestres 1 et 2 sont récupérées automatiquement depuis les bulletins déjà générés.
+  </div>
+
+  <div class="synthese">
+    <div class="synth-card">
+      <div class="lbl">Moyenne générale annuelle</div>
+      <div class="val">13,58/20</div>
+    </div>
+    <div class="synth-card">
+      <div class="lbl">Rang annuel</div>
+      <div class="val">2ème / 9</div>
+    </div>
+  </div>
+
+  <div class="bottom-grid">
+    <div class="bottom-box">
+      <div class="title">Appréciations du conseil des professeurs</div>
+      <div class="check-item"><div class="check-box checked"></div>Félicitation<span class="ar">تهنئة</span></div>
+      <div class="check-item"><div class="check-box"></div>Encouragement<span class="ar">تشجيع</span></div>
+      <div class="check-item"><div class="check-box"></div>Tableau d'honneur<span class="ar">لوحة شرف</span></div>
+      <div class="check-item"><div class="check-box"></div>Avertissement<span class="ar">إنذار</span></div>
+    </div>
+    <div class="bottom-box">
+      <div class="title">Décision de passage</div>
+      <div class="check-item"><div class="check-box checked"></div>Passe en classe supérieure</div>
+      <div class="check-item"><div class="check-box"></div>Autorisé(e)</div>
+      <div class="check-item"><div class="check-box"></div>A redoubler</div>
+      <div class="decision-highlight">✓ Suggestion : Passage en 2°AS</div>
+    </div>
+  </div>
+
+  <div class="signatures">
+    <div>Le Directeur Général</div>
+    <div>Le Tuteur</div>
+    <div>Le Directeur des Études</div>
+  </div>
+
+  <div class="footer-date">Nouakchott, le 20 juin 2027</div>
+  <div class="footer-note">Nota : Il n'est délivré qu'un seul Bulletin de Notes ; il appartient à l'intéressé(e) d'en faire des photocopies légalisées.</div>
+
+</div>
+
+</body>
+</html>

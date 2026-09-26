@@ -1,12 +1,12 @@
-import Image from "next/image";
-import { GraduationCap } from "lucide-react";
 import type { ReportCard, ReportCardSubject } from "@/lib/report-card-compute";
 import { weightedOf } from "@/lib/report-card-compute";
 import { MENTION_LABELS_FR } from "@/lib/report-card";
 import { SECONDARY_OFFICIAL_SUBJECTS, officialSubjectIndex, roundHundredth } from "@/lib/grading";
 import type { FormulaPart } from "@/lib/grading-config";
 import { formatDelta, type CardEvolution, type Evolution } from "@/lib/report-card-checks";
-import { formatLongDate, formatPhone } from "@/lib/format";
+import { formatLongDate } from "@/lib/format";
+import type { OfficialHeaderText, SchoolIdentity } from "@/lib/official-header";
+import { DocumentHeader } from "@/components/documents/document-header";
 import styles from "./secondary-report-card.module.css";
 
 /**
@@ -27,6 +27,8 @@ export interface SecondaryReportCardProps {
   id: string;
   card: ReportCard;
   school: SchoolIdentity;
+  /** Bloc de l'État, commun à toutes les écoles (voir loadOfficialHeader). */
+  official: OfficialHeaderText;
   yearLabel: string | null;
   /** Place de l'élève dans la liste alphabétique de la classe. */
   studentNumber: number;
@@ -126,71 +128,6 @@ function PartScores({ result, index }: { result: ReportCardSubject; index: numbe
   );
 }
 
-export interface SchoolIdentity {
-  name: string;
-  address: string | null;
-  city: string | null;
-  phone: string | null;
-  logoUrl: string | null;
-}
-
-/**
- * Les deux en-têtes communs à tous les bulletins officiels : le bloc de la
- * République, identique pour toutes les écoles, puis celui de l'école.
- */
-export function OfficialHeaders({ school }: { school: SchoolIdentity }) {
-  const place = [school.address, school.city]
-    .filter((part): part is string => Boolean(part?.trim()))
-    .filter((part, i, parts) => i === 0 || !parts[0].toLowerCase().includes(part.toLowerCase()));
-  const meta = (
-    place.some((part) => /mauritanie/i.test(part)) ? place : [...place, "Mauritanie"]
-  ).join(", ");
-  const phone = school.phone ? formatPhone(school.phone) : null;
-
-  return (
-    <>
-        {/* BLOC OFFICIEL MAURITANIEN */}
-        <div className={styles.officialHeader}>
-          <div className={styles.officialFr}>
-            <div className={styles.line1}>République Islamique de Mauritanie</div>
-            <div>Honneur — Fraternité — Justice</div>
-            <div>Ministère de l&apos;Éducation Nationale</div>
-            <div>Direction de l&apos;Enseignement Fondamental et Secondaire</div>
-          </div>
-          <div className={styles.crest}>
-            {school.logoUrl ? (
-              <Image
-                src={school.logoUrl}
-                alt=""
-                width={104}
-                height={104}
-                unoptimized
-                className={styles.crestLogo}
-              />
-            ) : (
-              <GraduationCap className="h-6 w-6" strokeWidth={2} aria-hidden />
-            )}
-          </div>
-          <div className={styles.officialAr} lang="ar">
-            <div className={styles.line1}>الجمهورية الإسلامية الموريتانية</div>
-            <div>شرف – إخاء – عدالة</div>
-            <div>وزارة التهذيب الوطني</div>
-            <div>مديرية التعليم الأساسي والثانوي</div>
-          </div>
-        </div>
-  
-        {/* EN-TÊTE DE L'ÉCOLE (depuis Paramètres) */}
-        <div className={styles.schoolHeader}>
-          <div className={styles.schoolName}>{school.name}</div>
-          <div className={styles.schoolMeta}>
-            {meta}
-            {phone && <> · <span dir="ltr">{phone}</span></>}
-          </div>
-        </div>
-    </>
-  );
-}
-
 /** « Bulletin du 1er trimestre », « Bulletin du 2e trimestre »… */
 export function termTitle(term: string): string {
   const n = Number(term.replace(/\D/g, ""));
@@ -202,6 +139,7 @@ export function SecondaryReportCard({
   id,
   card,
   school,
+  official,
   yearLabel,
   studentNumber,
   suspensions,
@@ -222,7 +160,7 @@ export function SecondaryReportCard({
 
   return (
     <div id={id} className={styles.bulletin} dir="ltr" lang="fr" data-testid="secondary-report-card">
-      <OfficialHeaders school={school} />
+      <DocumentHeader school={school} official={official} />
 
       <div className={styles.title}>{title ?? termTitle(card.term)}</div>
 

@@ -115,6 +115,24 @@ model SuperAdmin {
   @@map("super_admins")
 }
 
+/**
+ * Bloc officiel imprimé en tête des bulletins (République Islamique de
+ * Mauritanie, devise, ministère), en français et en arabe. Commun à toute la
+ * plateforme : aucune relation avec School, donc aucun directeur ne peut le
+ * modifier — seul un Super Admin le change, si le Ministère change son
+ * intitulé. Tant qu'aucune ligne n'existe, le texte par défaut de
+ * src/lib/official-header.ts s'applique à toutes les écoles.
+ */
+model OfficialHeader {
+  id        String   @id @default("default")
+  linesFr   String[]
+  linesAr   String[]
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+
+  @@map("official_header")
+}
+
 // Demande de changement de formule envoyée par un directeur : journal
 // consultable, sans activation automatique — c'est toujours l'éditeur qui
 // valide le paiement avant de changer School.plan lui-même.

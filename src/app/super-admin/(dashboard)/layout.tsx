@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
 import { requireSuperAdmin } from "@/lib/super-admin-session";
 import { SuperAdminSignOutButton } from "./sign-out-button";
@@ -16,6 +17,12 @@ export default async function SuperAdminLayout({ children }: { children: ReactNo
           <span className="font-semibold tracking-tight">Madrasati — Super Admin</span>
         </span>
         <span className="flex items-center gap-3">
+          <Link
+            href="/super-admin/en-tete-officiel"
+            className="text-sm text-white/70 transition-colors hover:text-white"
+          >
+            Bloc officiel
+          </Link>
           <span className="hidden text-sm text-white/50 sm:inline">{admin.name}</span>
           <SuperAdminSignOutButton />
         </span>
