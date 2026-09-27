@@ -17,6 +17,7 @@ import {
   type StudentEditTarget,
 } from "./student-form-dialog";
 import { ImportDialog } from "./import-dialog";
+import type { CatalogGroup } from "@/lib/class-catalog";
 import { moveStudentsToClass, setStudentStatus, setStudentsStatus } from "./actions";
 import {
   StudentsToolbar,
@@ -86,6 +87,7 @@ export function StudentsView({
   classes,
   schoolName,
   currentYearLabel,
+  catalog,
   initialQuery = "",
   initialClassFilter = "ALL",
   initialFamilyFilter = null,
@@ -93,6 +95,8 @@ export function StudentsView({
 }: {
   students: StudentRow[];
   classes: StudentClassOption[];
+  /** Catégories et niveaux, pour créer une classe depuis l'import. */
+  catalog: CatalogGroup[];
   schoolName: string;
   currentYearLabel: string | null;
   /** Terme envoyé par la recherche globale de l'en-tête (?q=…). */
@@ -413,7 +417,7 @@ export function StudentsView({
         editTarget={editTarget}
         currentYearLabel={currentYearLabel}
       />
-      <ImportDialog open={importOpen} onOpenChange={setImportOpen} />
+      <ImportDialog open={importOpen} onOpenChange={setImportOpen} classes={classes} catalog={catalog} />
       <ConfirmDialog
         open={Boolean(confirmTarget)}
         onOpenChange={(open) => !open && setConfirmTarget(null)}

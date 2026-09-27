@@ -3,6 +3,7 @@ import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { StudentsView, type StudentRow } from "./students-view";
 import { CURRENT_YEAR } from "@/lib/school-year";
+import { buildCatalog } from "@/lib/class-catalog";
 
 export default async function StudentsPage({
   searchParams,
@@ -12,7 +13,7 @@ export default async function StudentsPage({
   const user = await requireRole(ROLES.DIRECTOR);
   const { q, new: openNew, classe, famille } = await searchParams;
 
-  const [students, classes, school, currentYear] = await Promise.all([
+  const [students, classes, school, currentYear, allLevels] = await Promise.all([
     prisma.student.findMany({
       where: { schoolId: user.schoolId },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
@@ -39,6 +40,13 @@ export default async function StudentsPage({
     prisma.academicYear.findFirst({
       where: { schoolId: user.schoolId, isCurrent: true },
       select: { label: true },
+    }),
+    // Pour créer la classe depuis l'import : les niveaux de l'école, toutes
+    // années confondues (voir buildCatalog).
+    prisma.classRoom.findMany({
+      where: { schoolId: user.schoolId },
+      distinct: ["category", "level"],
+      select: { category: true, level: true, name: true },
     }),
   ]);
 
@@ -80,6 +88,7 @@ export default async function StudentsPage({
       key={`${q ?? ""}|${classe ?? ""}|${famille ?? ""}`}
       students={rows}
       classes={classes}
+      catalog={buildCatalog(allLevels)}
       schoolName={school?.name ?? "Madrasati"}
       currentYearLabel={currentYear?.label ?? null}
       initialQuery={q ?? ""}
