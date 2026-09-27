@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ClassLevelPicker, EMPTY_CLASS_LEVEL, type ClassLevelValue } from "@/components/classes/class-level-picker";
-import type { CatalogGroup } from "@/lib/class-catalog";
+import { composeClassName, type CatalogGroup } from "@/lib/class-catalog";
 import {
   IMPORT_FIELDS,
   IMPORT_FIELD_LABELS,
@@ -133,14 +133,17 @@ export function ImportDialog({ open, onOpenChange, classes, catalog }: ImportDia
 
       // La classe : celle qui porte déjà le nom du titre, sinon on propose
       // de la créer d'après le titre (« JARDIN » → Préscolaire / Jardin).
-      const existing = title ? classes.find((c) => sameText(c.name, title)) : null;
       const suggestion = suggestClassFromTitle(title);
+      const wanted = suggestion ? composeClassName(suggestion.level, suggestion.section) : null;
+      const existing = title
+        ? classes.find((c) => sameText(c.name, title) || (wanted != null && sameText(c.name, wanted)))
+        : null;
       if (existing) {
         setClassMode("existing");
         setClassId(existing.id);
       } else if (suggestion) {
         setClassMode("new");
-        setNewClass({ category: suggestion.category, level: suggestion.level, section: "" });
+        setNewClass({ category: suggestion.category, level: suggestion.level, section: suggestion.section });
       } else {
         setClassMode(classes.length > 0 ? "existing" : "new");
       }

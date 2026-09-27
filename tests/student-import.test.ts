@@ -35,7 +35,11 @@ test("l'en-tête du tableau et le titre au-dessus sont retrouvés", () => {
   const header = findHeaderRow(SHEET);
   assert.equal(header, 3);
   assert.equal(findTitle(SHEET, header), "JARDIN");
-  assert.deepEqual(suggestClassFromTitle("JARDIN"), { category: "PRESCOLAIRE", level: "Jardin" });
+  assert.deepEqual(suggestClassFromTitle("JARDIN"), { category: "PRESCOLAIRE", level: "Jardin", section: "" });
+  // Valable pour toutes les classes, même quand le titre dit autre chose autour.
+  assert.deepEqual(suggestClassFromTitle("Liste des élèves 1AF B"), { category: "FONDAMENTAL", level: "1AF", section: "B" });
+  assert.deepEqual(suggestClassFromTitle("CLASSE : 5 SN"), { category: "LYCEE", level: "5SN", section: "" });
+  assert.deepEqual(suggestClassFromTitle("Petite Section"), { category: "PRESCOLAIRE", level: "Petite Section", section: "" });
 });
 
 test("les colonnes habituelles des écoles sont reconnues, même sans en-tête", () => {

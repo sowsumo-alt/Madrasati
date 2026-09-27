@@ -125,7 +125,10 @@ export function buildCatalog(
   }));
 
   for (const c of classes) {
-    const category = classCategory(c);
+    // Seuls les niveaux choisis avec une catégorie enrichissent la liste :
+    // une ancienne classe au niveau saisi à la main (« 4 », « 5AS ») ne doit
+    // pas y ajouter un bouton en double à côté des niveaux officiels.
+    const category = c.category?.trim();
     if (!category || !c.level.trim()) continue;
     let group = groups.find((g) => g.category === category);
     if (!group) {

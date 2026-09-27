@@ -330,8 +330,24 @@ export function buildImportPreview(
  * Classe proposée pour tout le fichier, d'après son titre : un niveau du
  * catalogue (« JARDIN » → Préscolaire / Jardin), sinon le titre tel quel.
  */
-export function suggestClassFromTitle(title: string | null) {
+export function suggestClassFromTitle(
+  title: string | null,
+): { category: string; level: string; section: string } | null {
   if (!title) return null;
-  const standard = findStandardLevel(title);
-  return standard ?? { category: "", level: title.trim() };
+  const whole = findStandardLevel(title);
+  if (whole) return { ...whole, section: "" };
+  // « Liste des élèves 1AF B », « CLASSE : 5SN » : un niveau connu au milieu
+  // du titre, et la lettre qui le suit éventuellement comme section.
+  const words = title.trim().split(/[\s:–-]+/).filter(Boolean);
+  for (let i = 0; i < words.length; i++) {
+    for (const size of [2, 1]) {
+      const found = findStandardLevel(words.slice(i, i + size).join(" "));
+      if (found) {
+        const next = words[i + size];
+        const section = next && /^[A-Z0-9]$/i.test(next) ? next.toUpperCase() : "";
+        return { ...found, section };
+      }
+    }
+  }
+  return { category: "", level: title.trim(), section: "" };
 }
