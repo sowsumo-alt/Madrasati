@@ -304,6 +304,9 @@ model Student {
   motherName     String?
   // Numéro National d'Identification mauritanien : 10 chiffres, facultatif.
   nni            String?
+  // N° RIM : identifiant administratif de l'élève tenu par les écoles, à côté
+  // du NNI. Texte libre, facultatif.
+  rimNumber      String?
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
 

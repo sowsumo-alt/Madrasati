@@ -71,6 +71,7 @@ function studentFields(data: StudentFormValues) {
     placeOfBirth: data.placeOfBirth || null,
     nationality: data.nationality || null,
     nni: storedNni(data.nni),
+    rimNumber: data.rimNumber || null,
     motherName: data.motherName || null,
     classId: data.classId || null,
     status: data.status,

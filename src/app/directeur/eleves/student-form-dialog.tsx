@@ -60,6 +60,7 @@ export interface StudentEditTarget {
   placeOfBirth: string | null;
   nationality: string | null;
   nni: string | null;
+  rimNumber: string | null;
   motherName: string | null;
   enrollmentDate: string | null;
   parentName: string;
@@ -90,6 +91,7 @@ function newStudentValues(): StudentFormValues {
     placeOfBirth: "",
     nationality: DEFAULT_NATIONALITY,
     nni: "",
+    rimNumber: "",
     classId: "",
     status: "ACTIVE",
     enrollmentDate: new Date().toISOString().slice(0, 10),
@@ -148,6 +150,7 @@ export function StudentFormDialog({
               // serait enregistrée sans que personne ne l'ait vérifiée.
               nationality: editTarget.nationality ?? "",
               nni: editTarget.nni ?? "",
+              rimNumber: editTarget.rimNumber ?? "",
               classId: editTarget.classId ?? "",
               status: editTarget.status as StudentFormValues["status"],
               enrollmentDate: editTarget.enrollmentDate ?? "",
@@ -328,6 +331,16 @@ export function StudentFormDialog({
                   dir="ltr"
                   placeholder={t("students.nniPlaceholder")}
                   {...register("nni")}
+                />
+              </FormField>
+              <FormField label={t("students.rimNumber")} htmlFor="rimNumber">
+                <IconInput
+                  icon={IdCard}
+                  id="rimNumber"
+                  autoComplete="off"
+                  maxLength={30}
+                  dir="ltr"
+                  {...register("rimNumber")}
                 />
               </FormField>
             </FormSection>

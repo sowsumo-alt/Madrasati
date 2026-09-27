@@ -174,6 +174,7 @@ export async function enrollFamily(values: FamilyEnrollmentValues): Promise<Fami
           gender: child.gender,
           placeOfBirth: child.placeOfBirth || null,
           nni: storedNni(child.nni),
+          rimNumber: child.rimNumber || null,
           classId: child.classId,
           nationality: DEFAULT_NATIONALITY,
           status: "ACTIVE",

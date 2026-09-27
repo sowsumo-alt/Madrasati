@@ -20,6 +20,8 @@ export const studentSchema = z
     nationality: optionalText(60),
     /** Numéro National d'Identification : 10 chiffres, facultatif. */
     nni: optionalNniSchema,
+    /** N° RIM : identifiant administratif de l'élève, facultatif. */
+    rimNumber: optionalText(30),
     // Obligatoire : un élève sans classe n'apparaît dans aucun appel, aucun
     // bulletin et aucune liste de classe — le directeur perd sa trace sans
     // qu'aucun écran ne le signale.

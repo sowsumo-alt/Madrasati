@@ -15,6 +15,8 @@ export const familyChildSchema = z.object({
   placeOfBirth: optionalText(120),
   /** Numéro National d'Identification : 10 chiffres, facultatif. */
   nni: optionalNniSchema,
+  /** N° RIM : identifiant administratif de l'élève, facultatif. */
+  rimNumber: optionalText(30),
   classId: z.string().trim().min(1, "Choisissez la classe"),
   /** Frais d'inscription de cet enfant, en MRU ; 0 = aucun frais. */
   amount: z.number().int().nonnegative().max(100_000_000),

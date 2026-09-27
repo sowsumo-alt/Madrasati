@@ -167,6 +167,20 @@ export function ChildrenStep({
                   />
                 </div>
               </FormField>
+              <FormField label={t("students.rimNumber")} htmlFor={id("rim")}>
+                <div className="relative">
+                  <IdCard className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/40" />
+                  <Input
+                    id={id("rim")}
+                    value={child.rimNumber ?? ""}
+                    onChange={(ev) => onChange(child.key, { rimNumber: ev.target.value })}
+                    maxLength={30}
+                    dir="ltr"
+                    className="ps-9"
+                    autoComplete="off"
+                  />
+                </div>
+              </FormField>
               <FormField
                 label={t("students.class")}
                 htmlFor={id("class")}

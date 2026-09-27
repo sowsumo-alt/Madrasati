@@ -102,6 +102,9 @@ export function StudentProfileSheet({
                 <Row label={t("students.nni")}>
                   {student.nni ? <span dir="ltr">{student.nni}</span> : empty}
                 </Row>
+                <Row label={t("students.rimNumber")}>
+                  {student.rimNumber ? <span dir="ltr">{student.rimNumber}</span> : empty}
+                </Row>
               </Section>
 
               <Section title={t("students.sectionSchooling")}>

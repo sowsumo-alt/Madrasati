@@ -26,6 +26,7 @@ export interface ChildDraft {
   gender: "" | "M" | "F";
   placeOfBirth: string;
   nni: string;
+  rimNumber: string;
   classId: string;
   amount: string;
 }
@@ -44,6 +45,7 @@ export function newChild(lastName = ""): ChildDraft {
     gender: "",
     placeOfBirth: "",
     nni: "",
+    rimNumber: "",
     classId: "",
     amount: "",
   };
@@ -103,6 +105,7 @@ export function toEnrollmentValues(
       gender: c.gender,
       placeOfBirth: c.placeOfBirth,
       nni: c.nni,
+      rimNumber: c.rimNumber ?? "",
       classId: c.classId,
       amount: parseAmount(c.amount),
     })),

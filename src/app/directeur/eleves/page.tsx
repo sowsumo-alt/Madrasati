@@ -65,6 +65,7 @@ export default async function StudentsPage({
       placeOfBirth: s.placeOfBirth,
       nationality: s.nationality,
       nni: s.nni,
+      rimNumber: s.rimNumber,
       motherName: s.motherName,
       enrollmentDate: s.enrollmentDate.toISOString(),
       parent: parent
