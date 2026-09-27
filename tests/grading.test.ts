@@ -81,6 +81,12 @@ test("niveau de la classe : Fondamental, Collège, Lycée", () => {
   assert.equal(schoolLevelOf("7 LM"), "LYCEE");
   assert.equal(schoolLevelOf("7LO"), "LYCEE");
   assert.equal(schoolLevelOf("3C"), null); // pas une série de lycée
+  // Nomenclature Madrasati : 4D, puis séries SN et A de la 5e à la 7e année.
+  for (const level of ["4D", "5SN", "5A", "6SN", "6A", "7SN", "7A", "5SN B", "7A 2"]) {
+    assert.equal(schoolLevelOf(level), "LYCEE", level);
+  }
+  assert.equal(schoolLevelOf("2 A Sud"), null);
+  assert.equal(schoolLevelOf("Jardin"), null);
 });
 
 test("la formule du secondaire ne s'applique qu'au collège et au lycée", () => {

@@ -2,7 +2,6 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  classCycle,
   classTone,
   mainTeacherCount,
   matchesClassFilters,
@@ -19,21 +18,20 @@ const ready = {
 };
 const incomplete = { name: "5AS", level: "5AS", mainTeacher: null, assignments: [] };
 
-test("le cycle se lit sur le niveau mauritanien", () => {
-  assert.equal(classCycle("1AF"), "AF");
-  assert.equal(classCycle("5 as"), "AS");
-  assert.equal(classCycle("Classe spéciale"), null);
-});
-
 test("une classe sans matière ni professeur principal est incomplète", () => {
   assert.deepEqual(missingSetup(ready), []);
   assert.deepEqual(missingSetup(incomplete), ["subjects", "mainTeacher"]);
 });
 
-test("le filtre garde les classes du cycle choisi, ou celles à compléter", () => {
-  assert.equal(matchesClassFilters(ready, "", "AF"), true);
-  assert.equal(matchesClassFilters(ready, "", "AS"), false);
-  assert.equal(matchesClassFilters(incomplete, "", "AS"), true);
+test("le filtre garde les classes de la catégorie choisie, ou celles à compléter", () => {
+  assert.equal(matchesClassFilters(ready, "", "FONDAMENTAL"), true);
+  assert.equal(matchesClassFilters(ready, "", "LYCEE"), false);
+  assert.equal(matchesClassFilters(incomplete, "", "LYCEE"), true); // ancienne 5AS
+  const jardin = { ...ready, name: "Jardin", level: "Jardin", category: "PRESCOLAIRE" };
+  assert.equal(matchesClassFilters(jardin, "", "PRESCOLAIRE"), true);
+  const mahadra = { ...ready, name: "Niveau 1", level: "Niveau 1", category: "Mahadra" };
+  assert.equal(matchesClassFilters(mahadra, "", "FONDAMENTAL"), false);
+  assert.equal(matchesClassFilters(mahadra, "", "ALL"), true);
   assert.equal(matchesClassFilters(ready, "", "INCOMPLETE"), false);
   assert.equal(matchesClassFilters(incomplete, "", "INCOMPLETE"), true);
 });
