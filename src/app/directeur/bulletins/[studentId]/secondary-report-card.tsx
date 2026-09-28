@@ -310,11 +310,6 @@ export function SecondaryReportCard({
         </table>
       </div>
 
-      <div className={styles.calcNote}>
-        💡 {formulaNote(card, averageHeader)} — calculés automatiquement par Madrasati, selon
-        la règle de calcul enregistrée par l&apos;école.
-      </div>
-
       {/* SYNTHÈSE */}
       <div className={styles.synthese}>
         <div className={styles.synthCard}>
@@ -368,39 +363,5 @@ export function SecondaryReportCard({
         {school.city ? `${school.city}, le ${date}` : `Le ${date}`}
       </div>
     </div>
-  );
-}
-
-/** La phrase d'explication sous le tableau, écrite d'après la formule de l'école. */
-function formulaNote(card: ReportCard, averageHeader: string) {
-  const terms = card.formula.parts.map((part) => {
-    const rule =
-      part.multiple === "BEST"
-        ? "la meilleure note"
-        : part.multiple === "AVERAGE"
-          ? "la moyenne des notes"
-          : part.multiple === "SUM"
-            ? "la somme des notes"
-            : "la dernière note";
-    const times = part.weight === 1 ? "" : ` × ${part.weight}`;
-    return `${columnHeader(part)} = ${rule} de « ${part.label} »${times}`;
-  });
-  const divisor =
-    card.formula.divisor.mode === "FIXED"
-      ? card.formula.divisor.value
-      : card.formula.parts.reduce((sum, p) => sum + p.weight, 0);
-
-  return (
-    <>
-      {terms.map((text, i) => (
-        <span key={i}>
-          {i > 0 && " · "}
-          <b>{text.split(" = ")[0]}</b> = {text.split(" = ").slice(1).join(" = ")}
-        </span>
-      ))}
-      {" · "}
-      <b>{averageHeader}</b> = tout cela additionné, ÷ {divisor} · <b>Note × Coeff</b> ={" "}
-      {averageHeader.replace(" /20", "")} × Coeff
-    </>
   );
 }
