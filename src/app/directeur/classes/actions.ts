@@ -7,6 +7,7 @@ import { ROLES } from "@/lib/roles";
 import { createStandardClasses } from "@/lib/school-setup";
 import { createClassWithSubjects } from "@/lib/class-setup";
 import { composeClassName } from "@/lib/class-catalog";
+import { UserError, asResult } from "@/lib/user-error";
 import { isSchoolType } from "@/lib/school-levels";
 import { CURRENT_YEAR } from "@/lib/school-year";
 import {
@@ -21,7 +22,7 @@ async function getCurrentAcademicYear(schoolId: string) {
   const year = await prisma.academicYear.findFirst({
     where: { schoolId, isCurrent: true },
   });
-  if (!year) throw new Error("Aucune année scolaire active.");
+  if (!year) throw new UserError("Aucune année scolaire active.");
   return year;
 }
 
@@ -30,10 +31,19 @@ async function getCurrentAcademicYear(schoolId: string) {
 // donner accès à quoi que ce soit — mais reste une fuite de PII à bloquer.
 async function assertOwnTeacher(schoolId: string, teacherId: string) {
   const teacher = await prisma.teacher.findFirst({ where: { id: teacherId, schoolId } });
-  if (!teacher) throw new Error("Enseignant introuvable.");
+  if (!teacher) throw new UserError("Enseignant introuvable.");
 }
 
+/**
+ * Les actions de classe renvoient leur erreur au lieu de la lever : en
+ * production, le message d'une erreur levée n'arrive jamais au directeur
+ * (voir lib/user-error.ts).
+ */
 export async function createClass(values: ClassFormValues) {
+  return asResult(() => createClassUnsafe(values));
+}
+
+async function createClassUnsafe(values: ClassFormValues) {
   const user = await requireRole(ROLES.DIRECTOR);
   const data = classSchema.parse(values);
   const year = await getCurrentAcademicYear(user.schoolId);
@@ -79,6 +89,10 @@ export async function generateStandardClasses(schoolType: string) {
 }
 
 export async function updateClass(classId: string, values: ClassFormValues) {
+  return asResult(() => updateClassUnsafe(classId, values));
+}
+
+async function updateClassUnsafe(classId: string, values: ClassFormValues) {
   const user = await requireRole(ROLES.DIRECTOR);
   const data = classSchema.parse(values);
   if (data.mainTeacherId) await assertOwnTeacher(user.schoolId, data.mainTeacherId);
@@ -87,7 +101,7 @@ export async function updateClass(classId: string, values: ClassFormValues) {
     where: { id: classId, schoolId: user.schoolId },
     select: { academicYearId: true },
   });
-  if (!current) throw new Error("Classe introuvable.");
+  if (!current) throw new UserError("Classe introuvable.");
   const name = composeClassName(data.level, data.section);
   const taken = await prisma.classRoom.findFirst({
     where: {
@@ -98,7 +112,7 @@ export async function updateClass(classId: string, values: ClassFormValues) {
     },
     select: { id: true },
   });
-  if (taken) throw new Error(`La classe « ${name} » existe déjà cette année.`);
+  if (taken) throw new UserError(`La classe « ${name} » existe déjà cette année. Choisissez une autre section.`);
 
   await prisma.classRoom.updateMany({
     where: { id: classId, schoolId: user.schoolId },
@@ -113,17 +127,22 @@ export async function updateClass(classId: string, values: ClassFormValues) {
 
   revalidatePath("/directeur/classes");
   revalidatePath("/directeur");
+  return {};
 }
 
 export async function deleteClass(classId: string) {
+  return asResult(() => deleteClassUnsafe(classId));
+}
+
+async function deleteClassUnsafe(classId: string) {
   const user = await requireRole(ROLES.DIRECTOR);
   const cls = await prisma.classRoom.findFirst({
     where: { id: classId, schoolId: user.schoolId },
     include: { _count: { select: { students: true } } },
   });
-  if (!cls) throw new Error("Classe introuvable.");
+  if (!cls) throw new UserError("Classe introuvable.");
   if (cls._count.students > 0) {
-    throw new Error(
+    throw new UserError(
       "Impossible de supprimer une classe qui contient encore des élèves.",
     );
   }
@@ -131,6 +150,7 @@ export async function deleteClass(classId: string) {
   await prisma.classRoom.delete({ where: { id: classId } });
   revalidatePath("/directeur/classes");
   revalidatePath("/directeur");
+  return {};
 }
 
 export async function createSubject(values: SubjectFormValues) {

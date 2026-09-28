@@ -93,6 +93,31 @@ export function composeClassName(level: string, section?: string | null): string
   return s ? `${level.trim()} ${s}` : level.trim();
 }
 
+const SECTION_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+/**
+ * Nom de la nouvelle classe. Avec une section saisie, c'est « niveau
+ * section ». Sans section : le niveau seul s'il n'existe pas encore cette
+ * année ; sinon la lettre suivante — une « 1AF » existante compte comme la
+ * section A, la nouvelle devient « 1AF B ». Le directeur n'a jamais à taper
+ * une lettre pour ajouter une classe d'un niveau déjà présent.
+ */
+export function nextClassName(level: string, section: string | null | undefined, takenNames: string[]): string {
+  if (section?.trim()) return composeClassName(level, section);
+  const taken = new Set(takenNames.map((n) => normalize(n)));
+  const bare = composeClassName(level);
+  // Une classe du même niveau : « 1AF » elle-même, ou « 1AF » suivi d'une section.
+  const prefix = bare.toLowerCase();
+  const sameLevel = takenNames.some((n) => {
+    const name = n.trim().toLowerCase();
+    return name === prefix || name.startsWith(`${prefix} `);
+  });
+  if (!sameLevel) return bare;
+  const letters = taken.has(normalize(bare)) ? SECTION_LETTERS.slice(1) : SECTION_LETTERS;
+  const free = letters.find((l) => !taken.has(normalize(composeClassName(level, l))));
+  return free ? composeClassName(level, free) : bare;
+}
+
 /** Inverse de composeClassName : la section d'une classe existante. */
 export function sectionOf(name: string, level: string): string {
   const n = name.trim();

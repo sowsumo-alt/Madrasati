@@ -9,6 +9,7 @@ import { CURRENT_YEAR } from "@/lib/school-year";
 import { assertNnisAvailable } from "@/lib/nni-data";
 import { isValidNni, normalizeNni } from "@/lib/nni";
 import { createClassWithSubjects } from "@/lib/class-setup";
+import { UserError, asResult } from "@/lib/user-error";
 
 /**
  * Import d'une liste d'élèves lue dans un fichier Excel (voir
@@ -76,18 +77,25 @@ export async function takenNnis(nnis: string[]): Promise<Record<string, string>>
   return Object.fromEntries(found.map((s) => [s.nni!, `${s.firstName} ${s.lastName}`]));
 }
 
+/** L'erreur est renvoyée, pas levée : en ligne, le directeur la lit (voir lib/user-error.ts). */
 export async function importStudentList(input: StudentImportInput) {
+  return asResult(() => importStudentListUnsafe(input));
+}
+
+async function importStudentListUnsafe(input: StudentImportInput) {
   const user = await requireRole(ROLES.DIRECTOR);
   const { students, target } = importSchema.parse(input);
   const schoolId = user.schoolId;
 
-  await assertNnisAvailable(schoolId, students.map((s) => s.nni));
+  await assertNnisAvailable(schoolId, students.map((s) => s.nni)).catch((e: unknown) => {
+    throw new UserError(e instanceof Error ? e.message : "NNI déjà utilisé.");
+  });
 
   const year = await prisma.academicYear.findFirst({
     where: { schoolId, isCurrent: true },
     select: { id: true },
   });
-  if (!year) throw new Error("Aucune année scolaire active.");
+  if (!year) throw new UserError("Aucune année scolaire active.");
 
   const [classes, parents] = await Promise.all([
     prisma.classRoom.findMany({
@@ -98,7 +106,7 @@ export async function importStudentList(input: StudentImportInput) {
   ]);
 
   if (target.mode === "existing" && !classes.some((c) => c.id === target.classId)) {
-    throw new Error("Classe introuvable.");
+    throw new UserError("Classe introuvable.");
   }
 
   return prisma.$transaction(

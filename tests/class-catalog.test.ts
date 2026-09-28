@@ -7,6 +7,7 @@ import {
   compareClasses,
   composeClassName,
   findStandardLevel,
+  nextClassName,
   sectionOf,
   STANDARD_LEVELS,
 } from "../src/lib/class-catalog";
@@ -34,6 +35,17 @@ test("le nom d'une classe suit son niveau et sa section", () => {
   assert.equal(composeClassName("5SN", ""), "5SN");
   assert.equal(sectionOf("1AF B", "1AF"), "B");
   assert.equal(sectionOf("5SN", "5SN"), "");
+});
+
+test("sans section saisie, une classe d'un niveau existant prend la lettre suivante", () => {
+  assert.equal(nextClassName("1AF", "", []), "1AF");
+  assert.equal(nextClassName("1AF", "", ["1AF", "2AF"]), "1AF B");
+  assert.equal(nextClassName("1AF", "", ["1AF", "1AF B"]), "1AF C");
+  assert.equal(nextClassName("1AF", "", ["1AF A"]), "1AF B");
+  assert.equal(nextClassName("1AF", "", ["1AFX", "11AF"]), "1AF"); // autres niveaux
+  assert.equal(nextClassName("5SN", "", ["5SN", "5A"]), "5SN B");
+  // Une section saisie est gardée telle quelle.
+  assert.equal(nextClassName("1AF", "C", ["1AF"]), "1AF C");
 });
 
 test("la catégorie se lit sur la classe, même créée avant les catégories", () => {

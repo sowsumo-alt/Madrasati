@@ -226,6 +226,10 @@ export function ImportDialog({ open, onOpenChange, classes, catalog }: ImportDia
               ? { mode: "new", category: newClass.category, level: newClass.level, section: newClass.section }
               : { mode: "none" },
       });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
       toast.success(
         `${result.created} élève(s) importé(s)` +
           (result.className ? ` en ${result.className}` : "") +
@@ -345,6 +349,7 @@ export function ImportDialog({ open, onOpenChange, classes, catalog }: ImportDia
                   <ClassLevelPicker
                     key={file.name}
                     catalog={catalog}
+                    takenNames={classes.map((c) => c.name)}
                     value={newClass}
                     onChange={setNewClass}
                   />

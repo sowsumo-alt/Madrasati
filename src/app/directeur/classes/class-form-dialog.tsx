@@ -50,6 +50,8 @@ interface ClassFormDialogProps {
   teachers: ClassTeacherOption[];
   /** Catégories et niveaux proposés (voir buildCatalog). */
   catalog: CatalogGroup[];
+  /** Noms des classes de l'année, pour nommer la nouvelle classe. */
+  existingNames: string[];
   editTarget?: ClassEditTarget | null;
 }
 
@@ -66,6 +68,7 @@ export function ClassFormDialog({
   onOpenChange,
   teachers,
   catalog,
+  existingNames,
   editTarget,
 }: ClassFormDialogProps) {
   const { t } = useLanguage();
@@ -102,10 +105,18 @@ export function ClassFormDialog({
   async function onSubmit(values: ClassFormValues) {
     try {
       if (isEdit && editTarget) {
-        await updateClass(editTarget.id, values);
+        const updated = await updateClass(editTarget.id, values);
+        if (!updated.ok) {
+          toast.error(updated.error);
+          return;
+        }
         toast.success(t("classes.updated"));
       } else {
         const created = await createClass(values);
+        if (!created.ok) {
+          toast.error(created.error);
+          return;
+        }
         toast.success(
           created.subjectsFrom === "copied"
             ? `Classe « ${created.name} » créée, avec les matières et coefficients de son niveau.`
@@ -138,6 +149,7 @@ export function ClassFormDialog({
             <ClassLevelPicker
               key={editTarget?.id ?? "new"}
               catalog={catalog}
+              takenNames={isEdit ? undefined : existingNames}
               value={{ category: category ?? "", level: level ?? "", section: section ?? "" }}
               onChange={(v) => {
                 setValue("category", v.category, { shouldValidate: Boolean(errors.category) });

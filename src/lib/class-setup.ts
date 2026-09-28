@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
-import { composeClassName, isStandardCategory, type StandardCategory } from "@/lib/class-catalog";
+import { isStandardCategory, nextClassName, type StandardCategory } from "@/lib/class-catalog";
+import { UserError } from "@/lib/user-error";
 import { officialSubjectIndex, SECONDARY_OFFICIAL_SUBJECTS } from "@/lib/grading";
 import { subjectNamesForCycle } from "@/lib/school-levels";
 
@@ -44,8 +45,6 @@ export async function createClassWithSubjects(
   tx: Prisma.TransactionClient,
   input: NewClassInput,
 ): Promise<{ id: string; name: string; subjectsFrom: SubjectsSource }> {
-  const name = composeClassName(input.level, input.section);
-
   const sameYear = await tx.classRoom.findMany({
     where: { schoolId: input.schoolId, academicYearId: input.academicYearId },
     select: {
@@ -54,8 +53,11 @@ export async function createClassWithSubjects(
       classSubjects: { select: { subjectId: true, coefficientOverride: true } },
     },
   });
+  // Sans section saisie, une classe d'un niveau déjà présent prend la
+  // lettre suivante (« 1AF » existe → « 1AF B ») plutôt que d'être refusée.
+  const name = nextClassName(input.level, input.section, sameYear.map((c) => c.name));
   if (sameYear.some((c) => sameText(c.name, name))) {
-    throw new Error(`La classe « ${name} » existe déjà cette année.`);
+    throw new UserError(`La classe « ${name} » existe déjà cette année. Choisissez une autre section.`);
   }
 
   const created = await tx.classRoom.create({

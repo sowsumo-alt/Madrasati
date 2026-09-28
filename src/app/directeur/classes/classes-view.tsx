@@ -159,7 +159,11 @@ export function ClassesView({
     if (!deleteTarget) return;
     setDeleteLoading(true);
     try {
-      await deleteClass(deleteTarget.id);
+      const result = await deleteClass(deleteTarget.id);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
       toast.success(t("classes.deleted"));
       setDeleteTarget(null);
       router.refresh();
@@ -325,6 +329,7 @@ export function ClassesView({
         onOpenChange={setClassFormOpen}
         teachers={teachers}
         catalog={catalog}
+        existingNames={classes.map((c) => c.name)}
         editTarget={classEditTarget}
       />
       <StandardClassesDialog open={standardClassesOpen} onOpenChange={setStandardClassesOpen} />

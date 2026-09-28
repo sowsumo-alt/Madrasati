@@ -5,7 +5,7 @@ import { Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { composeClassName, type CatalogGroup } from "@/lib/class-catalog";
+import { composeClassName, nextClassName, type CatalogGroup } from "@/lib/class-catalog";
 
 export interface ClassLevelValue {
   category: string;
@@ -31,12 +31,22 @@ export function ClassLevelPicker({
   value,
   onChange,
   showSection = true,
+  takenNames,
 }: {
   catalog: CatalogGroup[];
   value: ClassLevelValue;
   onChange: (value: ClassLevelValue) => void;
   showSection?: boolean;
+  /**
+   * Classes déjà créées cette année, pour une nouvelle classe : sans section
+   * saisie, le nom prend la lettre suivante (« 1AF » existe → « 1AF B »).
+   * Absent en modification, où le nom suit exactement la saisie.
+   */
+  takenNames?: string[];
 }) {
+  const className = takenNames
+    ? nextClassName(value.level, value.section, takenNames)
+    : composeClassName(value.level, value.section);
   const knownCategory = catalog.find((g) => g.category === value.category);
   const [customCategory, setCustomCategory] = useState(Boolean(value.category) && !knownCategory);
   const group = customCategory ? null : knownCategory ?? null;
@@ -139,19 +149,19 @@ export function ClassLevelPicker({
       {showSection && value.level.trim() && (
         <div className="grid gap-3 sm:grid-cols-2 sm:items-end">
           <div className="space-y-1.5">
-            <Label htmlFor="class-section">Section (facultatif)</Label>
+            <Label htmlFor="class-section">Section</Label>
             <Input
               id="class-section"
               value={value.section}
               onChange={(e) => onChange({ ...value, section: e.target.value })}
-              placeholder="A, B… si plusieurs classes de ce niveau"
+              placeholder={takenNames ? "Vide : lettre suivante automatique" : "A, B…"}
               data-testid="class-section"
             />
           </div>
           <p className="rounded-lg bg-primary-50/70 px-3 py-2 text-sm text-foreground/70">
             Nom de la classe :{" "}
             <strong className="text-primary-800" data-testid="class-name-preview">
-              {composeClassName(value.level, value.section)}
+              {className}
             </strong>
           </p>
         </div>
