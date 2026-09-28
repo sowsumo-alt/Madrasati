@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   classTone,
+  groupByCategory,
   mainTeacherCount,
   matchesClassFilters,
   missingSetup,
@@ -50,5 +51,23 @@ test("un professeur principal de deux classes ne compte qu'une fois", () => {
   assert.equal(
     mainTeacherCount([{ mainTeacher: khadijetou }, { mainTeacher: khadijetou }, { mainTeacher: null }]),
     1,
+  );
+});
+
+test("les classes sont regroupées par catégorie, dans l'ordre reçu", () => {
+  const item = (name: string, category: string | null = null) => ({
+    row: { name, level: name.split(" ")[0], category, mainTeacher: null, assignments: [] },
+  });
+  const groups = groupByCategory([item("Jardin"), item("1AF A"), item("1AF B"), item("2AS"), item("5SN"), item("Niveau 1", "Mahadra"), item("Spéciale")]);
+  assert.deepEqual(
+    groups.map((g) => [g.category, g.items.map((i) => i.row.name)]),
+    [
+      ["PRESCOLAIRE", ["Jardin"]],
+      ["FONDAMENTAL", ["1AF A", "1AF B"]],
+      ["COLLEGE", ["2AS"]],
+      ["LYCEE", ["5SN"]],
+      ["Mahadra", ["Niveau 1"]],
+      [null, ["Spéciale"]],
+    ],
   );
 });

@@ -67,3 +67,21 @@ export function classTone(index: number): ClassTone {
 export function mainTeacherCount(classes: { mainTeacher: { id: string } | null }[]): number {
   return new Set(classes.flatMap((c) => (c.mainTeacher ? [c.mainTeacher.id] : []))).size;
 }
+
+/**
+ * Classes regroupées par catégorie, dans l'ordre où elles arrivent (déjà
+ * rangées par la page : Préscolaire, Fondamental, Collège, Lycée, puis les
+ * catégories propres à l'école). `category` null : classe non reconnue.
+ */
+export function groupByCategory<T extends { row: ClassListItem }>(
+  items: T[],
+): { category: string | null; items: T[] }[] {
+  const groups: { category: string | null; items: T[] }[] = [];
+  for (const item of items) {
+    const category = classCategory(item.row);
+    const last = groups[groups.length - 1];
+    if (last && last.category === category) last.items.push(item);
+    else groups.push({ category, items: [item] });
+  }
+  return groups;
+}

@@ -176,8 +176,10 @@ export function classSortKey(c: { category?: string | null; level: string; name:
   const categoryRank = isStandardCategory(category)
     ? STANDARD_CATEGORIES.indexOf(category)
     : STANDARD_CATEGORIES.length;
-  const levelRank = isStandardCategory(category)
-    ? STANDARD_LEVELS[category].findIndex((l) => normalize(l) === normalize(c.level))
+  // Le niveau, ou à défaut le nom (« 4af » saisi avec le niveau « 4 »).
+  const standard = findStandardLevel(c.level) ?? findStandardLevel(c.name);
+  const levelRank = isStandardCategory(category) && standard?.category === category
+    ? STANDARD_LEVELS[category].indexOf(standard.level)
     : -1;
   return [categoryRank, levelRank === -1 ? 99 : levelRank, c.name];
 }

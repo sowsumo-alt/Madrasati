@@ -1,5 +1,6 @@
 import { BookOpen, Eye, Pencil, Trash2, UserRound, UsersRound } from "lucide-react";
-import { missingSetup, type ClassTone } from "@/lib/classes-list";
+import { groupByCategory, missingSetup, type ClassTone } from "@/lib/classes-list";
+import { isStandardCategory } from "@/lib/class-catalog";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import type { TranslationKey } from "@/lib/i18n/dictionaries";
 import { cn } from "@/lib/utils";
@@ -78,7 +79,7 @@ function StudentsCell({ row }: { row: ClassRow }) {
     <span className="inline-flex items-center gap-2.5 whitespace-nowrap text-slate-700">
       <UsersRound className="h-[18px] w-[18px] shrink-0 text-primary-600" />
       <span dir="ltr" style={{ fontVariantNumeric: "tabular-nums" }}>
-        {row.studentCount} / {row.capacity}
+        {row.studentCount}
       </span>
     </span>
   );
@@ -112,6 +113,19 @@ function SubjectsCell({ row }: { row: ClassRow }) {
   );
 }
 
+/** Titre d'un groupe : « Fondamental », le nom d'une catégorie de l'école, ou « Autres classes ». */
+function useCategoryTitle() {
+  const { t } = useLanguage();
+  return (category: string | null, count: number) => {
+    const label = !category
+      ? t("classes.otherClasses")
+      : isStandardCategory(category)
+        ? t(`classes.filter.${category}` as TranslationKey)
+        : category;
+    return `${label} · ${t("classes.classCount").replace("{count}", String(count))}`;
+  };
+}
+
 const th = "px-4 py-2.5 text-start text-xs font-semibold uppercase tracking-wide text-primary-700";
 const td = "px-4 py-2 first:rounded-s-xl last:rounded-e-xl";
 
@@ -122,6 +136,8 @@ const td = "px-4 py-2 first:rounded-s-xl last:rounded-e-xl";
  */
 export function ClassesTable({ rows, ...handlers }: RowHandlers & { rows: ClassTableRow[] }) {
   const { t } = useLanguage();
+  const groups = groupByCategory(rows);
+  const title = useCategoryTitle();
 
   return (
     <div>
@@ -137,46 +153,66 @@ export function ClassesTable({ rows, ...handlers }: RowHandlers & { rows: ClassT
               <th className={cn(th, "text-end")}>{t("common.actions")}</th>
             </tr>
           </thead>
-          <tbody>
-            {rows.map(({ row, tone }) => (
-              <tr key={row.id} className="bg-surface transition-colors hover:bg-primary-50/30">
-                <td className={td}>
-                  <NameCell row={row} tone={tone} nowrap />
-                </td>
-                <td className={cn(td, "text-slate-700")}>{row.level}</td>
-                <td className={td}>
-                  <StudentsCell row={row} />
-                </td>
-                <td className={cn(td, "max-w-[16rem]")}>
-                  <TeacherCell row={row} />
-                </td>
-                <td className={td}>
-                  <SubjectsCell row={row} />
-                </td>
-                <td className={td}>
-                  <RowActions row={row} {...handlers} />
-                </td>
+          {groups.map((group) => (
+            <tbody key={group.category ?? "other"} data-testid="class-group">
+              <tr>
+                <th
+                  colSpan={6}
+                  scope="colgroup"
+                  className="px-4 pb-1 pt-4 text-start text-sm font-bold text-primary-900"
+                >
+                  {title(group.category, group.items.length)}
+                </th>
               </tr>
-            ))}
-          </tbody>
+              {group.items.map(({ row, tone }) => (
+                <tr key={row.id} className="bg-surface transition-colors hover:bg-primary-50/30">
+                  <td className={td}>
+                    <NameCell row={row} tone={tone} nowrap />
+                  </td>
+                  <td className={cn(td, "text-slate-700")}>{row.level}</td>
+                  <td className={td}>
+                    <StudentsCell row={row} />
+                  </td>
+                  <td className={cn(td, "max-w-[16rem]")}>
+                    <TeacherCell row={row} />
+                  </td>
+                  <td className={td}>
+                    <SubjectsCell row={row} />
+                  </td>
+                  <td className={td}>
+                    <RowActions row={row} {...handlers} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          ))}
         </table>
       </div>
 
-      <ul className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:hidden">
-        {rows.map(({ row, tone }) => (
-          <li key={row.id} className="rounded-2xl border border-border/60 bg-surface p-4">
-            <div className="flex items-start justify-between gap-3">
-              <NameCell row={row} tone={tone} />
-              <RowActions row={row} {...handlers} />
-            </div>
-            <div className="mt-3 grid grid-cols-1 gap-2 text-sm">
-              <StudentsCell row={row} />
-              <TeacherCell row={row} />
-              <SubjectsCell row={row} />
-            </div>
-          </li>
+      <div className="space-y-4 xl:hidden">
+        {groups.map((group) => (
+          <section key={group.category ?? "other"}>
+            <h3 className="mb-2 px-1 text-sm font-bold text-primary-900">
+              {title(group.category, group.items.length)}
+            </h3>
+            <ul className="grid grid-cols-1 gap-2.5 md:grid-cols-2">
+              {group.items.map(({ row, tone }) => (
+                <li key={row.id} className="rounded-2xl border border-border/60 bg-surface p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <NameCell row={row} tone={tone} />
+                    <RowActions row={row} {...handlers} />
+                  </div>
+                  <div className="mt-3 grid grid-cols-1 gap-2 text-sm">
+                    <StudentsCell row={row} />
+                    <TeacherCell row={row} />
+                    <SubjectsCell row={row} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
         ))}
-      </ul>
+      </div>
     </div>
   );
 }

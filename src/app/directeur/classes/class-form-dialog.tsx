@@ -14,7 +14,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -59,7 +58,6 @@ const emptyValues: ClassFormValues = {
   category: "",
   level: "",
   section: "",
-  capacity: 30,
   mainTeacherId: "",
 };
 
@@ -75,7 +73,6 @@ export function ClassFormDialog({
   const router = useRouter();
   const isEdit = Boolean(editTarget);
   const {
-    register,
     handleSubmit,
     reset,
     setValue,
@@ -94,7 +91,6 @@ export function ClassFormDialog({
               category: classCategory(editTarget) ?? "",
               level: editTarget.level,
               section: sectionOf(editTarget.name, editTarget.level),
-              capacity: editTarget.capacity,
               mainTeacherId: editTarget.mainTeacherId ?? "",
             }
           : emptyValues,
@@ -164,14 +160,7 @@ export function ClassFormDialog({
             </p>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="capacity">{t("classes.capacity")}</Label>
-              <Input id="capacity" type="number" min={1} {...register("capacity")} />
-              {errors.capacity && (
-                <p className="text-xs text-danger">{errors.capacity.message}</p>
-              )}
-            </div>
+          <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="class-main-teacher-select">Professeur principal</Label>
               <Select

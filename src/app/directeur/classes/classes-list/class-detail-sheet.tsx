@@ -29,8 +29,6 @@ export function ClassDetailSheet({
   const { t } = useLanguage();
   const row = target?.row ?? null;
   const missing = row ? missingSetup(row) : [];
-  const fill = row && row.capacity > 0 ? Math.min(row.studentCount / row.capacity, 1) : 0;
-  const placesLeft = row ? Math.max(row.capacity - row.studentCount, 0) : 0;
 
   return (
     <Sheet open={Boolean(target)} onOpenChange={(open) => !open && onClose()}>
@@ -74,20 +72,9 @@ export function ClassDetailSheet({
                     dir="ltr"
                     style={{ fontVariantNumeric: "tabular-nums" }}
                   >
-                    {row.studentCount} / {row.capacity}
+                    {row.studentCount}
                   </p>
                 </div>
-                <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface">
-                  <div
-                    className={cn("h-full rounded-full", placesLeft === 0 ? "bg-amber-500" : "bg-primary-600")}
-                    style={{ width: `${fill * 100}%` }}
-                  />
-                </div>
-                <p className="mt-2 text-xs text-foreground/55">
-                  {placesLeft === 0
-                    ? t("classes.full")
-                    : t("classes.placesLeft").replace("{count}", String(placesLeft))}
-                </p>
               </section>
 
               <div className="flex items-center justify-between gap-4 rounded-2xl border border-border/70 px-4 py-3">

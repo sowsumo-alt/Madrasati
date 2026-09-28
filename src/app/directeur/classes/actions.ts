@@ -120,7 +120,6 @@ async function updateClassUnsafe(classId: string, values: ClassFormValues) {
       name,
       level: data.level,
       category: data.category,
-      capacity: data.capacity,
       mainTeacherId: data.mainTeacherId || null,
     },
   });

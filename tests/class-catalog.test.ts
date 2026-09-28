@@ -81,6 +81,9 @@ test("les classes se rangent dans l'ordre de la scolarité", () => {
     names.sort(compareClasses).map((c) => c.name),
     ["Jardin", "1AF A", "1AF B", "2AS", "4D", "5SN", "Niveau 1"],
   );
+  // Une ancienne classe « 4af » au niveau saisi « 4 » se range après la 2AF.
+  const old = [{ name: "6AF", level: "6AF" }, { name: "4af", level: "4" }, { name: "2AF", level: "2AF" }];
+  assert.deepEqual(old.sort(compareClasses).map((c) => c.name), ["2AF", "4af", "6AF"]);
 });
 
 test("une nouvelle école reçoit les niveaux du catalogue", () => {
