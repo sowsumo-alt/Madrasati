@@ -3,6 +3,7 @@
 import { useRef } from "react";
 import {
   AlertTriangle,
+  Info,
   Bold,
   Check,
   ChevronDown,
@@ -75,7 +76,10 @@ export function MessageComposer({
   onSubjectChange,
   message,
   onMessageChange,
-  missingVars,
+  manualFields,
+  missingManual,
+  excluded,
+  leadName,
   manualVars,
   onManualVar,
   canSend,
@@ -90,8 +94,14 @@ export function MessageComposer({
   onSubjectChange: (value: string) => void;
   message: string;
   onMessageChange: (value: string) => void;
-  /** Variables du modèle qu'on n'a pas pu renseigner : elles bloquent l'envoi. */
-  missingVars: string[];
+  /** Variables que le directeur renseigne lui-même (motif, heure…), pour tous. */
+  manualFields: string[];
+  /** Celles encore vides : elles bloquent l'envoi. */
+  missingManual: string[];
+  /** Destinataires écartés faute de données (un parent à jour pour un rappel). */
+  excluded: string[];
+  /** Le destinataire dont le message s'affiche. */
+  leadName: string | null;
   manualVars: Record<string, string>;
   onManualVar: (name: string, value: string) => void;
   canSend: boolean;
@@ -263,24 +273,28 @@ export function MessageComposer({
             </div>
           </div>
 
-          {missingVars.length > 0 && (
-            <div className="space-y-2.5 rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-3">
+          {/* Toujours affichés tant que le modèle en a besoin : un champ qui
+              disparaissait dès le premier chiffre empêchait de finir la saisie. */}
+          {manualFields.length > 0 && (
+            <div
+              className={cn(
+                "space-y-2.5 rounded-xl border px-3.5 py-3",
+                missingManual.length > 0 ? "border-amber-300 bg-amber-50" : "border-border bg-surface-muted/40",
+              )}
+            >
               <div className="flex items-start gap-2.5">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-                <div className="text-xs text-amber-900">
-                  <p className="font-medium">{t("comm.missingTitle")}</p>
-                  <p className="mt-1 text-amber-800/80">
-                    {t("comm.missingHint").replace(
-                      "{fields}",
-                      missingVars.map((v) => describeVariable(v)).join(", "),
-                    )}
-                  </p>
-                </div>
+                <AlertTriangle
+                  className={cn(
+                    "mt-0.5 h-4 w-4 shrink-0",
+                    missingManual.length > 0 ? "text-amber-600" : "text-foreground/40",
+                  )}
+                />
+                <p className="text-xs font-medium text-foreground/80">{t("comm.manualTitle")}</p>
               </div>
               <div className="grid gap-2 sm:grid-cols-2">
-                {missingVars.map((name) => (
+                {manualFields.map((name) => (
                   <label key={name} className="block text-xs">
-                    <span className="mb-1 block font-medium capitalize text-amber-900">
+                    <span className="mb-1 block font-medium capitalize text-foreground/75">
                       {describeVariable(name)}
                     </span>
                     <Input
@@ -292,6 +306,24 @@ export function MessageComposer({
                   </label>
                 ))}
               </div>
+            </div>
+          )}
+
+          {selected.length > 1 && leadName && (
+            <div className="flex items-start gap-2.5 rounded-xl border border-primary-200 bg-primary-50/60 px-3.5 py-2.5">
+              <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary-600" />
+              <p className="text-xs text-primary-900">
+                {t("comm.personalNotice").replace("{name}", leadName)}
+              </p>
+            </div>
+          )}
+
+          {excluded.length > 0 && (
+            <div className="flex items-start gap-2.5 rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2.5">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+              <p className="text-xs text-amber-900">
+                {t("comm.excludedNotice").replace("{names}", excluded.join(", "))}
+              </p>
             </div>
           )}
         </div>

@@ -2,7 +2,6 @@ import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { FEATURES, schoolHasFeature } from "@/lib/plans";
-import { formatAmount } from "@/lib/format";
 import { CommunicationView, type Recipient, type TemplateRow } from "./communication-view";
 
 export default async function CommunicationPage() {
@@ -34,7 +33,7 @@ export default async function CommunicationPage() {
     prisma.fee.findMany({
       // Ce qui est dû aujourd'hui : pas les mois à venir d'une formule de paiement.
       where: { schoolId: user.schoolId, status: { not: "PAID" }, dueDate: { lte: new Date() } },
-      select: { id: true, studentId: true, amount: true },
+      select: { id: true, studentId: true, amount: true, dueDate: true },
     }),
     prisma.payment.groupBy({
       by: ["feeId"],
@@ -44,6 +43,8 @@ export default async function CommunicationPage() {
   ]);
   const paidByFee = new Map(payments.map((p) => [p.feeId, p._sum.amount ?? 0]));
   const outstandingByStudent = new Map<string, number>();
+  // L'échéance non réglée la plus ancienne : la date du rappel de paiement.
+  const oldestDueByStudent = new Map<string, Date>();
   for (const fee of fees) {
     const remaining = fee.amount - (paidByFee.get(fee.id) ?? 0);
     if (remaining > 0) {
@@ -51,22 +52,21 @@ export default async function CommunicationPage() {
         fee.studentId,
         (outstandingByStudent.get(fee.studentId) ?? 0) + remaining,
       );
+      const oldest = oldestDueByStudent.get(fee.studentId);
+      if (!oldest || fee.dueDate < oldest) oldestDueByStudent.set(fee.studentId, fee.dueDate);
     }
   }
 
   const recipients: Recipient[] = [
     ...parents.map((p) => {
       const children = p.studentLinks.map((l) => ({
-        name: `${l.student.firstName} ${l.student.lastName}`,
-        // Le format ne porte pas « MRU » : les modèles écrivent déjà l'unité
-        // eux-mêmes (« {amount} MRU », « {amount} أوقية موريتانية »).
-        outstanding: outstandingByStudent.get(l.studentId)
-          ? formatAmount(outstandingByStudent.get(l.studentId)!)
-          : null,
+        name: `${l.student.firstName} ${l.student.lastName}`.trim(),
+        outstanding: outstandingByStudent.get(l.studentId) ?? 0,
+        oldestDue: oldestDueByStudent.get(l.studentId)?.toISOString() ?? null,
       }));
       return {
         id: `parent-${p.id}`,
-        name: `${p.firstName} ${p.lastName}`,
+        name: `${p.firstName} ${p.lastName}`.trim(),
         phone: p.phone,
         kind: "PARENT" as const,
         children,
@@ -74,7 +74,7 @@ export default async function CommunicationPage() {
     }),
     ...teachers.map((t) => ({
       id: `teacher-${t.id}`,
-      name: `${t.firstName} ${t.lastName}`,
+      name: `${t.firstName} ${t.lastName}`.trim(),
       phone: t.phone,
       kind: "TEACHER" as const,
       children: [],

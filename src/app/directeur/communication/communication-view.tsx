@@ -6,13 +6,14 @@ import { toast } from "sonner";
 import { MessagesSquare, Plus, Send, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { withArabic } from "@/lib/whatsapp";
 import {
-  fillTemplateChecked,
-  withArabic,
-  schoolSignatureFr,
-  schoolSignatureAr,
-} from "@/lib/whatsapp";
-import { formatLongDate, formatLongDateAr } from "@/lib/format";
+  manualVariables,
+  personalize,
+  sourceFromEdited,
+  type MessageSource,
+  type PersonalChild,
+} from "@/lib/message-personalize";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { TemplateDialog, type TemplateEditTarget } from "./template-dialog";
 import { deleteTemplate } from "./actions";
@@ -22,11 +23,8 @@ import { MessageComposer } from "./message/message-composer";
 import { SendQueueDialog } from "./message/send-queue-dialog";
 import { PreviewDialog } from "./message/preview-dialog";
 
-export interface RecipientChild {
-  name: string;
-  /** Reste dû, déjà formaté et sans unité, `null` si l'élève est à jour. */
-  outstanding: string | null;
-}
+/** Un enfant du parent : son reste dû aujourd'hui et sa plus ancienne échéance. */
+export type RecipientChild = PersonalChild;
 
 export interface Recipient {
   id: string;
@@ -65,18 +63,15 @@ export function CommunicationView({
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   /**
-   * Le directeur a retouché le texte : on cesse alors de le régénérer à
-   * chaque changement de destinataire, sinon sa correction disparaissait au
-   * clic suivant.
+   * Le message source, en français et en arabe, avec ses variables
+   * ({parentName}, {amount}…) : chaque destinataire reçoit le sien au moment
+   * de l'envoi. Null pour un texte libre, sans modèle, envoyé tel quel.
    */
-  const [messageEdited, setMessageEdited] = useState(false);
-  /** Variables du modèle qu'on n'a pas pu renseigner : elles bloquent l'envoi. */
-  const [missingVars, setMissingVars] = useState<string[]>([]);
+  const [source, setSource] = useState<MessageSource | null>(null);
   /**
    * Valeurs saisies à la main pour les variables que l'application ne connaît
-   * pas (le motif d'une alerte, la date d'une réunion). Sans ce champ, ces
-   * modèles restaient bloqués : le message invitait à corriger le texte, mais
-   * le corriger ne débloquait jamais l'envoi.
+   * pas (le motif d'une alerte, l'heure d'une réunion) — jamais le nom, le
+   * montant ou la date d'un parent, que Madrasati remplit pour chacun.
    */
   const [manualVars, setManualVars] = useState<Record<string, string>>({});
 
@@ -87,11 +82,32 @@ export function CommunicationView({
   const [queueOpen, setQueueOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
 
+  const context = useMemo(() => ({ today: new Date(), schoolName }), [schoolName]);
+
   const selected = useMemo(
     () => recipients.filter((r) => selectedIds.has(r.id)),
     [recipients, selectedIds],
   );
-  const first = selected[0] ?? null;
+
+  // Chaque destinataire a-t-il ce qu'il faut ? Un parent à jour ne reçoit pas
+  // de rappel avec un montant vide : il est écarté, et on le dit.
+  const excluded = useMemo(
+    () =>
+      source
+        ? selected
+            .map((r) => ({ recipient: r, missing: personalize(source, r, context).missingAuto }))
+            .filter((x) => x.missing.length > 0)
+        : [],
+    [source, selected, context],
+  );
+  const sendable = useMemo(
+    () => selected.filter((r) => !excluded.some((x) => x.recipient.id === r.id)),
+    [selected, excluded],
+  );
+  const first = leadOf(source, selectedIds);
+
+  const manualFields = source ? manualVariables(source) : [];
+  const missingManual = manualFields.filter((name) => !manualVars[name]?.trim());
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -107,49 +123,19 @@ export function CommunicationView({
   }, [recipients, query, kindFilter]);
 
   /**
-   * Remplit les variables d'un modèle avec les données du destinataire, et
-   * remonte celles qui restent vides. Un montant ou une moyenne manquante doit
-   * bloquer l'envoi : un parent qui reçoit « frais de scolarité de  MRU »
-   * comprend surtout que l'école ne maîtrise pas ses outils.
+   * Le destinataire dont le message s'affiche : le premier qui le recevra
+   * vraiment (un parent à jour n'a pas de montant à montrer).
    */
-  function applyTemplate(
-    tpl: TemplateRow,
-    recipient: Recipient | null,
-    manual: Record<string, string> = {},
-  ) {
-    const today = new Date();
-    const child = recipient?.children[0] ?? null;
-    // Une saisie manuelle non vide l'emporte : c'est elle qui complète un
-    // motif ou une date que l'application ne peut pas deviner.
-    const base: Record<string, string> = {
-      parentName: recipient?.name ?? "",
-      teacherName: recipient?.name ?? "",
-      studentName: child?.name ?? "",
-      amount: child?.outstanding ?? "",
-    };
-    for (const [key, value] of Object.entries(manual)) {
-      if (value.trim()) base[key] = value.trim();
-    }
+  function leadOf(src: MessageSource | null, ids: Set<string>): Recipient | null {
+    const chosen = recipients.filter((r) => ids.has(r.id));
+    if (!src) return chosen[0] ?? null;
+    return chosen.find((r) => personalize(src, r, context).missingAuto.length === 0) ?? chosen[0] ?? null;
+  }
 
-    const fr = fillTemplateChecked(tpl.body, {
-      date: formatLongDate(today),
-      ...base,
-      schoolName: schoolSignatureFr(schoolName),
-    });
-    const ar = tpl.bodyAr
-      ? fillTemplateChecked(tpl.bodyAr, {
-          date: formatLongDateAr(today),
-          ...base,
-          schoolName: schoolSignatureAr(schoolName),
-        })
-      : null;
-
-    return {
-      text: withArabic(fr.text, ar?.text),
-      // Les deux langues portent les mêmes variables : on cumule pour ne
-      // manquer aucun trou, même si le modèle arabe a été modifié à part.
-      missing: [...new Set([...fr.missing, ...(ar?.missing ?? [])])],
-    };
+  /** Le texte affiché : le message du premier destinataire, ou le modèle brut. */
+  function shownText(src: MessageSource, recipient: Recipient | null, manual: Record<string, string>) {
+    if (!recipient) return withArabic(src.fr, src.ar);
+    return personalize(src, recipient, context, manual).text;
   }
 
   function pickTemplate(tpl: TemplateRow) {
@@ -157,11 +143,10 @@ export function CommunicationView({
     // Changer de modèle repart d'une page blanche : le motif saisi pour une
     // alerte n'a aucun sens dans une invitation à une réunion.
     setManualVars({});
-    setMessageEdited(false);
     if (!subject.trim()) setSubject(tpl.title);
-    const { text, missing } = applyTemplate(tpl, first);
-    setMessage(text);
-    setMissingVars(missing);
+    const src = { fr: tpl.body, ar: tpl.bodyAr };
+    setSource(src);
+    setMessage(shownText(src, leadOf(src, selectedIds), {}));
   }
 
   function toggleRecipient(recipient: Recipient) {
@@ -169,43 +154,41 @@ export function CommunicationView({
     if (next.has(recipient.id)) next.delete(recipient.id);
     else next.add(recipient.id);
     setSelectedIds(next);
-
-    const tpl = templates.find((x) => x.id === templateId);
-    if (!tpl || messageEdited) return;
-    // Le texte affiché est celui du premier destinataire ; les autres reçoivent
-    // le leur au moment de l'envoi.
-    const preview = recipients.find((r) => next.has(r.id)) ?? null;
-    const { text, missing } = applyTemplate(tpl, preview, manualVars);
-    setMessage(text);
-    setMissingVars(missing);
+    if (!source) return;
+    // Le texte affiché suit le premier destinataire ; chacun recevra le sien.
+    setMessage(shownText(source, leadOf(source, next), manualVars));
   }
 
-  /** Saisie d'une variable manquante : le message se reconstruit à chaque frappe. */
+  /** Retouche du texte : elle vaut pour tous, chacun garde ses propres valeurs. */
+  function handleMessageChange(value: string) {
+    setMessage(value);
+    if (!source) return;
+    if (first) setSource(sourceFromEdited(value, first, context));
+    else {
+      const [fr, ...ar] = value.split("\n————————\n");
+      setSource({ fr, ar: ar.length > 0 ? ar.join("\n————————\n") : null });
+    }
+  }
+
+  /** Saisie d'une variable que Madrasati ne connaît pas (motif, heure…). */
   function handleManualVar(name: string, value: string) {
     const next = { ...manualVars, [name]: value };
     setManualVars(next);
-    const tpl = templates.find((x) => x.id === templateId);
-    if (!tpl) return;
-    const { text, missing } = applyTemplate(tpl, first, next);
-    setMessage(text);
-    setMissingVars(missing);
-    setMessageEdited(false);
+    if (source) setMessage(shownText(source, first, next));
   }
 
   function resetComposer() {
     setTemplateId(null);
     setSubject("");
     setMessage("");
-    setMessageEdited(false);
-    setMissingVars([]);
+    setSource(null);
     setManualVars({});
     composerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   /** Message final d'un destinataire : l'objet devient la première ligne, en gras. */
   function messageFor(recipient: Recipient) {
-    const tpl = templates.find((x) => x.id === templateId);
-    const body = tpl && !messageEdited ? applyTemplate(tpl, recipient, manualVars).text : message;
+    const body = source ? personalize(source, recipient, context, manualVars).text : message;
     const title = subject.trim();
     return title ? `*${title}*\n\n${body}` : body;
   }
@@ -226,7 +209,7 @@ export function CommunicationView({
     }
   }
 
-  const canSend = selected.length > 0 && message.trim().length > 0 && missingVars.length === 0;
+  const canSend = sendable.length > 0 && message.trim().length > 0 && missingManual.length === 0;
 
   return (
     <div className="space-y-5">
@@ -297,15 +280,15 @@ export function CommunicationView({
               subject={subject}
               onSubjectChange={setSubject}
               message={message}
-              onMessageChange={(value) => {
-                setMessage(value);
-                setMessageEdited(true);
-              }}
-              missingVars={missingVars}
+              onMessageChange={handleMessageChange}
+              manualFields={manualFields}
+              missingManual={missingManual}
+              excluded={excluded.map((x) => x.recipient.name)}
+              leadName={first?.name ?? null}
               manualVars={manualVars}
               onManualVar={handleManualVar}
               canSend={canSend}
-              reachableCount={selected.filter((r) => r.phone.trim()).length}
+              reachableCount={sendable.filter((r) => r.phone.trim()).length}
               onPreview={() => setPreviewOpen(true)}
               onSend={() => setQueueOpen(true)}
             />
@@ -321,7 +304,7 @@ export function CommunicationView({
       <SendQueueDialog
         open={queueOpen}
         onOpenChange={setQueueOpen}
-        recipients={selected}
+        recipients={sendable}
         messageFor={messageFor}
       />
       <PreviewDialog
