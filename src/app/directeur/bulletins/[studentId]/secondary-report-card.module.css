@@ -227,6 +227,18 @@
 .synthMention {
   color: #c9973a;
 }
+/* Moyennes des trimestres précédents, reprises de leurs bulletins. */
+.previousAverages {
+  margin-top: 6px;
+  padding-top: 5px;
+  border-top: 1px dashed #d1d5db;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #374151;
+}
+.previousAverages b {
+  color: #0b5e38;
+}
 
 /* Évolution depuis le trimestre précédent */
 .subjectTrend {

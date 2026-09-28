@@ -7,6 +7,7 @@ import {
   buildReportCards,
   buildAnnualReportCards,
   classCardsWithRules,
+  previousTermAverages,
   reportCardRule,
   termRecap,
 } from "@/lib/report-card-data";
@@ -206,6 +207,11 @@ export default async function ReportCardPage({
       ) ?? null)
     : null;
   const cardEvolution = compareCards(card, previousCard);
+  // Aux 2e et 3e trimestres : les moyennes générales des trimestres déjà
+  // passés, reprises de leurs bulletins.
+  const previousAverages = isAnnual
+    ? []
+    : ((await previousTermAverages(user.schoolId, student.classId, term)).get(studentId) ?? []);
   const actions = (
     <ReportCardActions
       studentName={studentName}
@@ -296,6 +302,7 @@ export default async function ReportCardPage({
               issuedAt={new Date()}
               evolution={cardEvolution}
               incomplete={missing.length > 0}
+              previousAverages={previousAverages}
             />
           )}
         </div>
@@ -335,6 +342,7 @@ export default async function ReportCardPage({
         photoUrl={student.photoUrl}
         evolution={cardEvolution}
         incomplete={missing.length > 0}
+        previousAverages={previousAverages}
         commentSlot={
           <CommentEditor
             studentId={studentId}

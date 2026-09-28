@@ -100,7 +100,8 @@ export async function generateComment(studentId: string, term: string) {
  *
  * C'est ce qui empêche un changement de règle en cours d'année de réécrire
  * un document déjà distribué : tant que cette trace existe, le bulletin est
- * recalculé avec la règle de ce jour-là.
+ * recalculé avec la règle de ce jour-là. Sa moyenne générale est relevée au
+ * passage : les bulletins des trimestres suivants la reprennent telle quelle.
  */
 export async function markReportCardIssued(studentId: string, term: string) {
   const user = await requireRole(ROLES.DIRECTOR);
@@ -108,7 +109,7 @@ export async function markReportCardIssued(studentId: string, term: string) {
   const [student, year, rule] = await Promise.all([
     prisma.student.findFirst({
       where: { id: studentId, schoolId: user.schoolId },
-      select: { id: true },
+      select: { id: true, classId: true },
     }),
     prisma.academicYear.findFirst({
       where: { schoolId: user.schoolId, isCurrent: true },
@@ -117,6 +118,25 @@ export async function markReportCardIssued(studentId: string, term: string) {
     currentGradingConfig(user.schoolId),
   ]);
   if (!student || !year) return;
+
+  const key = { studentId, academicYearId: year.id, term };
+  const existing = await prisma.reportCardIssue.findUnique({
+    where: { studentId_academicYearId_term: key },
+    select: { average: true },
+  });
+  if (existing?.average != null) return; // déjà remis, moyenne déjà relevée
+
+  // La moyenne telle que ce bulletin l'imprime : avec sa règle d'origine
+  // s'il a déjà été remis, sinon avec la règle du jour.
+  const printedRule = existing
+    ? (await reportCardRule({ schoolId: user.schoolId, studentId, academicYearId: year.id, term })).config
+    : rule.config;
+  const cards = student.classId
+    ? term === ANNUAL_TERM
+      ? await buildAnnualReportCards(user.schoolId, student.classId, printedRule)
+      : await buildReportCards(user.schoolId, student.classId, term, printedRule)
+    : [];
+  const average = cards.find((c) => c.student.id === studentId)?.average ?? null;
 
   // L'école suit encore le modèle livré : on l'enregistre comme sa version 1,
   // sinon il n'y aurait rien à figer et le bulletin suivrait ses réglages
@@ -127,8 +147,9 @@ export async function markReportCardIssued(studentId: string, term: string) {
 
   await prisma.reportCardIssue.upsert({
     where: { studentId_academicYearId_term: { studentId, academicYearId: year.id, term } },
-    // Déjà remis : la règle d'origine reste celle qui fait foi.
-    update: {},
+    // Déjà remis : la règle d'origine reste celle qui fait foi ; seule la
+    // moyenne manquante (bulletin remis avant ce relevé) est complétée.
+    update: { average },
     create: {
       schoolId: user.schoolId,
       studentId,
@@ -136,6 +157,7 @@ export async function markReportCardIssued(studentId: string, term: string) {
       term,
       gradingConfigId: configId,
       issuedByUserId: user.id,
+      average,
     },
   });
 }

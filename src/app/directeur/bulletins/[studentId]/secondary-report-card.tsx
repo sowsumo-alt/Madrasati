@@ -5,6 +5,7 @@ import { SECONDARY_OFFICIAL_SUBJECTS, officialSubjectIndex, roundHundredth } fro
 import type { FormulaPart } from "@/lib/grading-config";
 import { formatDelta, type CardEvolution, type Evolution } from "@/lib/report-card-checks";
 import { formatLongDate } from "@/lib/format";
+import type { PreviousTermAverage } from "@/lib/report-card-data";
 import type { OfficialHeaderText, SchoolIdentity } from "@/lib/official-header";
 import { DocumentHeader } from "@/components/documents/document-header";
 import styles from "./secondary-report-card.module.css";
@@ -44,6 +45,8 @@ export interface SecondaryReportCardProps {
   evolution?: CardEvolution | null;
   /** Vrai s'il manquait des notes quand le bulletin a été établi. */
   incomplete?: boolean;
+  /** Moyennes des trimestres déjà passés (vide au 1er trimestre). */
+  previousAverages?: PreviousTermAverage[];
 }
 
 const TREND_ARROW = { UP: "↗", DOWN: "↘", STABLE: "→" } as const;
@@ -149,6 +152,7 @@ export function SecondaryReportCard({
   periodLabel,
   evolution,
   incomplete,
+  previousAverages = [],
 }: SecondaryReportCardProps) {
   const averageHeader = "Moy T /20";
   const averageHeaderAr = "معدل ف /20";
@@ -294,6 +298,16 @@ export function SecondaryReportCard({
           {evolution?.general && (
             <div className={styles.generalTrend}>
               <Trend value={evolution.general} long />
+            </div>
+          )}
+          {previousAverages.length > 0 && (
+            <div className={styles.previousAverages} data-testid="previous-averages">
+              {previousAverages.map((p) => (
+                <div key={p.term}>
+                  Moyenne {p.term} :{" "}
+                  <b>{p.average != null ? `${twoDecimals(p.average)}/20` : "Non disponible"}</b>
+                </div>
+              ))}
             </div>
           )}
         </div>

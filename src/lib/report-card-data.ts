@@ -257,3 +257,63 @@ export async function classCardsWithRules(
   }
   return cards.map((c) => byStudent.get(c.student.id) ?? c);
 }
+
+export interface PreviousTermAverage {
+  term: string;
+  /** Null quand l'élève n'a encore aucune moyenne ce trimestre-là. */
+  average: number | null;
+}
+
+/**
+ * Moyennes générales des trimestres déjà passés de l'année, pour chaque
+ * élève d'une classe : au 2e trimestre, celle du 1er ; au 3e, celles du 1er
+ * et du 2e. Elles s'impriment sous la moyenne en cours.
+ *
+ * Un bulletin déjà remis fait foi : on reprend la moyenne relevée ce jour-là
+ * (ReportCardIssue.average), sans rien recalculer. Sinon — bulletin jamais
+ * imprimé, ou remis avant que la moyenne soit relevée — elle est calculée
+ * avec la règle de ce bulletin (voir classCardsWithRules).
+ */
+export async function previousTermAverages(
+  schoolId: string,
+  classId: string,
+  term: string,
+): Promise<Map<string, PreviousTermAverage[]>> {
+  const index = (TERM_LABELS as readonly string[]).indexOf(term);
+  const previous = index > 0 ? TERM_LABELS.slice(0, index) : [];
+  const result = new Map<string, PreviousTermAverage[]>();
+  if (previous.length === 0) return result;
+
+  const classRoom = await prisma.classRoom.findFirst({
+    where: { id: classId, schoolId },
+    select: { academicYearId: true },
+  });
+  if (!classRoom) return result;
+
+  const students = await prisma.student.findMany({
+    where: { schoolId, classId, status: "ACTIVE" },
+    select: { id: true },
+  });
+
+  for (const past of previous) {
+    const issues = await prisma.reportCardIssue.findMany({
+      where: { schoolId, academicYearId: classRoom.academicYearId, term: past, student: { classId } },
+      select: { studentId: true, average: true },
+    });
+    const stored = new Map(
+      issues.filter((i) => i.average != null).map((i) => [i.studentId, i.average as number]),
+    );
+    // On ne recalcule le trimestre que si un élève n'a pas de moyenne relevée.
+    const computed = students.every((s) => stored.has(s.id))
+      ? new Map<string, number | null>()
+      : new Map(
+          (await classCardsWithRules(schoolId, classId, past)).map((c) => [c.student.id, c.average]),
+        );
+    for (const s of students) {
+      const list = result.get(s.id) ?? [];
+      list.push({ term: past, average: stored.get(s.id) ?? computed.get(s.id) ?? null });
+      result.set(s.id, list);
+    }
+  }
+  return result;
+}

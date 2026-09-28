@@ -6,6 +6,7 @@ import { formatDelta, type CardEvolution, type Evolution } from "@/lib/report-ca
 import { cn } from "@/lib/utils";
 import type { OfficialHeaderText, SchoolIdentity } from "@/lib/official-header";
 import { DocumentHeader } from "@/components/documents/document-header";
+import type { PreviousTermAverage } from "@/lib/report-card-data";
 
 /**
  * Bulletin d'origine de Madrasati, celui du Fondamental (et des classes au
@@ -40,6 +41,7 @@ export function StandardReportCard({
   commentSlot,
   evolution,
   incomplete,
+  previousAverages = [],
 }: {
   id: string;
   card: ReportCard;
@@ -53,6 +55,8 @@ export function StandardReportCard({
   commentSlot?: ReactNode;
   evolution?: CardEvolution | null;
   incomplete?: boolean;
+  /** Moyennes des trimestres déjà passés (vide au 1er trimestre). */
+  previousAverages?: PreviousTermAverage[];
 }) {
   return (
     <div
@@ -156,6 +160,18 @@ export function StandardReportCard({
             <p className="mt-0.5 text-xs font-semibold">
               <Trend value={evolution.general} long />
             </p>
+          )}
+          {previousAverages.length > 0 && (
+            <div className="mt-2 border-t border-dashed border-border pt-1.5 text-xs text-foreground/70" data-testid="previous-averages">
+              {previousAverages.map((p) => (
+                <p key={p.term}>
+                  {t("bulletin.previousAverage").replace("{term}", p.term)}{" "}
+                  <span className="font-semibold text-primary-800">
+                    {p.average != null ? `${p.average.toFixed(2)} / 20` : t("bulletin.notAvailable")}
+                  </span>
+                </p>
+              ))}
+            </div>
           )}
         </div>
         <div>

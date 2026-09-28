@@ -11,7 +11,7 @@ import { toSchoolIdentity } from "@/lib/official-header";
 import { loadOfficialHeader } from "@/lib/official-header-data";
 import { fillTemplate, withArabic, schoolSignatureFr, schoolSignatureAr } from "@/lib/whatsapp";
 import { termDateRange } from "@/lib/report-card";
-import { classCardsWithRules } from "@/lib/report-card-data";
+import { classCardsWithRules, previousTermAverages } from "@/lib/report-card-data";
 import { compareCards, missingGrades, previousTermOf } from "@/lib/report-card-checks";
 import { TERMS } from "@/app/directeur/examens/schema";
 import { SecondaryReportCard } from "../[studentId]/secondary-report-card";
@@ -43,7 +43,7 @@ export default async function ClassReportCardsPage({
   if (!classRoom) notFound();
 
   const previousTerm = previousTermOf(term, TERMS);
-  const [cards, previousCards, school, template, students, official] = await Promise.all([
+  const [cards, previousCards, school, template, students, official, pastAverages] = await Promise.all([
     classCardsWithRules(user.schoolId, classId, term),
     previousTerm ? classCardsWithRules(user.schoolId, classId, previousTerm) : Promise.resolve([]),
     prisma.school.findUnique({ where: { id: user.schoolId } }),
@@ -64,6 +64,7 @@ export default async function ClassReportCardsPage({
       },
     }),
     loadOfficialHeader(),
+    previousTermAverages(user.schoolId, classId, term),
   ]);
 
   const studentIds = cards.map((c) => c.student.id);
@@ -129,6 +130,7 @@ export default async function ClassReportCardsPage({
           issuedAt={new Date()}
           evolution={cardEvolution}
           incomplete={missing.length > 0}
+          previousAverages={pastAverages.get(card.student.id) ?? []}
         />
       ) : (
         <StandardReportCard
@@ -141,6 +143,7 @@ export default async function ClassReportCardsPage({
           photoUrl={info?.photoUrl ?? null}
           evolution={cardEvolution}
           incomplete={missing.length > 0}
+          previousAverages={pastAverages.get(card.student.id) ?? []}
           commentSlot={
             comment ? (
               <div className="mt-6 border-t border-border pt-4">

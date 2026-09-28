@@ -755,6 +755,11 @@ model ReportCardIssue {
   gradingConfig   GradingConfig? @relation(fields: [gradingConfigId], references: [id])
   issuedAt        DateTime       @default(now())
   issuedByUserId  String?
+  // Moyenne générale imprimée sur ce bulletin, relevée au moment où il a été
+  // remis. Les bulletins des trimestres suivants la reprennent telle quelle
+  // (« Moyenne Trimestre 1 : 12,00 »). Null pour un bulletin remis avant
+  // l'ajout de ce champ : elle est alors recalculée avec sa règle d'origine.
+  average         Float?
 
   @@unique([studentId, academicYearId, term])
   @@index([schoolId])
