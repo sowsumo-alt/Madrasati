@@ -62,7 +62,9 @@ export async function gradingConfigById(
   return {
     id: row.id,
     version: row.version,
-    config: parseGradingConfig(row.config),
+    // Un bulletin remis avant l'option « bulletins cumulatifs » reste tel
+    // qu'il a été distribué : chaque trimestre sur ses seules notes.
+    config: parseGradingConfig(row.config, { cumulativeWhenMissing: false }),
     isDefault: false,
     updatedAt: row.createdAt,
   };

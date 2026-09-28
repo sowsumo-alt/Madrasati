@@ -247,6 +247,21 @@ export function GradingRuleCard({
               {t("grading.annualTitle")}
             </label>
             <p className="text-sm text-foreground/60">{t("grading.annualHint")}</p>
+            {config.annual.enabled && (
+              <label className="flex items-start gap-2 rounded-lg bg-surface px-3 py-2 text-sm text-foreground">
+                <input
+                  type="checkbox"
+                  checked={config.annual.cumulative}
+                  onChange={(e) => updateAnnual({ cumulative: e.target.checked })}
+                  className="mt-0.5 h-4 w-4 rounded border-border text-primary-700 focus:ring-primary-500"
+                  data-testid="annual-cumulative"
+                />
+                <span>
+                  <span className="font-semibold">{t("grading.cumulativeTitle")}</span>
+                  <span className="block text-xs text-foreground/55">{t("grading.cumulativeHint")}</span>
+                </span>
+              </label>
+            )}
             <div className="flex flex-wrap items-end gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="pass-threshold">{t("grading.passThreshold")}</Label>

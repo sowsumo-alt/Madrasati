@@ -250,9 +250,25 @@ export const gradingConfigSchema = z.object({
  * Relit une configuration enregistrée. Une configuration illisible — écrite
  * par une version plus ancienne, ou abîmée — ne bloque pas les bulletins :
  * on repart du modèle par défaut plutôt que de ne rien afficher.
+ *
+ * `cumulativeWhenMissing` : valeur de l'option « bulletins cumulatifs » pour
+ * une règle enregistrée avant elle — le modèle par défaut (oui) pour la règle
+ * en vigueur, non pour celle d'un bulletin déjà remis, qui ne doit pas changer.
  */
-export function parseGradingConfig(value: unknown): GradingConfig {
-  const parsed = gradingConfigSchema.safeParse(upgradeAnnual(value));
+export function parseGradingConfig(
+  value: unknown,
+  options: { cumulativeWhenMissing?: boolean } = {},
+): GradingConfig {
+  const upgraded = upgradeAnnual(value) as { annual?: Record<string, unknown> } | null;
+  if (
+    options.cumulativeWhenMissing === false &&
+    upgraded?.annual &&
+    typeof upgraded.annual === "object" &&
+    !("cumulative" in upgraded.annual)
+  ) {
+    upgraded.annual = { ...upgraded.annual, cumulative: false };
+  }
+  const parsed = gradingConfigSchema.safeParse(upgraded);
   return parsed.success ? (parsed.data as GradingConfig) : defaultGradingConfig();
 }
 

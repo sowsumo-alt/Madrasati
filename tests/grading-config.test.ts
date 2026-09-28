@@ -148,3 +148,13 @@ test("une règle sans aucun type de note est refusée", () => {
   config.secondary.parts = [];
   assert.equal(gradingConfigSchema.safeParse(config).success, false);
 });
+
+test("l'option « bulletins cumulatifs » : oui par défaut, non pour un bulletin déjà remis", () => {
+  const saved = JSON.parse(JSON.stringify(defaultGradingConfig()));
+  delete saved.annual.cumulative; // règle enregistrée avant l'option
+  assert.equal(parseGradingConfig(saved).annual.cumulative, true);
+  assert.equal(parseGradingConfig(saved, { cumulativeWhenMissing: false }).annual.cumulative, false);
+  // Un choix enregistré est toujours respecté.
+  saved.annual.cumulative = true;
+  assert.equal(parseGradingConfig(saved, { cumulativeWhenMissing: false }).annual.cumulative, true);
+});
