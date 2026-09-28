@@ -214,6 +214,7 @@ export function ImportDialog({ open, onOpenChange, classes, catalog }: ImportDia
           placeOfBirth: s.placeOfBirth,
           gender: s.gender,
           nni: s.nni,
+          rimNumber: s.rimNumber,
           nationality: s.nationality,
           phone: s.phone,
           className: s.className,
@@ -432,6 +433,7 @@ export function ImportDialog({ open, onOpenChange, classes, catalog }: ImportDia
                         <th className="px-3 py-2">Naissance</th>
                         <th className="px-3 py-2">Genre</th>
                         <th className="px-3 py-2">NNI</th>
+                        <th className="px-3 py-2">N° RIM</th>
                         <th className="px-3 py-2">Tél. parent</th>
                       </tr>
                     </thead>
@@ -465,6 +467,9 @@ export function ImportDialog({ open, onOpenChange, classes, catalog }: ImportDia
                           <td className="px-3 py-1.5 text-foreground/70">{s.gender ?? "—"}</td>
                           <td className="px-3 py-1.5 font-mono text-xs text-foreground/70" dir="ltr">
                             {s.nni ?? "—"}
+                          </td>
+                          <td className="px-3 py-1.5 text-xs text-foreground/70" dir="ltr">
+                            {s.rimNumber ?? "—"}
                           </td>
                           <td className="px-3 py-1.5 text-foreground/70" dir="ltr">
                             {s.phone ?? "—"}

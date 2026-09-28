@@ -19,10 +19,10 @@ const SHEET: ImportCell[][] = [
   ["GROUPE SCOLAIRE NGALAM AVENIR"],
   [],
   ["JARDIN"],
-  ["N°", "Prénoms et Nom", "Lieu et date de naissance", "Sexe", "NNI", "", "Tél"],
-  [1, "Mohamed Lemine Ould Sidi", "Nouakchott le 12/03/2021", "M", "1234567890", "RIM", "46 00 02 74"],
-  [2, "Fatimetou Mint Ahmed", "Kiffa 05/11/2020", "F", "2345678901", "RIM", "36000274"],
-  [3, "Aminata Moussa Diallo", "Rosso", "Fille", "123", "RIM", ""],
+  ["N°", "Prénoms et Nom", "Lieu et date de naissance", "Sexe", "NNI", "RIM", "Tél"],
+  [1, "Mohamed Lemine Ould Sidi", "Nouakchott le 12/03/2021", "M", "1234567890", "150231", "46 00 02 74"],
+  [2, "Fatimetou Mint Ahmed", "Kiffa 05/11/2020", "F", "2345678901", "150232", "36000274"],
+  [3, "Aminata Moussa Diallo", "Rosso", "Fille", "123", "150233", ""],
   [4, "", "", "", "", "", ""],
   [5, "", "Atar", "", "", "", ""],
   [],
@@ -47,8 +47,10 @@ test("les colonnes habituelles des écoles sont reconnues, même sans en-tête",
   const samples = (i: number) => SHEET.slice(4, 7).map((r) => r[i]);
   assert.deepEqual(
     header.map((h, i) => suggestField(h, samples(i))),
-    ["number", "fullName", "birthPlaceDate", "gender", "nni", "nationality", "phone"],
+    ["number", "fullName", "birthPlaceDate", "gender", "nni", "rimNumber", "phone"],
   );
+  assert.equal(suggestField("Nationalité"), "nationality");
+  assert.equal(suggestField("", ["RIM", "RIM"]), "nationality");
   assert.equal(suggestField("PRENOM ET NOM"), "fullName");
   assert.equal(suggestField("Date de naissance"), "dateOfBirth");
   assert.equal(suggestField("Téléphone"), "phone");
@@ -78,7 +80,7 @@ test("genre, date et lieu de naissance sont lus sous leurs formes habituelles", 
 });
 
 test("seuls les vrais élèves sont importés ; les totaux et lignes vides sont ignorés", () => {
-  const mapping = ["number", "fullName", "birthPlaceDate", "gender", "nni", "nationality", "phone"] as const;
+  const mapping = ["number", "fullName", "birthPlaceDate", "gender", "nni", "rimNumber", "phone"] as const;
   const preview = buildImportPreview(SHEET, 3, [...mapping]);
 
   assert.equal(preview.students.length, 3);
@@ -95,7 +97,7 @@ test("seuls les vrais élèves sont importés ; les totaux et lignes vides sont 
   assert.equal(mohamed.dateOfBirth, "2021-03-12");
   assert.equal(mohamed.placeOfBirth, "Nouakchott");
   assert.equal(mohamed.nni, "1234567890");
-  assert.equal(mohamed.nationality, "Mauritanienne");
+  assert.equal(mohamed.rimNumber, "150231");
   assert.equal(mohamed.phone, "46000274");
   assert.equal(fatimetou.gender, "F");
   assert.equal(aminata.gender, "F"); // « Fille » n'est pas une ligne de total

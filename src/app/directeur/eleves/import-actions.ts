@@ -29,6 +29,7 @@ const studentSchema = z.object({
     .string()
     .nullable()
     .refine((v) => v == null || isValidNni(v), "NNI invalide"),
+  rimNumber: z.string().trim().max(30).nullable(),
   nationality: z.string().trim().max(40).nullable(),
   phone: z.string().trim().max(20).nullable(),
   className: z.string().trim().max(60).nullable(),
@@ -133,6 +134,7 @@ export async function importStudentList(input: StudentImportInput) {
             placeOfBirth: s.placeOfBirth,
             gender: s.gender,
             nni: s.nni ? normalizeNni(s.nni) : null,
+            rimNumber: s.rimNumber,
             nationality: s.nationality,
             classId: own?.id ?? defaultClass?.id ?? null,
             status: "ACTIVE",

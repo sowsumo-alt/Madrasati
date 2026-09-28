@@ -23,6 +23,7 @@ export const IMPORT_FIELDS = [
   "placeOfBirth",
   "gender",
   "nni",
+  "rimNumber",
   "nationality",
   "phone",
   "className",
@@ -40,6 +41,7 @@ export const IMPORT_FIELD_LABELS: Record<ImportField, string> = {
   placeOfBirth: "Lieu de naissance",
   gender: "Genre",
   nni: "NNI",
+  rimNumber: "N° RIM",
   nationality: "Nationalité",
   phone: "Téléphone du parent",
   className: "Classe",
@@ -67,7 +69,8 @@ const HEADER_RULES: [ImportField, RegExp][] = [
   ["nni", /\b(nni|n n i|numero national|identifiant national)\b/],
   ["gender", /\b(genre|sexe|sex|gender|g f)\b/],
   ["phone", /\b(tel|tele|telephone|phone|portable|contact|numero du parent|n tel)\b/],
-  ["nationality", /\b(nationalite|nation|rim)\b/],
+  ["rimNumber", /\b(rim|n rim|numero rim)\b/],
+  ["nationality", /\b(nationalite|nation)\b/],
   ["className", /^(classe|class|niveau)$/],
   ["number", /^(n|no|num|numero|n ordre|matricule|ordre|nr)$/],
 ];
@@ -209,6 +212,7 @@ export interface ImportedStudent {
   placeOfBirth: string | null;
   gender: "M" | "F" | null;
   nni: string | null;
+  rimNumber: string | null;
   nationality: string | null;
   phone: string | null;
   className: string | null;
@@ -317,6 +321,7 @@ export function buildImportPreview(
       placeOfBirth,
       gender: parseGender(cell(r, "gender")),
       nni,
+      rimNumber: text(cell(r, "rimNumber")) || null,
       nationality,
       phone: phoneDigits.length >= 8 ? phoneDigits : null,
       className: text(cell(r, "className")) || null,
