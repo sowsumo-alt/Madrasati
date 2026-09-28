@@ -345,9 +345,26 @@ body {
   }
 }
 
+/*
+ * Sans marge de page, le navigateur n'a plus la place d'imprimer son en-tête
+ * et son pied de page (adresse du site, date, titre, « 1/2 ») sur les reçus
+ * et bulletins. La marge est remise sur le contenu : 10 mm, comme avant.
+ */
+@page {
+  size: A4;
+  margin: 0;
+}
+
 @media print {
   body {
     background: white;
+  }
+  main {
+    padding: 10mm !important;
+  }
+  /* Bulletins d'une classe : chaque feuille suivante retrouve sa marge du haut. */
+  .print-page-break + * {
+    padding-top: 10mm;
   }
   .no-print {
     display: none !important;

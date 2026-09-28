@@ -301,7 +301,7 @@
    intacte, pour qu'il tienne sur une seule feuille. Sans ombre ni cadre. */
 @media print {
   .bulletin {
-    zoom: 0.87;
+    zoom: 0.8;
     max-width: none;
     border: none;
     box-shadow: none;
