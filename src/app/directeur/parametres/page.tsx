@@ -48,6 +48,7 @@ export default async function SettingsPage() {
         name: school.name,
         address: school.address ?? "",
         city: school.city ?? "",
+        receiptPrintMode: school.receiptPrintMode === "HALF_SHEET" ? "HALF_SHEET" : "TWO_PER_PAGE",
         monthlyTuition: school.monthlyTuition ?? "",
         phone: school.phone ?? "",
         email: school.email ?? "",

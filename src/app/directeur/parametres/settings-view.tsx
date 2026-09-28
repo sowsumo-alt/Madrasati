@@ -35,6 +35,7 @@ const schoolSchema = z.object({
   name: z.string().trim().min(1, "Le nom de l'école est requis"),
   address: z.string().trim().optional().or(z.literal("")),
   city: z.string().trim().optional().or(z.literal("")),
+  receiptPrintMode: z.enum(["TWO_PER_PAGE", "HALF_SHEET"]).optional(),
   monthlyTuition: z.union([z.literal(""), z.coerce.number().int().positive().max(10_000_000)]).optional(),
   phone: z.string().trim().optional().or(z.literal("")),
   email: z.string().trim().optional().or(z.literal("")),
@@ -82,6 +83,7 @@ export function SettingsView({
     defaultValues: school,
   });
   const logoUrl = schoolForm.watch("logoUrl") ?? null;
+  const receiptPrintMode = schoolForm.watch("receiptPrintMode");
   // L'aperçu suit la saisie : le directeur voit son en-tête changer avant
   // même d'enregistrer.
   const [name, address, city, phone, logoIsLetterhead] = schoolForm.watch([
@@ -232,6 +234,36 @@ export function SettingsView({
                 <p className="text-xs text-foreground/50">
                   Proposé pour chaque élève dans sa formule de paiement (mensuel, trimestriel…).
                 </p>
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>Impression des reçus</Label>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {(
+                    [
+                      ["TWO_PER_PAGE", "Pleine page", "2 reçus par feuille A4, à couper au milieu"],
+                      ["HALF_SHEET", "À l'unité", "1 reçu par demi-feuille (A5) déjà coupée"],
+                    ] as const
+                  ).map(([value, label, hint]) => (
+                    <label
+                      key={value}
+                      className={`flex cursor-pointer items-start gap-2.5 rounded-xl border px-3 py-2.5 ${
+                        receiptPrintMode === value ? "border-primary-600 bg-primary-50" : "border-border"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        value={value}
+                        {...schoolForm.register("receiptPrintMode")}
+                        className="mt-1 h-4 w-4 text-primary-700"
+                        data-testid={`print-mode-${value}`}
+                      />
+                      <span>
+                        <span className="block text-sm font-semibold text-foreground">{label}</span>
+                        <span className="block text-xs text-foreground/55">{hint}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="email">Email</Label>

@@ -167,3 +167,15 @@ export async function deleteFee(feeId: string) {
   revalidatePath("/directeur/finance");
   revalidatePath("/directeur");
 }
+
+/**
+ * Note les reçus imprimés : en impression « deux reçus par feuille », un
+ * reçu déjà sorti ne revient plus en bas de la feuille suivante.
+ */
+export async function markReceiptsPrinted(paymentIds: string[]) {
+  const user = await requireRole(ROLES.DIRECTOR);
+  await prisma.payment.updateMany({
+    where: { id: { in: paymentIds.slice(0, 10) }, schoolId: user.schoolId, receiptPrintedAt: null },
+    data: { receiptPrintedAt: new Date() },
+  });
+}

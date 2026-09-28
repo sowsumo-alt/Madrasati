@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Check, Info, Phone, UserRound, Users, Wallet } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
@@ -13,12 +13,11 @@ import {
   formatLongDateAr,
   formatMRU,
   formatPhone,
-  ltrIsolate,
 } from "@/lib/format";
 import { PrintButton } from "@/components/ui/print-button";
 import { PdfButton } from "@/components/ui/pdf-button";
-import { PaymentMethodLogo } from "@/components/ui/payment-method-logo";
-import { DocumentHeader } from "@/components/documents/document-header";
+import { CompactReceipt, ReceiptSheet, isReceiptPrintMode, type ReceiptPrintMode } from "@/components/receipts/compact-receipt";
+import { ReceiptModeSwitch } from "@/components/receipts/receipt-mode-switch";
 import { toSchoolIdentity } from "@/lib/official-header";
 import { WhatsAppIcon } from "@/components/brand/whatsapp-icon";
 import { buttonVariants } from "@/components/ui/button";
@@ -42,10 +41,13 @@ function partRank(receiptNumber: string) {
  */
 export default async function FamilyReceiptPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ familyPaymentId: string }>;
+  searchParams: Promise<{ mode?: string }>;
 }) {
   const { familyPaymentId } = await params;
+  const { mode: modeParam } = await searchParams;
   const user = await requireRole(ROLES.DIRECTOR);
 
   const familyPayment = await prisma.familyPayment.findFirst({
@@ -92,12 +94,15 @@ export default async function FamilyReceiptPage({
       )
     : "";
 
-  const label = "text-xs font-semibold uppercase tracking-wider text-foreground/45";
-  const th = "px-3 py-2.5 text-start text-xs font-semibold uppercase tracking-wide text-primary-700";
+  const mode: ReceiptPrintMode = isReceiptPrintMode(modeParam)
+    ? modeParam
+    : isReceiptPrintMode(school.receiptPrintMode)
+      ? school.receiptPrintMode
+      : "TWO_PER_PAGE";
 
   return (
     <div className="mx-auto max-w-5xl">
-      <div className="no-print mb-6 flex flex-wrap items-center justify-between gap-3">
+      <div className="no-print mb-4 flex flex-wrap items-center justify-between gap-3">
         <Link
           href={parent ? `/directeur/familles/${parent.id}` : "/directeur/finance"}
           className="inline-flex items-center gap-2 text-sm font-medium text-foreground/55 transition-colors hover:text-foreground"
@@ -129,140 +134,34 @@ export default async function FamilyReceiptPage({
         </div>
       </div>
 
-      <div
-        id="recu-card"
-        className="mx-auto max-w-3xl rounded-2xl border border-border/80 bg-surface p-6 shadow-soft sm:p-8 print:max-w-none print:border-0 print:shadow-none"
-      >
-        <DocumentHeader school={toSchoolIdentity(school)} />
+      <ReceiptModeSwitch mode={mode} base={`/directeur/finance/recus/famille/${familyPayment.id}`} partnerName={null} />
 
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <span className="inline-flex rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary-700">
-              {t("family.receiptTitle")}
-            </span>
-            <p className="mt-2 text-2xl font-bold text-foreground" style={{ fontVariantNumeric: "tabular-nums" }} dir="ltr">
-              {familyPayment.receiptNumber}
-            </p>
-          </div>
-          <p className="text-sm text-foreground/50">
-            {formatDateIn(locale, familyPayment.paidAt, { day: "numeric", month: "short", year: "numeric" })}
-          </p>
-        </div>
-
-        <div className="my-6 border-t border-border/70" />
-
-        <div className="grid gap-6 sm:grid-cols-2 sm:divide-x sm:divide-border/70 rtl:sm:divide-x-reverse">
-          <div className="sm:pe-6">
-            <p className={`flex items-center gap-2 ${label}`}>
-              <Users className="h-4 w-4 text-primary-600" />
-              {t("family.receiptFamily")}
-            </p>
-            <p className="mt-1.5 text-lg font-bold text-foreground">{name}</p>
-            <p className="text-sm text-foreground/55">
-              {t("family.childCount").replace("{count}", String(payments.length))}
-            </p>
-          </div>
-          <div className="sm:ps-6">
-            <p className={`flex items-center gap-2 ${label}`}>
-              <UserRound className="h-4 w-4 text-primary-600" />
-              {t("finance.parentOrGuardian")}
-            </p>
-            <p className="mt-1.5 text-lg font-bold text-foreground">{parentName ?? "—"}</p>
-            {parent && (
-              <p className="flex items-center gap-1.5 text-sm text-foreground/55">
-                <Phone className="h-3.5 w-3.5 text-primary-600" />
-                <span dir="ltr">{displayPhone(parent.phone)}</span>
-              </p>
-            )}
-          </div>
-        </div>
-
-        <section className="mt-6">
-          <h2 className={label}>{t("family.receiptChildren")}</h2>
-          <div className="mt-2 overflow-hidden rounded-xl border border-primary-200">
-            <table className="w-full text-sm">
-              <thead className="bg-primary-50/70">
-                <tr>
-                  <th className={th}>{t("finance.student")}</th>
-                  <th className={`${th} hidden sm:table-cell`}>{t("students.class")}</th>
-                  <th className={`${th} hidden sm:table-cell`}>{t("family.receiptFeeCol")}</th>
-                  <th className={`${th} text-end`}>{t("finance.paidAmount")}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/70">
-                {payments.map((p) => (
-                  <tr key={p.id} data-testid="receipt-line">
-                    <td className="px-3 py-3">
-                      <p className="font-semibold text-foreground">
-                        {p.student.firstName} {p.student.lastName}
-                      </p>
-                      <p className="text-xs text-foreground/50 sm:hidden">
-                        {[p.student.classRoom?.name, p.fee.label].filter(Boolean).join(" · ")}
-                      </p>
-                    </td>
-                    <td className="hidden px-3 py-3 text-foreground/70 sm:table-cell">
-                      {p.student.classRoom?.name ?? t("students.noClass")}
-                    </td>
-                    <td className="hidden px-3 py-3 text-foreground/70 sm:table-cell">{p.fee.label}</td>
-                    <td
-                      className="whitespace-nowrap px-3 py-3 text-end font-semibold text-foreground"
-                      style={{ fontVariantNumeric: "tabular-nums" }}
-                    >
-                      <span dir="ltr">{formatMRU(p.amount)}</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white">
-              <Check className="h-3 w-3" strokeWidth={3} />
-            </span>
-            <span className="text-sm text-foreground/60">{t("finance.method")}</span>
-            <span className="inline-flex items-center gap-1.5 rounded-lg bg-surface px-2.5 py-1 text-sm font-medium text-foreground shadow-sm ring-1 ring-border/60">
-              <PaymentMethodLogo method={familyPayment.method} className="h-4 w-4" />
-              {methodLabel}
-            </span>
-          </div>
-        </section>
-
-        <div className="mt-6 border-t border-border/70 pt-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="flex items-center gap-3 text-lg font-bold text-foreground">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
-                <Wallet className="h-[18px] w-[18px]" />
-              </span>
-              {t("family.receiptTotal")}
-            </p>
-            <p
-              data-testid="receipt-total"
-              className="text-3xl font-bold text-primary-800"
-              style={{ fontVariantNumeric: "tabular-nums" }}
-            >
-              <span dir="ltr">{formatMRU(familyPayment.total)}</span>
-            </p>
-          </div>
-          {remaining > 0 && (
-            <p className="mt-2 text-end text-sm font-medium text-amber-700">
-              {t("finance.remainingIs").replace("{amount}", ltrIsolate(formatMRU(remaining)))}
-            </p>
-          )}
-        </div>
-
-        <div className="mt-6 flex items-start gap-3 rounded-xl bg-primary-50/60 p-4">
-          <Info className="mt-0.5 h-5 w-5 shrink-0 text-primary-600" />
-          <div>
-            <p className="text-sm font-semibold text-primary-900">{t("finance.thankYou")}</p>
-            <p className="mt-0.5 text-sm text-foreground/60">{t("family.receiptPartsNote")}</p>
-          </div>
-        </div>
-
-        <p data-pdf-show className="mt-6 hidden text-center text-xs text-foreground/40 print:block">
-          {t("finance.receiptFooter")}
-        </p>
-      </div>
+      <ReceiptSheet
+        mode={mode}
+        top={
+          <CompactReceipt
+            id="recu-card"
+            school={toSchoolIdentity(school)}
+            title={t("family.receiptTitle")}
+            receiptNumber={familyPayment.receiptNumber}
+            date={formatDateIn(locale, familyPayment.paidAt, { day: "numeric", month: "long", year: "numeric" })}
+            parties={[
+              { label: t("family.receiptFamily"), name, sub: t("family.childCount").replace("{count}", String(payments.length)) },
+              { label: t("finance.parentOrGuardian"), name: parentName ?? "—", sub: parent ? displayPhone(parent.phone) : null },
+            ]}
+            lines={payments.map((p) => ({
+              label: `${p.student.firstName} ${p.student.lastName}${p.student.classRoom ? ` — ${p.student.classRoom.name}` : ""}`,
+              detail: p.fee.label,
+              amount: formatMRU(p.amount),
+            }))}
+            total={formatMRU(familyPayment.total)}
+            method={methodLabel}
+            remaining={remaining > 0 ? t("finance.remainingIs").replace("{amount}", formatMRU(remaining)) : null}
+            labels={{ paid: t("finance.paidAmount"), method: t("finance.method"), thanks: t("finance.thankYou") }}
+          />
+        }
+        emptyHint="Bas de feuille libre."
+      />
     </div>
   );
 }

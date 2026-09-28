@@ -1,36 +1,25 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import {
-  ArrowLeft,
-  CalendarDays,
-  Check,
-  Info,
-  Phone,
-  UserRound,
-  Users,
-  Wallet,
-} from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { FEATURES, schoolHasFeature } from "@/lib/plans";
-import {
-  formatMRU,
-  formatDateIn,
-  formatLongDate,
-  formatLongDateAr,
-  formatAmount,
-  formatPhone,
-} from "@/lib/format";
+import { formatMRU, formatDateIn, formatLongDate, formatLongDateAr, formatAmount, formatPhone } from "@/lib/format";
 import { PrintButton } from "@/components/ui/print-button";
-import { DocumentHeader } from "@/components/documents/document-header";
-import { toSchoolIdentity } from "@/lib/official-header";
+import { toSchoolIdentity, type SchoolIdentity } from "@/lib/official-header";
 import { PdfButton } from "@/components/ui/pdf-button";
-import { PaymentMethodLogo } from "@/components/ui/payment-method-logo";
+import {
+  CompactReceipt,
+  ReceiptSheet,
+  isReceiptPrintMode,
+  type ReceiptPrintMode,
+} from "@/components/receipts/compact-receipt";
+import { ReceiptModeSwitch } from "@/components/receipts/receipt-mode-switch";
 import { WhatsAppIcon } from "@/components/brand/whatsapp-icon";
 import { buttonVariants } from "@/components/ui/button";
 import { getTranslations } from "@/lib/i18n/server";
-import type { TranslationKey } from "@/lib/i18n/dictionaries";
+import type { Locale, TranslationKey } from "@/lib/i18n/dictionaries";
 import {
   buildWhatsAppUrl,
   fillTemplate,
@@ -38,32 +27,103 @@ import {
   schoolSignatureFr,
   schoolSignatureAr,
 } from "@/lib/whatsapp";
+import { markReceiptsPrinted } from "../../actions";
 
 const DEFAULT_CONFIRMATION =
   "Bonjour {parentName},\n\nNous confirmons la réception d'un paiement de {amount} MRU pour {studentName}, effectué le {date}. Merci pour votre règlement.\n\n{schoolName}";
 const DEFAULT_CONFIRMATION_AR =
   "مرحبًا {parentName}،\n\nنؤكد استلام دفعة بمبلغ {amount} أوقية موريتانية لـ {studentName}، بتاريخ {date}. شكرًا لتسديدكم.\n\n{schoolName}";
 
+const RECEIPT_INCLUDE = {
+  fee: { include: { payments: { select: { amount: true } } } },
+  student: {
+    include: {
+      classRoom: { select: { name: true } },
+      parentLinks: { where: { isPrimary: true }, include: { parent: true } },
+    },
+  },
+} as const;
+
+type ReceiptPayment = NonNullable<
+  Awaited<ReturnType<typeof prisma.payment.findFirst<{ include: typeof RECEIPT_INCLUDE }>>>
+>;
+
+/** Nom du mode de paiement ; le code tel quel s'il n'a pas de traduction. */
+function methodLabel(method: string, t: (key: TranslationKey) => string) {
+  const key = `finance.method.${method}` as TranslationKey;
+  const label = t(key);
+  return label === key ? method : label;
+}
+
+/** Le reçu compact d'un paiement, dans la langue de l'interface. */
+function receiptOf(
+  payment: ReceiptPayment,
+  school: SchoolIdentity,
+  t: (key: TranslationKey) => string,
+  locale: Locale,
+  id?: string,
+) {
+  const parent = payment.student.parentLinks[0]?.parent ?? null;
+  // Reste dû après ce versement : un reçu qui n'annonce que le montant reçu
+  // laisse croire au parent que tout est soldé.
+  const totalPaid = payment.fee.payments.reduce((sum, p) => sum + p.amount, 0);
+  const remaining = Math.max(payment.fee.amount - totalPaid, 0);
+  return (
+    <CompactReceipt
+      id={id}
+      school={school}
+      title={t("finance.receiptTitle")}
+      receiptNumber={payment.receiptNumber}
+      date={formatDateIn(locale, payment.paidAt, { day: "numeric", month: "long", year: "numeric" })}
+      parties={[
+        {
+          label: t("finance.student"),
+          name: `${payment.student.firstName} ${payment.student.lastName}`,
+          sub: payment.student.classRoom?.name ?? t("students.noClass"),
+        },
+        {
+          label: t("finance.parentOrGuardian"),
+          name: parent ? `${parent.firstName} ${parent.lastName}` : "—",
+          sub: parent ? formatPhone(parent.phone) : null,
+        },
+      ]}
+      lines={[
+        {
+          label: payment.fee.label,
+          detail: payment.note?.trim() || null,
+          amount: formatMRU(payment.fee.amount),
+        },
+      ]}
+      total={formatMRU(payment.amount)}
+      method={methodLabel(payment.method, t)}
+      remaining={remaining > 0 ? t("finance.remainingIs").replace("{amount}", formatMRU(remaining)) : null}
+      labels={{ paid: t("finance.paidAmount"), method: t("finance.method"), thanks: t("finance.thankYou") }}
+    />
+  );
+}
+
+/**
+ * Reçu d'un paiement, au format demi-feuille. Deux façons d'imprimer, au
+ * choix de l'école (Paramètres) et modifiables ici :
+ * - « Pleine page » : deux reçus par feuille A4, à couper. Le reçu du jour
+ *   pas encore imprimé prend le bas de la feuille ; une seule impression
+ *   sort les deux.
+ * - « À l'unité » : un reçu sur une demi-feuille déjà coupée (A5 couché).
+ */
 export default async function ReceiptPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ paymentId: string }>;
+  searchParams: Promise<{ mode?: string; seul?: string }>;
 }) {
   const { paymentId } = await params;
+  const { mode: modeParam, seul } = await searchParams;
   const user = await requireRole(ROLES.DIRECTOR);
 
   const payment = await prisma.payment.findFirst({
     where: { id: paymentId, schoolId: user.schoolId },
-    include: {
-      fee: { include: { payments: { select: { amount: true } } } },
-      student: {
-        include: {
-          classRoom: { select: { name: true } },
-          parentLinks: { where: { isPrimary: true }, include: { parent: true } },
-        },
-      },
-      school: true,
-    },
+    include: { ...RECEIPT_INCLUDE, school: true },
   });
 
   if (!payment) notFound();
@@ -71,14 +131,39 @@ export default async function ReceiptPage({
   // enfants, c'est celui-là qu'on montre.
   if (payment.familyPaymentId) redirect(`/directeur/finance/recus/famille/${payment.familyPaymentId}`);
 
+  const mode: ReceiptPrintMode = isReceiptPrintMode(modeParam)
+    ? modeParam
+    : isReceiptPrintMode(payment.school.receiptPrintMode)
+      ? payment.school.receiptPrintMode
+      : "TWO_PER_PAGE";
+
+  // Deux reçus par feuille : le bas reçoit un autre reçu du jour pas encore
+  // imprimé — celui du paiement enregistré juste avant, sinon juste après.
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+  const pending = {
+    schoolId: user.schoolId,
+    id: { not: payment.id },
+    familyPaymentId: null,
+    receiptPrintedAt: null,
+  };
+  const partner =
+    mode === "TWO_PER_PAGE" && seul !== "1"
+      ? ((await prisma.payment.findFirst({
+          where: { ...pending, paidAt: { gte: startOfDay, lte: payment.paidAt } },
+          orderBy: { paidAt: "desc" },
+          include: RECEIPT_INCLUDE,
+        })) ??
+        (await prisma.payment.findFirst({
+          where: { ...pending, paidAt: { gt: payment.paidAt } },
+          orderBy: { paidAt: "asc" },
+          include: RECEIPT_INCLUDE,
+        })))
+      : null;
+
   const parent = payment.student.parentLinks[0]?.parent ?? null;
   const { t, locale } = await getTranslations();
-  const methodLabel = t(`finance.method.${payment.method}` as TranslationKey);
-
-  // Reste dû après ce versement : un reçu qui n'annonce que le montant reçu
-  // laisse croire au parent que tout est soldé.
-  const totalPaid = payment.fee.payments.reduce((sum, p) => sum + p.amount, 0);
-  const remaining = Math.max(payment.fee.amount - totalPaid, 0);
+  const school = toSchoolIdentity(payment.school);
 
   const confirmationTemplate = await prisma.messageTemplate.findFirst({
     where: { schoolId: user.schoolId, key: "PAYMENT_CONFIRMATION" },
@@ -108,13 +193,14 @@ export default async function ReceiptPage({
       )
     : "";
 
-  const label = "text-xs font-semibold uppercase tracking-wider text-foreground/45";
+  const printedIds = partner ? [payment.id, partner.id] : [payment.id];
+  const base = `/directeur/finance/recus/${payment.id}`;
 
   return (
     <div className="mx-auto max-w-5xl">
       {/* Le reçu s'ouvre juste après une inscription : sans ce retour, le
           directeur se retrouve sur une page sans issue vers sa liste. */}
-      <div className="no-print mb-6 flex flex-wrap items-center justify-between gap-3">
+      <div className="no-print mb-4 flex flex-wrap items-center justify-between gap-3">
         <Link
           href="/directeur/eleves"
           className="inline-flex items-center gap-2 text-sm font-medium text-foreground/55 transition-colors hover:text-foreground"
@@ -142,134 +228,25 @@ export default async function ReceiptPage({
               {t("finance.confirmOnWhatsApp")}
             </a>
           )}
-          <PrintButton label={t("finance.printReceipt")} />
+          <PrintButton
+            label={partner ? "Imprimer les 2 reçus" : t("finance.printReceipt")}
+            onUse={markReceiptsPrinted.bind(null, printedIds)}
+          />
         </div>
       </div>
 
-      <div
-        id="recu-card"
-        className="mx-auto max-w-3xl rounded-2xl border border-border/80 bg-surface p-6 shadow-soft sm:p-8 print:max-w-none print:border-0 print:shadow-none"
-      >
-        <DocumentHeader school={toSchoolIdentity(payment.school)} />
+      <ReceiptModeSwitch
+        mode={mode}
+        base={base}
+        partnerName={partner ? `${partner.student.firstName} ${partner.student.lastName}` : null}
+      />
 
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <span className="inline-flex rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary-700">
-              {t("finance.receiptTitle")}
-            </span>
-            <p
-              className="mt-2 text-2xl font-bold text-foreground"
-              style={{ fontVariantNumeric: "tabular-nums" }}
-              dir="ltr"
-            >
-              {payment.receiptNumber}
-            </p>
-          </div>
-          <p className="text-sm text-foreground/50">{formatDateIn(locale, payment.paidAt, { day: "numeric", month: "short", year: "numeric" })}</p>
-        </div>
-
-        <div className="my-6 border-t border-border/70" />
-
-        <div className="grid gap-6 sm:grid-cols-2 sm:divide-x sm:divide-border/70 rtl:sm:divide-x-reverse">
-          <div className="sm:pe-6">
-            <p className={`flex items-center gap-2 ${label}`}>
-              <Users className="h-4 w-4 text-primary-600" />
-              {t("finance.student")}
-            </p>
-            <p className="mt-1.5 text-lg font-bold text-foreground">
-              {payment.student.firstName} {payment.student.lastName}
-            </p>
-            <p className="text-sm text-foreground/55">
-              {payment.student.classRoom?.name ?? t("students.noClass")}
-            </p>
-          </div>
-          <div className="sm:ps-6">
-            <p className={`flex items-center gap-2 ${label}`}>
-              <UserRound className="h-4 w-4 text-primary-600" />
-              {t("finance.parentOrGuardian")}
-            </p>
-            <p className="mt-1.5 text-lg font-bold text-foreground">
-              {parent ? `${parent.firstName} ${parent.lastName}` : "—"}
-            </p>
-            {parent && (
-              <p className="flex items-center gap-1.5 text-sm text-foreground/55">
-                <Phone className="h-3.5 w-3.5 text-primary-600" />
-                <span dir="ltr">{formatPhone(parent.phone)}</span>
-              </p>
-            )}
-          </div>
-        </div>
-
-        <div className="mt-6 rounded-xl bg-primary-50/60 p-4 sm:p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="flex min-w-0 items-start gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface text-primary-600 shadow-sm">
-                <CalendarDays className="h-[18px] w-[18px]" />
-              </span>
-              <div className="min-w-0">
-                <p className="font-semibold text-foreground">{payment.fee.label}</p>
-                <p className="mt-0.5 text-sm text-foreground/55">
-                  {payment.note?.trim() || t("finance.noPaymentNote")}
-                </p>
-              </div>
-            </div>
-            <p
-              className="whitespace-nowrap text-xl font-bold text-foreground"
-              style={{ fontVariantNumeric: "tabular-nums" }}
-            >
-              {formatMRU(payment.fee.amount)}
-            </p>
-          </div>
-
-          <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white">
-              <Check className="h-3 w-3" strokeWidth={3} />
-            </span>
-            <span className="text-sm text-foreground/60">{t("finance.method")}</span>
-            <span className="inline-flex items-center gap-1.5 rounded-lg bg-surface px-2.5 py-1 text-sm font-medium text-foreground shadow-sm">
-              <PaymentMethodLogo method={payment.method} className="h-4 w-4" />
-              {methodLabel}
-            </span>
-          </div>
-        </div>
-
-        <div className="mt-6 border-t border-border/70 pt-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="flex items-center gap-3 text-lg font-bold text-foreground">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
-                <Wallet className="h-[18px] w-[18px]" />
-              </span>
-              {t("finance.paidAmount")}
-            </p>
-            <p
-              className="text-3xl font-bold text-primary-800"
-              style={{ fontVariantNumeric: "tabular-nums" }}
-            >
-              {formatMRU(payment.amount)}
-            </p>
-          </div>
-
-          {/* Versement partiel : le reste dû est écrit, pour qu'un reçu ne
-              passe jamais pour un solde de tout compte. */}
-          {remaining > 0 && (
-            <p className="mt-2 text-end text-sm font-medium text-amber-700">
-              {t("finance.remainingIs").replace("{amount}", formatMRU(remaining))}
-            </p>
-          )}
-        </div>
-
-        <div className="mt-6 flex items-start gap-3 rounded-xl bg-primary-50/60 p-4">
-          <Info className="mt-0.5 h-5 w-5 shrink-0 text-primary-600" />
-          <div>
-            <p className="text-sm font-semibold text-primary-900">{t("finance.thankYou")}</p>
-            <p className="mt-0.5 text-sm text-foreground/60">{t("finance.receiptSuccess")}</p>
-          </div>
-        </div>
-
-        <p data-pdf-show className="mt-6 hidden text-center text-xs text-foreground/40 print:block">
-          {t("finance.receiptFooter")}
-        </p>
-      </div>
+      <ReceiptSheet
+        mode={mode}
+        top={receiptOf(payment, school, t, locale, "recu-card")}
+        bottom={partner ? receiptOf(partner, school, t, locale) : undefined}
+        emptyHint="Bas de feuille libre : le prochain reçu du jour s'y placera. Vous pouvez aussi imprimer maintenant."
+      />
     </div>
   );
 }

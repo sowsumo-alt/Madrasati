@@ -45,6 +45,9 @@ model School {
   // (mensuel, trimestriel…) proposées à chaque élève. Null tant que l'école
   // ne l'a pas renseigné dans ses Paramètres.
   monthlyTuition     Int?
+  // Impression des reçus : "TWO_PER_PAGE" (deux reçus par feuille A4, à
+  // couper) ou "HALF_SHEET" (un reçu par demi-feuille A5 déjà coupée).
+  receiptPrintMode   String    @default("TWO_PER_PAGE")
   // Formule d'abonnement — "standard" | "advanced" | "network" (voir src/lib/plans.ts).
   // String plutôt qu'enum Prisma, comme le reste des champs de statut du schéma.
   // Une école naît en "advanced" pour essayer l'application complète.
@@ -647,6 +650,9 @@ model Payment {
   paidAt           DateTime       @default(now())
   recordedByUserId String?
   note             String?
+  // Reçu imprimé (null : pas encore). En impression « deux reçus par
+  // feuille », un reçu du jour pas encore imprimé prend le bas de la feuille.
+  receiptPrintedAt DateTime?
   // Part d'un paiement familial (un seul reçu pour plusieurs enfants) ; null
   // pour un paiement ordinaire, fait pour un seul enfant.
   familyPaymentId  String?
