@@ -46,7 +46,10 @@ export async function buildReportCards(
       select: { id: true, firstName: true, lastName: true },
     }),
     prisma.exam.findMany({
-      where: annual ? { schoolId, classId } : { schoolId, classId, term },
+      // Toute l'année : un bulletin cumulatif reprend les compositions des
+      // trimestres écoulés ; computeReportCards ne garde que ce que sa
+      // formule demande.
+      where: { schoolId, classId },
       select: {
         subjectId: true,
         term: true,

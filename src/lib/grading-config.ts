@@ -66,6 +66,14 @@ export interface Formula {
  */
 export interface AnnualConfig {
   enabled: boolean;
+  /**
+   * Bulletins cumulatifs, comme ceux de l'École Ngalam : le bulletin du
+   * 2e trimestre reprend la composition du 1er (× 1) à côté de la sienne
+   * (× 2), et le bulletin du 3e trimestre est le bulletin annuel — il n'y a
+   * pas de quatrième bulletin. Sans cette option, chaque trimestre ne compte
+   * que ses propres notes et le bulletin annuel est un document à part.
+   */
+  cumulative: boolean;
   secondary: Formula;
   fundamental: Formula;
   /** Moyenne annuelle à partir de laquelle le passage est suggéré. */
@@ -165,6 +173,7 @@ export function defaultAnnualConfig(): AnnualConfig {
 
   return {
     enabled: true,
+    cumulative: true,
     secondary: {
       parts: [
         {
@@ -229,6 +238,8 @@ export const gradingConfigSchema = z.object({
   fundamental: formulaSchema,
   annual: z.object({
     enabled: z.boolean(),
+    // Absent des règles enregistrées avant cette option : le modèle par défaut.
+    cumulative: z.boolean().default(true),
     secondary: formulaSchema,
     fundamental: formulaSchema,
     passThreshold: z.number().min(0).max(20),
@@ -287,6 +298,58 @@ function renameAnnualColumns<T>(config: T): T {
     }
   }
   return config;
+}
+
+/**
+ * Bulletin cumulatif d'un trimestre (voir AnnualConfig.cumulative) : la
+ * règle du trimestre, dont la composition est reprise pour chaque trimestre
+ * écoulé avec un poids croissant — au 2e trimestre, chez Ngalam :
+ * (devoirs × 3 + composition T1 × 1 + composition T2 × 2) ÷ 6. Les autres
+ * blocs (devoirs) restent ceux du trimestre en cours.
+ */
+export function cumulativeTermFormula(base: Formula, termIndex: number): Formula {
+  const term = TERM_LABELS[termIndex];
+  const isComposition = (p: FormulaPart) =>
+    p.kinds.length > 0 && p.kinds.every((k) => k === "COMPOSITION");
+  const parts = base.parts.flatMap((p): FormulaPart[] => {
+    if (!isComposition(p)) return [{ ...p, term }];
+    return TERM_LABELS.slice(0, termIndex + 1).map((t, i) => {
+      const weight = p.weight * (i + 1);
+      return {
+        ...p,
+        id: `${p.id}-t${i + 1}`,
+        label: `${p.label} ${t}`,
+        term: t,
+        weight,
+        columnLabel: `${i + 1}° Compo ×${weight}`,
+        columnLabelAr: `امتحان${i + 1}×${weight}`,
+      };
+    });
+  });
+  // Un diviseur fixe (4) ne vaut que pour la règle d'un seul trimestre.
+  return { parts, divisor: { mode: "AUTO" } };
+}
+
+/**
+ * Le bloc qui reçoit un examen, pour un bulletin : un bloc rattaché à un
+ * trimestre ne prend que ses examens ; un bloc sans trimestre prend ceux du
+ * trimestre du bulletin (`scopeTerm`), ou de toute l'année si `scopeTerm`
+ * est null (bulletin annuel).
+ */
+export function partForExam(
+  formula: Formula,
+  kind: string | null,
+  examTerm: string,
+  scopeTerm: string | null,
+): FormulaPart | null {
+  const candidates = formula.parts.filter((p) =>
+    p.term ? p.term === examTerm : scopeTerm === null || scopeTerm === examTerm,
+  );
+  const exact = candidates.find(
+    (p) => p.kinds.length > 0 && kind != null && p.kinds.includes(kind as ExamKind),
+  );
+  if (exact) return exact;
+  return candidates.find((p) => p.kinds.length === 0) ?? null;
 }
 
 /**

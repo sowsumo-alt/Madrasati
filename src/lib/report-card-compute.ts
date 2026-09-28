@@ -17,8 +17,10 @@ import {
 } from "@/lib/grading";
 import {
   computeSubjectAverage,
+  cumulativeTermFormula,
   defaultGradingConfig,
-  partForKind,
+  partForExam,
+  TERM_LABELS,
   type Formula,
   type GradingConfig,
   type PartResult,
@@ -147,11 +149,44 @@ function mean(values: number[]): number | null {
   return values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : null;
 }
 
+/**
+ * La formule d'un bulletin et les notes qu'il prend. Bulletin annuel, ou
+ * 3e trimestre d'une école aux bulletins cumulatifs : la formule annuelle,
+ * sur toute l'année. 2e trimestre cumulatif : la règle du trimestre avec les
+ * compositions des trimestres écoulés (cumulativeTermFormula). Sinon : la
+ * règle du trimestre, sur ses seules notes.
+ */
+export function bulletinFormula(
+  config: GradingConfig,
+  level: SchoolLevel | null,
+  term: string,
+): { formula: Formula; yearScope: boolean } {
+  if (term === ANNUAL_TERM) return { formula: formulaFor(config, level, true), yearScope: true };
+  const index = (TERM_LABELS as readonly string[]).indexOf(term);
+  if (config.annual.enabled && config.annual.cumulative && index > 0) {
+    if (index === TERM_LABELS.length - 1) {
+      return { formula: formulaFor(config, level, true), yearScope: true };
+    }
+    return { formula: cumulativeTermFormula(formulaFor(config, level), index), yearScope: false };
+  }
+  return { formula: formulaFor(config, level), yearScope: false };
+}
+
+/** Vrai quand ce trimestre est le bulletin annuel de l'école (3e trimestre cumulatif). */
+export function isAnnualTerm(config: GradingConfig, term: string): boolean {
+  return (
+    term === ANNUAL_TERM ||
+    (config.annual.enabled && config.annual.cumulative && term === TERM_LABELS[TERM_LABELS.length - 1])
+  );
+}
+
 export function computeReportCards(input: ReportCardInput): ReportCard[] {
   const config = input.config ?? defaultGradingConfig();
   const schoolLevel = schoolLevelOf(input.classLevel, input.className);
   const scheme = gradingSchemeFor(schoolLevel);
-  const formula = formulaFor(config, schoolLevel, input.annual);
+  const { formula, yearScope } = input.annual
+    ? { formula: formulaFor(config, schoolLevel, true), yearScope: true }
+    : bulletinFormula(config, schoolLevel, input.term);
   const { subjects, students } = input;
 
   // Ordre chronologique : « Devoir 1 » avant « Devoir 2 » sur le bulletin.
@@ -162,7 +197,7 @@ export function computeReportCards(input: ReportCardInput): ReportCard[] {
   // note pourrait compter deux fois.
   const partIndexOfExam = new Map<ReportCardExam, number>();
   for (const exam of exams) {
-    const part = partForKind(formula, examKindOf(exam), input.annual ? exam.term : undefined);
+    const part = partForExam(formula, examKindOf(exam), exam.term, yearScope ? null : input.term);
     if (part) partIndexOfExam.set(exam, formula.parts.indexOf(part));
   }
 
