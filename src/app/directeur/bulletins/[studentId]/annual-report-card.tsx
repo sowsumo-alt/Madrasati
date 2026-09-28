@@ -34,6 +34,12 @@ export interface AnnualReportCardProps {
   yearLabel: string | null;
   studentNumber: number;
   termRecap: TermRecap[];
+  /**
+   * Titre du document : « Bulletin Annuel » par défaut ; « Bulletin du 3e
+   * trimestre » quand l'école a des bulletins cumulatifs (le 3e trimestre
+   * est alors son bulletin annuel).
+   */
+  title?: string;
   honors: HonorKey[];
   /** Décision validée par le directeur ; null tant qu'il n'a rien choisi. */
   decision: DecisionKey | null;
@@ -76,16 +82,9 @@ function header(part: FormulaPart): string {
   return part.columnLabel ?? (part.weight === 1 ? part.label : `${part.label} ×${part.weight}`);
 }
 
-/**
- * Une composition pondérée s'écrit comme sur la maquette, « 13×2=26 » ; le
- * meilleur devoir et une composition simple, par leur seule valeur.
- */
-function partCell(part: FormulaPart, value: number | null, weighted: number | null) {
-  if (value == null || weighted == null) return EMPTY;
-  if (part.multiple === "LAST" && part.weight !== 1) {
-    return `${score(value)}×${part.weight}=${score(weighted)}`;
-  }
-  return score(weighted);
+/** Une case de note : la valeur pondérée seule, comme sur le bulletin papier (« 36 »). */
+function partCell(weighted: number | null) {
+  return weighted == null ? EMPTY : score(weighted);
 }
 
 /** « Passage en 2AS », « Redoublement », « Autorisé(e) ». */
@@ -106,6 +105,7 @@ export function AnnualReportCard({
   yearLabel,
   studentNumber,
   termRecap,
+  title,
   honors,
   decision,
   suggestion,
@@ -115,10 +115,6 @@ export function AnnualReportCard({
   const rows = officialOrder(card.results);
   const parts = card.formula.parts;
   const rank = rankLabel(card.rank, card.classSize);
-  const divisor =
-    card.formula.divisor.mode === "FIXED"
-      ? card.formula.divisor.value
-      : parts.reduce((sum, p) => sum + p.weight, 0);
   // Le poids de la composition de chaque trimestre, pour le récapitulatif.
   const weightOfTerm = (term: string) =>
     parts.find((p) => p.term === term && p.kinds.includes("COMPOSITION"))?.weight ?? null;
@@ -133,11 +129,11 @@ export function AnnualReportCard({
       <DocumentHeader school={school} official={official} />
 
       <div className={styles.annualTitleRow}>
-        <div className={styles.annualTitle}>Bulletin Annuel</div>
+        <div className={styles.annualTitle}>{title ?? "Bulletin Annuel"}</div>
         {yearLabel && <div className={styles.annualBadge}>Année {yearLabel}</div>}
       </div>
       <div className={styles.annualSub}>
-        Récapitulatif des 3 trimestres — Généré automatiquement par Madrasati
+        {title ? "Bulletin annuel — moyennes des trois trimestres" : "Récapitulatif des 3 trimestres"}
       </div>
 
       <div className={styles.studentInfo}>
@@ -162,7 +158,10 @@ export function AnnualReportCard({
       </div>
 
       {/* Les trois trimestres, puis la moyenne annuelle */}
-      <div className={styles.trimRecap} data-testid="term-recap">
+      <div
+        className={`${styles.trimRecap} ${termRecap.length === 2 ? styles.trimRecapThree : ""}`}
+        data-testid="term-recap"
+      >
         {termRecap.map((t) => {
           const weight = weightOfTerm(t.term);
           return (
@@ -225,7 +224,7 @@ export function AnnualReportCard({
                         className={index === 0 ? styles.times3 : styles.compo}
                         data-testid={`part-${index}`}
                       >
-                        {partCell(part, detail?.value ?? null, detail?.weighted ?? null)}
+                        {partCell(detail?.weighted ?? null)}
                       </td>
                     );
                   })}
@@ -261,12 +260,6 @@ export function AnnualReportCard({
             </tr>
           </tbody>
         </table>
-      </div>
-
-      <div className={styles.calcNote}>
-        💡 Formule : ({parts.map((p) => `${p.label} ×${p.weight}`).join(" + ")}) ÷ {divisor}. Les
-        moyennes des Trimestres 1 et 2 sont récupérées automatiquement depuis les bulletins déjà
-        générés.
       </div>
 
       <div className={styles.bottomGrid}>

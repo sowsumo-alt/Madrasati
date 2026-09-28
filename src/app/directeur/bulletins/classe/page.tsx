@@ -15,6 +15,10 @@ import { classCardsWithRules, previousTermAverages } from "@/lib/report-card-dat
 import { compareCards, missingGrades, previousTermOf } from "@/lib/report-card-checks";
 import { TERMS } from "@/app/directeur/examens/schema";
 import { SecondaryReportCard } from "../[studentId]/secondary-report-card";
+import { AnnualReportCard } from "../[studentId]/annual-report-card";
+import { currentGradingConfig } from "@/lib/grading-config-data";
+import { isAnnualTerm } from "@/lib/report-card-compute";
+import { parseHonors, suggestDecision, isDecisionKey } from "@/lib/annual-decision";
 import { StandardReportCard } from "../[studentId]/standard-report-card";
 import { BulkGenerator, type BulkStudent } from "./bulk-generator";
 
@@ -38,7 +42,12 @@ export default async function ClassReportCardsPage({
 
   const classRoom = await prisma.classRoom.findFirst({
     where: { id: classId, schoolId: user.schoolId },
-    select: { id: true, name: true, academicYear: { select: { label: true, startDate: true, endDate: true } } },
+    select: {
+      id: true,
+      name: true,
+      academicYearId: true,
+      academicYear: { select: { label: true, startDate: true, endDate: true } },
+    },
   });
   if (!classRoom) notFound();
 
@@ -69,7 +78,11 @@ export default async function ClassReportCardsPage({
 
   const studentIds = cards.map((c) => c.student.id);
   const range = termDateRange(classRoom.academicYear, term);
-  const [comments, suspensions] = await Promise.all([
+  // Bulletins cumulatifs : le 3e trimestre est le bulletin annuel, avec ses
+  // appréciations du conseil et sa décision de passage.
+  const rule = await currentGradingConfig(user.schoolId);
+  const annualLayout = isAnnualTerm(rule.config, term);
+  const [comments, suspensions, decisions] = await Promise.all([
     prisma.reportCardComment.findMany({
       where: { studentId: { in: studentIds }, term },
       select: { studentId: true, body: true, bodyAr: true },
@@ -84,6 +97,11 @@ export default async function ClassReportCardsPage({
       },
       _count: { _all: true },
     }),
+    annualLayout
+      ? prisma.annualDecision.findMany({
+          where: { studentId: { in: studentIds }, academicYearId: classRoom.academicYearId },
+        })
+      : Promise.resolve([]),
   ]);
 
   const { t } = await getTranslations();
@@ -116,8 +134,30 @@ export default async function ClassReportCardsPage({
       : "";
     const id = `bulletin-${card.student.id}`;
 
+    const decision = decisions.find((d) => d.studentId === card.student.id);
     const document =
-      card.scheme === "SECONDARY" ? (
+      card.scheme === "SECONDARY" && annualLayout ? (
+        <AnnualReportCard
+          id={id}
+          card={card}
+          school={schoolInfo}
+          official={official}
+          yearLabel={classRoom.academicYear.label}
+          studentNumber={index + 1}
+          termRecap={(pastAverages.get(card.student.id) ?? []).map((p) => ({
+            term: p.term,
+            average: p.average,
+            rank: null,
+            classSize: cards.length,
+          }))}
+          title="Bulletin du 3e trimestre"
+          honors={parseHonors(decision?.honors)}
+          decision={isDecisionKey(decision?.decision) ? decision.decision : null}
+          suggestion={suggestDecision(card.average, rule.config.annual.passThreshold)}
+          issuedAt={new Date()}
+          incomplete={missing.length > 0}
+        />
+      ) : card.scheme === "SECONDARY" ? (
         <SecondaryReportCard
           id={id}
           card={card}

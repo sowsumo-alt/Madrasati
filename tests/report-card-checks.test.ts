@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { computeReportCards, type ReportCardExam } from "../src/lib/report-card-compute";
+import { defaultGradingConfig } from "../src/lib/grading-config";
 import {
   compareCards,
   evolution,
@@ -29,6 +30,11 @@ function exam(subjectId: string, kind: string, score: number | null, isAbsent = 
   };
 }
 
+// Bulletins non cumulatifs : chaque trimestre ne compte que ses notes, pour
+// comparer deux trimestres indépendants.
+const perTerm = defaultGradingConfig();
+perTerm.annual.cumulative = false;
+
 function card(exams: ReportCardExam[], term = "Trimestre 1") {
   return computeReportCards({
     className: "1AS",
@@ -38,6 +44,7 @@ function card(exams: ReportCardExam[], term = "Trimestre 1") {
     students,
     exams,
     attendance: new Map(),
+    config: perTerm,
   })[0];
 }
 

@@ -18,7 +18,7 @@ import { ReportCardActions } from "./report-card-actions";
 import { StandardReportCard } from "./standard-report-card";
 import { compareCards, missingGrades, previousTermOf } from "@/lib/report-card-checks";
 import Link from "next/link";
-import { ANNUAL_TERM } from "@/lib/report-card-compute";
+import { ANNUAL_TERM, isAnnualTerm } from "@/lib/report-card-compute";
 import { markReportCardIssued } from "../actions";
 import { RuleBanner } from "./rule-banner";
 import { formatDate } from "@/lib/format";
@@ -53,9 +53,8 @@ export default async function ReportCardPage({
   });
   if (!student || !student.classId) notFound();
 
-  const term =
+  const requestedTerm =
     termParam && [...TERMS, ANNUAL_TERM].includes(termParam) ? termParam : TERMS[0];
-  const isAnnual = term === ANNUAL_TERM;
 
   // La règle de calcul : celle d'aujourd'hui, ou celle avec laquelle ce
   // bulletin a déjà été remis au parent.
@@ -63,15 +62,31 @@ export default async function ReportCardPage({
     where: { schoolId: user.schoolId, isCurrent: true },
     select: { id: true },
   });
-  const rule = await reportCardRule({
+  // Bulletins cumulatifs : le 3e trimestre est le bulletin annuel, il n'y
+  // en a pas de quatrième — l'ancien lien « Année » y mène.
+  const current = await reportCardRule({
     schoolId: user.schoolId,
     studentId,
     academicYearId: activeYear?.id ?? null,
-    term,
+    term: requestedTerm,
   });
+  const cumulative = current.config.annual.enabled && current.config.annual.cumulative;
+  const term = requestedTerm === ANNUAL_TERM && cumulative ? TERMS[TERMS.length - 1] : requestedTerm;
+  const rule =
+    term === requestedTerm
+      ? current
+      : await reportCardRule({
+          schoolId: user.schoolId,
+          studentId,
+          academicYearId: activeYear?.id ?? null,
+          term,
+        });
+  // Mise en page du bulletin annuel : le bulletin « Année », ou le 3e
+  // trimestre d'une école aux bulletins cumulatifs.
+  const isAnnual = isAnnualTerm(rule.config, term);
 
   const [cards, school, academicYear, comment, parentLink, template, official] = await Promise.all([
-    isAnnual
+    term === ANNUAL_TERM
       ? buildAnnualReportCards(user.schoolId, student.classId, rule.config)
       : buildReportCards(user.schoolId, student.classId, term, rule.config),
     prisma.school.findUnique({ where: { id: user.schoolId } }),
@@ -96,7 +111,7 @@ export default async function ReportCardPage({
 
   // Le bulletin annuel ne s'établit qu'une fois l'année finie : quand les
   // compositions des trois trimestres sont saisies.
-  if (isAnnual) {
+  if (term === ANNUAL_TERM) {
     const missing = rule.config.annual.enabled
       ? await annualMissingTerms(user.schoolId, student.classId)
       : null;
@@ -174,7 +189,9 @@ export default async function ReportCardPage({
             : null,
         ]);
         return {
-          termRecap: recap,
+          // 3e trimestre cumulatif : sa moyenne est la moyenne annuelle,
+          // déjà affichée à part — on ne montre que les trimestres d'avant.
+          termRecap: term === ANNUAL_TERM ? recap : recap.filter((r) => r.term !== term),
           honors: parseHonors(decision?.honors),
           decision: isDecisionKey(decision?.decision) ? decision.decision : null,
           validatedAt: decision?.validatedAt ?? null,
@@ -236,7 +253,7 @@ export default async function ReportCardPage({
   // Au 3e trimestre, l'année est finie : le bulletin annuel de l'élève est à
   // un clic, sans avoir à le chercher dans la liste des périodes.
   const annualLink =
-    term === TERMS[TERMS.length - 1] && rule.config.annual.enabled ? (
+    term === TERMS[TERMS.length - 1] && rule.config.annual.enabled && !cumulative ? (
       <Link
         href={`/directeur/bulletins/${studentId}?term=${encodeURIComponent(ANNUAL_TERM)}`}
         className="no-print mb-4 flex items-center justify-between gap-3 rounded-xl border border-primary-300 bg-primary-50 px-4 py-3 text-sm font-semibold text-primary-800 hover:bg-primary-100"
@@ -283,6 +300,7 @@ export default async function ReportCardPage({
               yearLabel={academicYear?.label ?? null}
               studentNumber={cards.indexOf(card) + 1}
               termRecap={annualData.termRecap}
+              title={term === ANNUAL_TERM ? undefined : "Bulletin du 3e trimestre"}
               honors={annualData.honors}
               decision={annualData.decision}
               suggestion={annualData.suggestion}

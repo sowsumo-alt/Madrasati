@@ -52,7 +52,10 @@ export default async function BulletinsPage({
   // Le bulletin annuel n'est proposé que si l'école l'a activé dans sa règle
   // de calcul (Paramètres → Calcul des moyennes).
   const rule = await currentGradingConfig(user.schoolId);
-  const terms = rule.config.annual.enabled ? [...TERMS, ANNUAL_TERM] : [...TERMS];
+  // Bulletins cumulatifs : le 3e trimestre est le bulletin annuel, pas de
+  // quatrième choix « Année ».
+  const terms =
+    rule.config.annual.enabled && !rule.config.annual.cumulative ? [...TERMS, ANNUAL_TERM] : [...TERMS];
   const selectedTerm =
     params.term && terms.includes(params.term)
       ? params.term

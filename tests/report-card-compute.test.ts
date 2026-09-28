@@ -282,3 +282,77 @@ test("bulletin annuel : la formule annuelle est celle de l'école, modifiable", 
   const mary = annualCards(yearExams, config)[0];
   assert.equal(mary.results[0].average, 13); // (12 + 13 + 14) ÷ 3
 });
+
+// Bulletins cumulatifs, comme le vrai bulletin du 3e trimestre de l'École
+// Ngalam (2AS, 2025-2026) : Arabe 48 + 15 + 36 + 54 = 153, ÷ 9 = 17,00.
+test("bulletins cumulatifs : le 2e trimestre reprend la composition du 1er", () => {
+  const year = [
+    exam("fr", "Devoir T1", "DEVOIR", 3, { mary: 16, awa: 10 }, "Trimestre 1"),
+    exam("fr", "Composition T1", "COMPOSITION", 10, { mary: 15, awa: 10 }, "Trimestre 1"),
+    exam("fr", "Devoir T2", "DEVOIR", 40, { mary: 14, awa: 10 }, "Trimestre 2"),
+    exam("fr", "Composition T2", "COMPOSITION", 50, { mary: 18, awa: 10 }, "Trimestre 2"),
+  ];
+  const t2 = computeReportCards({
+    className: "2AS",
+    classLevel: "2AS",
+    term: "Trimestre 2",
+    subjects: [subjects[0]],
+    students,
+    exams: year,
+    attendance: new Map(),
+  })[0];
+  // Devoirs du 2e trimestre × 3 + composition T1 × 1 + composition T2 × 2, ÷ 6.
+  assert.deepEqual(
+    t2.formula.parts.map((p) => [p.columnLabel, p.term, p.weight]),
+    [
+      ["Moy Int × 3", "Trimestre 2", 3],
+      ["1° Compo ×1", "Trimestre 1", 1],
+      ["2° Compo ×2", "Trimestre 2", 2],
+    ],
+  );
+  const fr = t2.results[0];
+  assert.deepEqual(fr.detail.parts.map((p) => p.weighted), [42, 15, 36]);
+  assert.equal(fr.average, 15.5); // (42 + 15 + 36) ÷ 6
+});
+
+test("bulletins cumulatifs : le 3e trimestre est le bulletin annuel (÷ 9)", () => {
+  const year = [
+    exam("fr", "Devoir T1", "DEVOIR", 3, { mary: 16, awa: 10 }, "Trimestre 1"),
+    exam("fr", "Composition T1", "COMPOSITION", 10, { mary: 15, awa: 10 }, "Trimestre 1"),
+    exam("fr", "Composition T2", "COMPOSITION", 50, { mary: 18, awa: 10 }, "Trimestre 2"),
+    exam("fr", "Composition T3", "COMPOSITION", 80, { mary: 18, awa: 10 }, "Trimestre 3"),
+  ];
+  const t3 = computeReportCards({
+    className: "2AS",
+    classLevel: "2AS",
+    term: "Trimestre 3",
+    subjects: [subjects[0]],
+    students,
+    exams: year,
+    attendance: new Map(),
+  })[0];
+  const fr = t3.results[0];
+  assert.deepEqual(fr.detail.parts.map((p) => p.weighted), [48, 15, 36, 54]);
+  assert.equal(fr.average, 17);
+});
+
+test("sans bulletins cumulatifs, chaque trimestre ne compte que ses notes", () => {
+  const config = defaultGradingConfig();
+  config.annual.cumulative = false;
+  const t2 = computeReportCards({
+    className: "2AS",
+    classLevel: "2AS",
+    term: "Trimestre 2",
+    subjects: [subjects[0]],
+    students,
+    exams: [
+      exam("fr", "Composition T1", "COMPOSITION", 10, { mary: 5, awa: 5 }, "Trimestre 1"),
+      exam("fr", "Devoir T2", "DEVOIR", 40, { mary: 14, awa: 10 }, "Trimestre 2"),
+      exam("fr", "Composition T2", "COMPOSITION", 50, { mary: 18, awa: 10 }, "Trimestre 2"),
+    ],
+    attendance: new Map(),
+    config,
+  })[0];
+  assert.equal(t2.formula.parts.length, 2);
+  assert.equal(t2.results[0].average, 15); // (14 × 3 + 18) ÷ 4, la composition T1 ignorée
+});

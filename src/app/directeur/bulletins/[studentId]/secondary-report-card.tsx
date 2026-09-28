@@ -103,34 +103,6 @@ function arabicName(result: ReportCardSubject): string {
   return index == null ? "" : SECONDARY_OFFICIAL_SUBJECTS[index].nameAr;
 }
 
-/**
- * Les notes du bloc sous sa valeur — « D1 12 · D2 14 » —, celle qui a été
- * retenue soulignée. Rien à afficher quand le bloc n'a qu'une note, qui est
- * déjà la valeur de la colonne.
- */
-function PartScores({ result, index }: { result: ReportCardSubject; index: number }) {
-  const part = result.detail.parts[index];
-  const shown = (part?.scores ?? [])
-    .map((value, position) => ({ value, position }))
-    .filter((s) => s.value != null);
-  if (!part || shown.length < 2) return null;
-
-  return (
-    <div className={styles.devoirs} data-testid="part-scores">
-      {shown.map((s) => (
-        <span
-          key={s.position}
-          className={s.position === part.usedIndex ? styles.devoirBest : undefined}
-          data-best={s.position === part.usedIndex ? "" : undefined}
-          title={result.detail.titles[index]?.[s.position]}
-        >
-          D{s.position + 1} {score(s.value as number)}
-        </span>
-      ))}
-    </div>
-  );
-}
-
 /** « Bulletin du 1er trimestre », « Bulletin du 2e trimestre »… */
 export function termTitle(term: string): string {
   const n = Number(term.replace(/\D/g, ""));
@@ -266,7 +238,6 @@ export function SecondaryReportCard({
                         data-testid={`part-${index}`}
                       >
                         {value != null ? score(value) : EMPTY}
-                        <PartScores result={r} index={index} />
                       </td>
                     );
                   })}
