@@ -5,6 +5,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { assertNnisAvailable } from "@/lib/nni-data";
 import { storedNni } from "@/lib/nni";
+import { applyTuitionPlan, enrollmentPlan } from "@/lib/tuition-plan";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { familyPartReceiptNumber, generateReceiptNumber, runWithReceipt } from "@/lib/receipts";
@@ -116,6 +117,7 @@ export async function enrollFamily(values: FamilyEnrollmentValues): Promise<Fami
 
   const parentName = splitFullName(data.parentName);
   const withFee = data.children.some((c) => c.amount > 0);
+  const plan = enrollmentPlan(data.tuition);
 
   const result = await runWithReceipt(async (tx, attempt) => {
     // — Le parent : celui choisi, ou le même nom avec le même téléphone
@@ -156,10 +158,10 @@ export async function enrollFamily(values: FamilyEnrollmentValues): Promise<Fami
       });
     }
 
-    const year = withFee
+    const year = withFee || plan
       ? await tx.academicYear.findFirst({ where: { schoolId: user.schoolId, isCurrent: true } })
       : null;
-    if (withFee && !year) throw new Error("Aucune année scolaire active.");
+    if ((withFee || plan) && !year) throw new Error("Aucune année scolaire active.");
 
     // — Les enfants, chacun avec son frais d'inscription s'il y en a un.
     const now = new Date();
@@ -201,6 +203,18 @@ export async function enrollFamily(values: FamilyEnrollmentValues): Promise<Fami
         feeId = fee.id;
       }
       children.push({ studentId: student.id, feeId, amount: child.amount });
+
+      // Les échéances des frais de scolarité de cet enfant, selon la formule
+      // choisie pour la famille.
+      if (plan && year) {
+        await applyTuitionPlan(tx, {
+          schoolId: user.schoolId,
+          studentId: student.id,
+          year,
+          ...plan,
+          firstMonth: now,
+        });
+      }
     }
 
     // — Le règlement : un reçu pour la famille, ou un reçu par enfant.

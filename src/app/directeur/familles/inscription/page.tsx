@@ -18,7 +18,7 @@ export default async function FamilyEnrollmentPage({
   const user = await requireRole(ROLES.DIRECTOR);
   const { famille } = await searchParams;
 
-  const [classes, parent] = await Promise.all([
+  const [classes, parent, school] = await Promise.all([
     prisma.classRoom.findMany({
       where: { schoolId: user.schoolId, ...CURRENT_YEAR },
       select: { id: true, name: true, level: true, category: true },
@@ -37,11 +37,13 @@ export default async function FamilyEnrollmentPage({
           },
         })
       : null,
+    prisma.school.findUnique({ where: { id: user.schoolId }, select: { monthlyTuition: true } }),
   ]);
 
   return (
     <FamilyEnrollmentForm
       classes={classOptions(classes)}
+      schoolMonthly={school?.monthlyTuition ?? null}
       initialFamily={
         parent
           ? {

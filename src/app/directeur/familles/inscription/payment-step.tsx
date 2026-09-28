@@ -1,6 +1,7 @@
 "use client";
 
-import { Banknote, Receipt, ReceiptText, Wallet } from "lucide-react";
+import { Banknote, CalendarClock, Receipt, ReceiptText, Wallet } from "lucide-react";
+import { TuitionChoice, type TuitionChoiceValue } from "@/components/finance/tuition-choice";
 import { FormSection } from "@/components/forms/form-section";
 import { PaymentMethodPicker } from "@/components/payments/payment-method-picker";
 import { StudentAvatar } from "@/components/students/student-avatar";
@@ -31,6 +32,8 @@ export function PaymentStep({
   onModeChange,
   method,
   onMethodChange,
+  tuition,
+  onTuitionChange,
 }: {
   entries: ChildDraft[];
   classes: EnrollmentClassOption[];
@@ -39,6 +42,8 @@ export function PaymentStep({
   onModeChange: (mode: FamilyPaymentMode) => void;
   method: PaymentMethod;
   onMethodChange: (method: PaymentMethod) => void;
+  tuition: TuitionChoiceValue;
+  onTuitionChange: (value: TuitionChoiceValue) => void;
 }) {
   const { t } = useLanguage();
   const total = familyTotal(entries.map((c) => c.amount));
@@ -46,6 +51,19 @@ export function PaymentStep({
 
   return (
     <div className="space-y-4">
+      <FormSection icon={CalendarClock} title="Frais de scolarité de l'année">
+        <div className="sm:col-span-2">
+          <TuitionChoice
+            value={tuition}
+            onChange={onTuitionChange}
+            hint={
+              entries.length > 1
+                ? `La même formule pour les ${entries.length} enfants : leurs échéances sont créées automatiquement, chacun les siennes.`
+                : "Les échéances sont créées automatiquement à partir de ce mois."
+            }
+          />
+        </div>
+      </FormSection>
       <FormSection icon={Wallet} title={t("family.feesTitle")} bodyClassName="block p-0">
         <p className="px-4 pt-3 text-xs text-foreground/55">{t("family.feesHint")}</p>
         <ul className="divide-y divide-border/70 px-4">

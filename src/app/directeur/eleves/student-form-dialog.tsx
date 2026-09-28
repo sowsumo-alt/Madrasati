@@ -110,6 +110,15 @@ function newStudentValues(): StudentFormValues {
   };
 }
 
+/** Formule de paiement proposée : mensuelle, au montant de l'école s'il est connu. */
+function defaultTuition(schoolMonthly: number | null): TuitionChoiceValue {
+  return {
+    frequency: schoolMonthly ? "MONTHLY" : "NONE",
+    customMonths: 4,
+    monthly: schoolMonthly ? String(schoolMonthly) : "",
+  };
+}
+
 /**
  * Formulaire d'inscription et de modification d'un élève, en blocs comme sur
  * la maquette : informations personnelles, scolaires, parents, puis frais
@@ -139,13 +148,7 @@ export function StudentFormDialog({
     defaultValues: newStudentValues(),
   });
 
-  // Formule de paiement : mensuelle au montant de l'école par défaut.
-  const defaultTuition = (): TuitionChoiceValue => ({
-    frequency: schoolMonthly ? "MONTHLY" : "NONE",
-    customMonths: 4,
-    monthly: schoolMonthly ? String(schoolMonthly) : "",
-  });
-  const [tuition, setTuition] = useState<TuitionChoiceValue>(defaultTuition);
+  const [tuition, setTuition] = useState<TuitionChoiceValue>(() => defaultTuition(schoolMonthly));
   const [duplicates, setDuplicates] = useState<DuplicateStudent[]>([]);
   const [duplicateAck, setDuplicateAck] = useState(false);
 
@@ -153,7 +156,7 @@ export function StudentFormDialog({
     if (open) {
       setDuplicates([]);
       setDuplicateAck(false);
-      setTuition(defaultTuition());
+      setTuition(defaultTuition(schoolMonthly));
       reset(
         editTarget
           ? {
@@ -179,7 +182,7 @@ export function StudentFormDialog({
           : newStudentValues(),
       );
     }
-  }, [open, editTarget, reset]);
+  }, [open, editTarget, reset, schoolMonthly]);
 
   async function onSubmit(values: StudentFormValues) {
     try {

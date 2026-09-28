@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { phoneSchema } from "@/lib/phone";
 import { PAYMENT_METHODS } from "@/lib/payment-methods";
+import { enrollmentTuitionSchema } from "@/lib/tuition-plan";
 import { optionalNniSchema } from "@/lib/nni";
 
 const optionalText = (max: number) => z.string().trim().max(max).optional().or(z.literal(""));
@@ -39,6 +40,8 @@ export const familyEnrollmentSchema = z.object({
   children: z.array(familyChildSchema).min(1, "Ajoutez au moins un enfant").max(20),
   paymentMode: z.enum(FAMILY_PAYMENT_MODES),
   method: z.enum(PAYMENT_METHODS),
+  /** Formule de paiement des frais de scolarité, la même pour chaque enfant. */
+  tuition: enrollmentTuitionSchema,
 });
 
 export type FamilyEnrollmentValues = z.infer<typeof familyEnrollmentSchema>;
