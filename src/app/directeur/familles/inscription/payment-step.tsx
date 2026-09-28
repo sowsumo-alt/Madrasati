@@ -64,6 +64,7 @@ export function PaymentStep({
                 </div>
                 <div className="relative w-40">
                   <input
+                    autoComplete="off"
                     id={inputId}
                     type="number"
                     inputMode="numeric"

@@ -23,6 +23,7 @@ export function ClassesToolbar({
       <div className="relative sm:w-full sm:max-w-[24rem]">
         <Search className="pointer-events-none absolute start-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-primary-600" />
         <input
+          autoComplete="off"
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
           placeholder={t("classes.searchPlaceholder")}

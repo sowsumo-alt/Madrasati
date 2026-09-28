@@ -400,6 +400,7 @@ export function GradeSheetView({
                                   columnsByPart[partIndex].indexOf(column);
                                 return (
                                   <input
+                                    autoComplete="off"
                                     value={value}
                                     onChange={(e) =>
                                       setEdits((current) => ({

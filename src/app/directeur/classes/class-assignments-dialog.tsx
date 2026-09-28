@@ -79,6 +79,7 @@ function CoefficientInput({
 
   return (
     <input
+      autoComplete="off"
       type="number"
       min={1}
       max={20}

@@ -114,6 +114,7 @@ export function FamilyPaymentDialog({
                     </div>
                     <div className="relative w-36">
                       <input
+                        autoComplete="off"
                         id={inputId}
                         type="number"
                         inputMode="numeric"

@@ -117,6 +117,7 @@ export function AppShell({
                 <div className="relative max-w-xl">
                   <Search className="pointer-events-none absolute start-4 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/40" />
                   <input
+                    autoComplete="off"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder={t("header.searchPlaceholder")}
