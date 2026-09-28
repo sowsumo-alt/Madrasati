@@ -61,6 +61,7 @@ export function StandardReportCard({
   return (
     <div
       id={id}
+      data-pdf-single-page
       className="rounded-xl border border-border bg-surface p-8 shadow-sm print:border-0 print:p-0 print:shadow-none"
     >
       <DocumentHeader school={school} official={official} />

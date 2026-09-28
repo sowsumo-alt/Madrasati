@@ -405,12 +405,6 @@
 .table td.moyt {
   font-weight: 700;
 }
-.synthese2 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 16px;
-}
 .bottomGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -467,6 +461,52 @@
   font-size: 10px;
   direction: rtl;
 }
+/*
+ * Le bulletin annuel tient sur une seule page A4 (PDF comme impression) :
+ * lignes du tableau, cadres et espacements plus serrés que sur le bulletin
+ * trimestriel, qui a moins de contenu.
+ */
+.annual {
+  padding-top: 20px;
+  padding-bottom: 18px;
+}
+.annual .annualSub {
+  margin-bottom: 10px;
+}
+.annual .trimRecap {
+  margin-bottom: 12px;
+}
+.annual .table td {
+  padding-top: 3px;
+  padding-bottom: 3px;
+}
+.annual .calcNote {
+  margin-bottom: 10px;
+  padding: 5px 10px;
+}
+.annual .bottomGrid {
+  margin-bottom: 10px;
+}
+.annual .bottomBox {
+  padding: 9px 12px;
+}
+.annual .bottomTitle {
+  margin-bottom: 6px;
+}
+.annual .checkItem {
+  margin-bottom: 4px;
+}
+.annual .decisionHighlight {
+  margin-top: 6px;
+  padding: 6px 12px;
+}
+.annual .signatures {
+  margin-top: 18px;
+}
+.annual .footerDate {
+  margin-top: 8px;
+}
+
 .decisionHighlight {
   background: #e6f4ed;
   border: 1.5px solid #0b5e38;

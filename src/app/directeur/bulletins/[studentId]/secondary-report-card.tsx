@@ -163,7 +163,7 @@ export function SecondaryReportCard({
   const date = formatLongDate(issuedAt);
 
   return (
-    <div id={id} className={styles.bulletin} dir="ltr" lang="fr" data-testid="secondary-report-card">
+    <div id={id} className={styles.bulletin} dir="ltr" lang="fr" data-testid="secondary-report-card" data-pdf-single-page>
       <DocumentHeader school={school} official={official} />
 
       <div className={styles.title}>{title ?? termTitle(card.term)}</div>

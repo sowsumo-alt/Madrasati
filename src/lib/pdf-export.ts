@@ -51,21 +51,45 @@ export async function exportElementToPdf(element: HTMLElement, fileName: string)
   const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
-  const imgWidth = pageWidth;
-  const imgHeight = (canvas.height * imgWidth) / canvas.width;
+  addCapture(pdf, imgData, canvas, pageWidth, pageHeight, isSinglePage(element));
 
+  pdf.save(fileName);
+}
+
+/**
+ * Un document marqué data-pdf-single-page (un bulletin) tient toujours sur
+ * une seule feuille : s'il la dépasse un peu — plus de matières, logo plus
+ * haut —, il est légèrement réduit plutôt que coupé, sa fin se retrouvant
+ * seule sur une deuxième page presque vide.
+ */
+function isSinglePage(element: HTMLElement): boolean {
+  return element.hasAttribute("data-pdf-single-page");
+}
+
+function addCapture(
+  pdf: import("jspdf").jsPDF,
+  imgData: string,
+  canvas: HTMLCanvasElement,
+  pageWidth: number,
+  pageHeight: number,
+  singlePage: boolean,
+) {
+  const imgHeight = (canvas.height * pageWidth) / canvas.width;
+  if (singlePage && imgHeight > pageHeight) {
+    const width = (pageWidth * pageHeight) / imgHeight;
+    pdf.addImage(imgData, "JPEG", (pageWidth - width) / 2, 0, width, pageHeight);
+    return;
+  }
   let heightLeft = imgHeight;
   let position = 0;
-  pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
+  pdf.addImage(imgData, "JPEG", 0, position, pageWidth, imgHeight);
   heightLeft -= pageHeight;
   while (heightLeft > 0) {
     position = heightLeft - imgHeight;
     pdf.addPage();
-    pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
+    pdf.addImage(imgData, "JPEG", 0, position, pageWidth, imgHeight);
     heightLeft -= pageHeight;
   }
-
-  pdf.save(fileName);
 }
 
 /**
@@ -101,19 +125,9 @@ export async function exportElementsToPdf(
       },
     });
     const imgData = canvas.toDataURL("image/jpeg", 0.92);
-    const imgHeight = (canvas.height * pageWidth) / canvas.width;
 
     if (index > 0) pdf.addPage();
-    let heightLeft = imgHeight;
-    let position = 0;
-    pdf.addImage(imgData, "JPEG", 0, position, pageWidth, imgHeight);
-    heightLeft -= pageHeight;
-    while (heightLeft > 0) {
-      position = heightLeft - imgHeight;
-      pdf.addPage();
-      pdf.addImage(imgData, "JPEG", 0, position, pageWidth, imgHeight);
-      heightLeft -= pageHeight;
-    }
+    addCapture(pdf, imgData, canvas, pageWidth, pageHeight, isSinglePage(element));
     onProgress?.(index + 1, elements.length);
   }
 

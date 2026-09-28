@@ -129,7 +129,7 @@ export function AnnualReportCard({
       : null;
 
   return (
-    <div id={id} className={styles.bulletin} dir="ltr" lang="fr" data-testid="annual-report-card">
+    <div id={id} className={`${styles.bulletin} ${styles.annual}`} dir="ltr" lang="fr" data-testid="annual-report-card" data-pdf-single-page>
       <DocumentHeader school={school} official={official} />
 
       <div className={styles.annualTitleRow}>
@@ -178,7 +178,7 @@ export function AnnualReportCard({
           <div className={styles.trimValue} data-testid="annual-average">
             {card.average != null ? `${twoDecimals(card.average)}/20` : "—"}
           </div>
-          <div className={styles.trimCoef}>Pondérée</div>
+          <div className={styles.trimCoef}>Pondérée · Rang {rank}</div>
         </div>
       </div>
 
@@ -267,19 +267,6 @@ export function AnnualReportCard({
         💡 Formule : ({parts.map((p) => `${p.label} ×${p.weight}`).join(" + ")}) ÷ {divisor}. Les
         moyennes des Trimestres 1 et 2 sont récupérées automatiquement depuis les bulletins déjà
         générés.
-      </div>
-
-      <div className={styles.synthese2}>
-        <div className={styles.synthCard}>
-          <div className={styles.synthLabel}>Moyenne générale annuelle</div>
-          <div className={styles.synthValue}>
-            {card.average != null ? `${twoDecimals(card.average)}/20` : "—"}
-          </div>
-        </div>
-        <div className={styles.synthCard}>
-          <div className={styles.synthLabel}>Rang annuel</div>
-          <div className={styles.synthValue}>{rank}</div>
-        </div>
       </div>
 
       <div className={styles.bottomGrid}>
