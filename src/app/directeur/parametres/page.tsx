@@ -48,6 +48,7 @@ export default async function SettingsPage() {
         name: school.name,
         address: school.address ?? "",
         city: school.city ?? "",
+        monthlyTuition: school.monthlyTuition ?? "",
         phone: school.phone ?? "",
         email: school.email ?? "",
         logoUrl: school.logoUrl,

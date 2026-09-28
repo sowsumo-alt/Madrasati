@@ -34,7 +34,8 @@ export function RemindersDialog({
     if (open) setOpened(new Set());
   }, [open]);
 
-  const unsettled = fees.filter((f) => f.remaining > 0);
+  // On ne relance que pour une échéance arrivée, jamais pour un mois à venir.
+  const unsettled = fees.filter((f) => f.remaining > 0 && f.isDue);
   const sendable = unsettled.filter((f) => reminderUrl(f) != null);
   const withoutPhone = unsettled.filter((f) => reminderUrl(f) == null);
   const settledCount = fees.length - unsettled.length;

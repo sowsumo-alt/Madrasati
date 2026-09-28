@@ -151,7 +151,9 @@ export default async function DashboardPage() {
     // à hauteur de 10 000 pesait pour 15 000 dans cette tuile, alors que la
     // page Finance et les relances WhatsApp, elles, annonçaient 5 000.
     prisma.fee.findMany({
-      where: { schoolId, status: { not: "PAID" } },
+      // Échéances arrivées seulement : les mois à venir d'une formule de
+      // paiement ne sont pas des impayés.
+      where: { schoolId, status: { not: "PAID" }, dueDate: { lte: new Date() } },
       select: { id: true, amount: true },
     }),
     prisma.payment.groupBy({

@@ -2,11 +2,11 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { FileText, MessageCircle, Pencil, Phone } from "lucide-react";
+import { CalendarClock, FileText, MessageCircle, Pencil, Phone } from "lucide-react";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { formatDateIn } from "@/lib/format";
+import { formatDateIn, formatMRU } from "@/lib/format";
 import { buildTelUrl, buildWhatsAppUrl } from "@/lib/whatsapp";
 import { joinFullName } from "@/lib/student-form";
 import { useLanguage } from "@/lib/i18n/language-provider";
@@ -44,12 +44,15 @@ export function StudentProfileSheet({
   schoolName,
   onClose,
   onEdit,
+  onTuition,
 }: {
   student: StudentRow | null;
   currentYearLabel: string | null;
   schoolName: string;
   onClose: () => void;
   onEdit: (student: StudentRow) => void;
+  /** Ouvre la formule de paiement des frais de scolarité. */
+  onTuition: (student: StudentRow) => void;
 }) {
   const { t, locale } = useLanguage();
   const empty = <span className="font-normal text-foreground/35">{t("students.notProvided")}</span>;
@@ -113,6 +116,41 @@ export function StudentProfileSheet({
                   {student.className && currentYearLabel ? currentYearLabel : empty}
                 </Row>
                 <Row label={t("students.enrollmentDate")}>{longDate(student.enrollmentDate)}</Row>
+              </Section>
+
+              <Section title="Frais de scolarité">
+                <Row label="Formule">
+                  {student.tuition ? student.tuition.description : empty}
+                </Row>
+                {student.tuition && (
+                  <Row label="Montant d'un mois">{formatMRU(student.tuition.monthlyAmount)}</Row>
+                )}
+                {student.tuition && (
+                  <Row label="Prochaine échéance">
+                    {student.tuition.nextDue ? (
+                      <span data-testid="next-due">
+                        {formatMRU(student.tuition.nextDue.remaining)} · {longDate(student.tuition.nextDue.dueDate)}
+                        <span className="block text-xs font-normal text-foreground/55">
+                          {student.tuition.nextDue.label.replace("Frais de scolarité — ", "")}
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="text-primary-700">Tout est réglé</span>
+                    )}
+                  </Row>
+                )}
+                <div className="pt-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => onTuition(student)}
+                    data-testid="open-tuition"
+                  >
+                    <CalendarClock className="h-4 w-4" />
+                    {student.tuition ? "Changer la formule de paiement" : "Choisir la formule de paiement"}
+                  </Button>
+                </div>
               </Section>
 
               <Section title={t("students.sectionParents")}>

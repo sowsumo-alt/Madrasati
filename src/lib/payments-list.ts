@@ -20,6 +20,8 @@ export interface FeeListItem {
   /** ISO */
   dueDate: string;
   status: FeeDisplayStatus;
+  /** Échéance arrivée ; absent : considérée comme arrivée. */
+  isDue?: boolean;
   student: { firstName: string; lastName: string; classId: string | null };
   parent: { firstName: string; lastName: string; phone: string } | null;
   /** Du plus ancien au plus récent. */
@@ -47,7 +49,12 @@ export function feeListDay(fee: Pick<FeeListItem, "dueDate" | "payments">): stri
 const normalize = (value: string) => value.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 
 export function matchesFeeFilters(fee: FeeListItem, filters: FeeListFilters): boolean {
-  if (filters.status === "UNPAID" ? fee.status === "PAID" : filters.status !== "ALL" && fee.status !== filters.status) {
+  // « Non réglés » : ce qui est dû et pas encore payé — pas les échéances à venir.
+  if (
+    filters.status === "UNPAID"
+      ? fee.status === "PAID" || fee.isDue === false
+      : filters.status !== "ALL" && fee.status !== filters.status
+  ) {
     return false;
   }
   if (filters.classId !== "ALL" && fee.student.classId !== filters.classId) return false;

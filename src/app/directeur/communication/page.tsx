@@ -32,7 +32,8 @@ export default async function CommunicationPage() {
   // navigateur, pour ne pas exposer toute la finance de l'école au client.
   const [fees, payments] = await Promise.all([
     prisma.fee.findMany({
-      where: { schoolId: user.schoolId, status: { not: "PAID" } },
+      // Ce qui est dû aujourd'hui : pas les mois à venir d'une formule de paiement.
+      where: { schoolId: user.schoolId, status: { not: "PAID" }, dueDate: { lte: new Date() } },
       select: { id: true, studentId: true, amount: true },
     }),
     prisma.payment.groupBy({

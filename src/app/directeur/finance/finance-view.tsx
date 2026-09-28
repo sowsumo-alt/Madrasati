@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import {
   ChevronRight,
   Download,
+  CalendarClock,
   FilePlus2,
   HandCoins,
   Loader2,
@@ -38,6 +39,7 @@ import { PaymentsReport } from "./payments-list/payments-report";
 import { FamilyFilterBanner } from "@/components/family/family-filter-banner";
 import { FamilyPaymentDialog } from "../familles/family-view/family-payment-dialog";
 import type { FamilyOpenFee } from "../familles/family-view/types";
+import { TuitionPlanDialog } from "@/components/finance/tuition-plan-dialog";
 
 export interface FeeRow {
   id: string;
@@ -47,6 +49,12 @@ export interface FeeRow {
   dueDate: string;
   totalPaid: number;
   remaining: number;
+  /**
+   * Échéance arrivée (aujourd'hui ou avant). Une échéance future — le mois
+   * prochain d'une formule mensuelle — n'est ni un impayé, ni un reste dû, ni
+   * un motif de relance : le parent ne la doit pas encore.
+   */
+  isDue: boolean;
   /** Statut et retard calculés au rendu serveur (voir page.tsx). */
   status: FeeDisplayStatus;
   overdueDays: number;
@@ -125,6 +133,8 @@ export function FinanceView({
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [detailId, setDetailId] = useState<string | null>(null);
   const [feeForm, setFeeForm] = useState<{ edit: FeeEditTarget | null } | null>(null);
+  // "" : la fenêtre est ouverte et le directeur choisit l'élève.
+  const [tuitionFor, setTuitionFor] = useState<string | null>(null);
   const [paymentFor, setPaymentFor] = useState<{ feeId: string | null } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<FeeRow | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -350,6 +360,10 @@ export function FinanceView({
             {exportRows ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
             {t("finance.exportPdf")}
           </Button>
+          <Button variant="secondary" onClick={() => setTuitionFor("")} data-testid="finance-tuition">
+            <CalendarClock className="h-4 w-4" />
+            Formule de paiement
+          </Button>
           <Button variant="secondary" onClick={() => setFeeForm({ edit: null })}>
             <FilePlus2 className="h-4 w-4" />
             {t("finance.newFee")}
@@ -504,6 +518,14 @@ export function FinanceView({
         onEdit={openEdit}
         onRecordPayment={openPayment}
         reminderUrl={reminderUrl}
+      />
+      <TuitionPlanDialog
+        studentId={tuitionFor}
+        students={students.map((s) => ({
+          id: s.id,
+          name: `${s.firstName} ${s.lastName}${s.className ? ` — ${s.className}` : ""}`,
+        }))}
+        onOpenChange={(open) => !open && setTuitionFor(null)}
       />
       <FeeFormDialog
         open={feeForm != null}

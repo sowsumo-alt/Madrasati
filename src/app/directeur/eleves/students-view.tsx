@@ -29,6 +29,8 @@ import { StudentsPagination } from "./students-list/students-pagination";
 import { BulkActionsBar } from "./students-list/bulk-actions-bar";
 import { BulkMoveDialog } from "./students-list/bulk-move-dialog";
 import { StudentProfileSheet } from "./students-list/student-profile-sheet";
+import { TuitionPlanDialog } from "@/components/finance/tuition-plan-dialog";
+import type { TuitionSummary } from "@/lib/tuition-data";
 
 export interface StudentRow {
   id: string;
@@ -45,6 +47,8 @@ export interface StudentRow {
   nni: string | null;
   rimNumber: string | null;
   motherName: string | null;
+  /** Formule de paiement des frais de scolarité ; null si aucune. */
+  tuition: TuitionSummary | null;
   enrollmentDate: string;
   parent: {
     id: string;
@@ -121,6 +125,7 @@ export function StudentsView({
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [formOpen, setFormOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [tuitionFor, setTuitionFor] = useState<string | null>(null);
   const [editTarget, setEditTarget] = useState<StudentEditTarget | null>(null);
   const [profileId, setProfileId] = useState<string | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<StudentRow | null>(null);
@@ -411,7 +416,9 @@ export function StudentsView({
         schoolName={schoolName}
         onClose={() => setProfileId(null)}
         onEdit={openEdit}
+        onTuition={(student) => setTuitionFor(student.id)}
       />
+      <TuitionPlanDialog studentId={tuitionFor} onOpenChange={(open) => !open && setTuitionFor(null)} />
       <StudentFormDialog
         open={formOpen}
         onOpenChange={setFormOpen}

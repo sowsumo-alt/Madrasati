@@ -98,6 +98,7 @@ export default async function FinancePage({
         dueDate: f.dueDate.toISOString(),
         totalPaid,
         remaining: remainingOf(amounts),
+        isDue: f.dueDate <= now,
         status: feeDisplayStatus(amounts, now),
         overdueDays: daysOverdue(amounts, now),
         student: {
@@ -140,7 +141,9 @@ export default async function FinancePage({
     collected,
     collectedByMonth,
     collectedChange: percentChange(collectedByMonth[last] ?? 0, collectedByMonth[last - 1] ?? 0),
-    outstanding: rows.reduce((sum, r) => sum + r.remaining, 0),
+    // Reste dû : les échéances arrivées seulement. Les mois à venir d'une
+    // formule de paiement ne sont pas encore dus.
+    outstanding: rows.filter((r) => r.isDue).reduce((sum, r) => sum + r.remaining, 0),
     lateCount: rows.filter((r) => r.overdueDays > 0).length,
     paymentCount: payments.length,
     paymentsByMonth,

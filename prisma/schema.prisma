@@ -40,7 +40,11 @@ model School {
   // téléphone dans une seule image large) : les documents l'impriment seul,
   // sans répéter en texte le nom et les coordonnées de l'école.
   logoIsLetterhead   Boolean   @default(false)
-  currency          String    @default("MRU")
+  currency           String    @default("MRU")
+  // Frais de scolarité d'un mois, en MRU : la base des formules de paiement
+  // (mensuel, trimestriel…) proposées à chaque élève. Null tant que l'école
+  // ne l'a pas renseigné dans ses Paramètres.
+  monthlyTuition     Int?
   // Formule d'abonnement — "standard" | "advanced" | "network" (voir src/lib/plans.ts).
   // String plutôt qu'enum Prisma, comme le reste des champs de statut du schéma.
   // Une école naît en "advanced" pour essayer l'application complète.
@@ -79,6 +83,7 @@ model School {
   teacherLeaves        TeacherLeave[]
   payslips             Payslip[]
   subscriptionPayments SubscriptionPayment[]
+  tuitionPlans         TuitionPlan[]
 
   @@map("schools")
 }
@@ -192,9 +197,10 @@ model AcademicYear {
   endDate   DateTime
   isCurrent Boolean  @default(false)
 
-  classes ClassRoom[]
-  exams   Exam[]
-  fees    Fee[]
+  classes      ClassRoom[]
+  exams        Exam[]
+  fees         Fee[]
+  tuitionPlans TuitionPlan[]
 
   @@index([schoolId])
   @@map("academic_years")
@@ -213,7 +219,7 @@ model ClassRoom {
   // avant les catégories : elle est alors déduite du niveau (voir
   // src/lib/class-catalog.ts).
   category       String?
-  capacity      Int          @default(30)
+  capacity       Int          @default(30)
   mainTeacherId  String?
   mainTeacher    Teacher?     @relation(fields: [mainTeacherId], references: [id])
   createdAt      DateTime     @default(now())
@@ -319,6 +325,7 @@ model Student {
   disciplineIncidents DisciplineIncident[]
   reportCardIssues    ReportCardIssue[]
   annualDecisions     AnnualDecision[]
+  tuitionPlans        TuitionPlan[]
 
   @@index([schoolId])
   @@index([classId])
@@ -571,12 +578,53 @@ model Fee {
   dueDate        DateTime
   status         String       @default("PENDING")
   createdAt      DateTime     @default(now())
+  // Échéance créée par la formule de paiement de l'élève, et les mois
+  // qu'elle couvre (premier jour du premier et du dernier mois). Null pour
+  // un frais saisi à la main.
+  tuitionPlanId  String?
+  tuitionPlan    TuitionPlan? @relation(fields: [tuitionPlanId], references: [id], onDelete: SetNull)
+  periodStart    DateTime?
+  periodEnd      DateTime?
 
   payments Payment[]
 
   @@index([schoolId])
   @@index([studentId])
+  @@index([tuitionPlanId])
   @@map("fees")
+}
+
+/**
+ * Formule de paiement des frais de scolarité d'un élève pour une année :
+ * chaque mois, par trimestre, par période de N mois, ou l'année en une fois.
+ * Elle produit les échéances (Fee) de l'élève ; la changer en cours d'année
+ * recrée les échéances non encore payées, sans toucher à celles déjà réglées.
+ */
+model TuitionPlan {
+  id             String       @id @default(cuid())
+  schoolId       String
+  school         School       @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  studentId      String
+  student        Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  // "MONTHLY" | "QUARTERLY" | "ANNUAL" | "CUSTOM"
+  frequency      String
+  // Mois réglés en une fois : 1, 3, toute l'année, ou le nombre choisi.
+  periodMonths   Int
+  // Montant d'un mois pour cet élève, en MRU (celui de l'école par défaut).
+  monthlyAmount  Int
+  // Premier et dernier mois facturés (premier jour du mois).
+  firstMonth     DateTime
+  lastMonth      DateTime
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  fees Fee[]
+
+  @@unique([studentId, academicYearId])
+  @@index([schoolId])
+  @@map("tuition_plans")
 }
 
 // method : "CASH" | "BANK_TRANSFER" | "MASRVI" | "SEDAD" | "BAKILY"

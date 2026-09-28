@@ -35,6 +35,7 @@ const schoolSchema = z.object({
   name: z.string().trim().min(1, "Le nom de l'école est requis"),
   address: z.string().trim().optional().or(z.literal("")),
   city: z.string().trim().optional().or(z.literal("")),
+  monthlyTuition: z.union([z.literal(""), z.coerce.number().int().positive().max(10_000_000)]).optional(),
   phone: z.string().trim().optional().or(z.literal("")),
   email: z.string().trim().optional().or(z.literal("")),
   logoUrl: z.string().nullable().optional(),
@@ -217,6 +218,20 @@ export function SettingsView({
               <div className="space-y-1.5">
                 <Label htmlFor="city">{t("settings.city")}</Label>
                 <Input id="city" placeholder="Nouakchott" {...schoolForm.register("city")} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="monthlyTuition">Frais de scolarité par mois (MRU)</Label>
+                <Input
+                  id="monthlyTuition"
+                  type="number"
+                  min={1}
+                  placeholder="Ex. 5000"
+                  {...schoolForm.register("monthlyTuition")}
+                  data-testid="monthly-tuition"
+                />
+                <p className="text-xs text-foreground/50">
+                  Proposé pour chaque élève dans sa formule de paiement (mensuel, trimestriel…).
+                </p>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="email">Email</Label>
