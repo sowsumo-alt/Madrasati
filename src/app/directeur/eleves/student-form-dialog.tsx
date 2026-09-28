@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import {
   AlertTriangle,
+  CalendarClock,
   CalendarRange,
   Check,
   CircleCheck,
@@ -40,6 +41,7 @@ import { useLanguage } from "@/lib/i18n/language-provider";
 import { studentSchema, type StudentFormValues } from "./schema";
 import { createStudent, updateStudent, findDuplicateStudents, type DuplicateStudent, checkStudentNnis } from "./actions";
 import { FormSection } from "@/components/forms/form-section";
+import { TuitionChoice, type TuitionChoiceValue } from "@/components/finance/tuition-choice";
 import { FormField, IconInput } from "@/components/forms/form-field";
 import { PhotoAvatarPicker } from "./student-form/photo-avatar-picker";
 import { STATUS_KEYS, STUDENT_STATUSES } from "./students-list/student-status";
@@ -78,6 +80,8 @@ interface StudentFormDialogProps {
   editTarget?: StudentEditTarget | null;
   /** Année des classes proposées, affichée en lecture seule. */
   currentYearLabel: string | null;
+  /** Frais de scolarité d'un mois de l'école (Paramètres), proposés à l'inscription. */
+  schoolMonthly: number | null;
 }
 
 /**
@@ -117,6 +121,7 @@ export function StudentFormDialog({
   classes,
   editTarget,
   currentYearLabel,
+  schoolMonthly,
 }: StudentFormDialogProps) {
   const router = useRouter();
   const { t } = useLanguage();
@@ -134,6 +139,13 @@ export function StudentFormDialog({
     defaultValues: newStudentValues(),
   });
 
+  // Formule de paiement : mensuelle au montant de l'école par défaut.
+  const defaultTuition = (): TuitionChoiceValue => ({
+    frequency: schoolMonthly ? "MONTHLY" : "NONE",
+    customMonths: 4,
+    monthly: schoolMonthly ? String(schoolMonthly) : "",
+  });
+  const [tuition, setTuition] = useState<TuitionChoiceValue>(defaultTuition);
   const [duplicates, setDuplicates] = useState<DuplicateStudent[]>([]);
   const [duplicateAck, setDuplicateAck] = useState(false);
 
@@ -141,6 +153,7 @@ export function StudentFormDialog({
     if (open) {
       setDuplicates([]);
       setDuplicateAck(false);
+      setTuition(defaultTuition());
       reset(
         editTarget
           ? {
@@ -192,7 +205,11 @@ export function StudentFormDialog({
         await updateStudent(editTarget.id, values);
         toast.success(t("students.updatedSuccess"));
       } else {
-        const result = await createStudent(values);
+        const result = await createStudent(values, {
+          frequency: tuition.frequency,
+          customMonths: tuition.customMonths,
+          monthly: tuition.monthly === "" ? "" : Number(tuition.monthly) || 0,
+        });
         if (result.paymentId) {
           // Navigation dans le même onglet, et non window.open : le geste de
           // l'utilisateur a expiré pendant l'attente du serveur, si bien que
@@ -508,6 +525,18 @@ export function StudentFormDialog({
                     </SelectContent>
                   </Select>
                 </FormField>
+              </FormSection>
+            )}
+
+            {!isEdit && (
+              <FormSection icon={CalendarClock} title="Frais de scolarité">
+                <div className="sm:col-span-2">
+                  <TuitionChoice
+                    value={tuition}
+                    onChange={setTuition}
+                    hint="Les échéances sont créées automatiquement à partir du mois d'inscription. « Plus tard » : à choisir depuis la fiche de l'élève."
+                  />
+                </div>
               </FormSection>
             )}
 

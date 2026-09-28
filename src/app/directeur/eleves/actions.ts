@@ -11,6 +11,7 @@ import { studentSchema, type StudentFormValues } from "./schema";
 import { CURRENT_YEAR } from "@/lib/school-year";
 import { assertNnisAvailable, nniConflict } from "@/lib/nni-data";
 import { storedNni } from "@/lib/nni";
+import { applyTuitionPlan, enrollmentPlan, enrollmentTuitionSchema, type EnrollmentTuition } from "@/lib/tuition-plan";
 
 /** Compare deux noms en ignorant casse, accents composés et espaces multiples. */
 function normalizeName(value: string) {
@@ -79,9 +80,14 @@ function studentFields(data: StudentFormValues) {
   };
 }
 
-export async function createStudent(values: StudentFormValues) {
+/**
+ * `tuition` : la formule de paiement des frais de scolarité choisie à
+ * l'inscription ; ses échéances sont créées avec l'élève.
+ */
+export async function createStudent(values: StudentFormValues, tuition?: EnrollmentTuition) {
   const user = await requireRole(ROLES.DIRECTOR);
   const data = studentSchema.parse(values);
+  const plan = enrollmentPlan(enrollmentTuitionSchema.parse(tuition));
   await assertNnisAvailable(user.schoolId, [data.nni]);
 
   // classId non vérifié : un ID d'une autre école ferait apparaître son nom
@@ -189,12 +195,28 @@ export async function createStudent(values: StudentFormValues) {
       paymentId = payment.id;
     }
 
+    // Les échéances des frais de scolarité, à partir du mois d'inscription.
+    if (plan) {
+      const year = await tx.academicYear.findFirst({
+        where: { schoolId: user.schoolId, isCurrent: true },
+        select: { id: true, label: true, startDate: true, endDate: true },
+      });
+      if (!year) throw new Error("Aucune année scolaire active.");
+      await applyTuitionPlan(tx, {
+        schoolId: user.schoolId,
+        studentId: student.id,
+        year,
+        ...plan,
+        firstMonth: student.enrollmentDate,
+      });
+    }
+
     return { id: student.id, paymentId };
   });
 
   revalidatePath("/directeur/eleves");
   revalidatePath("/directeur");
-  if (result.paymentId) revalidatePath("/directeur/finance");
+  if (result.paymentId || plan) revalidatePath("/directeur/finance");
   return result;
 }
 

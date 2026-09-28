@@ -35,7 +35,7 @@ export default async function StudentsPage({
     }),
     prisma.school.findUnique({
       where: { id: user.schoolId },
-      select: { name: true },
+      select: { name: true, monthlyTuition: true },
     }),
     prisma.academicYear.findFirst({
       where: { schoolId: user.schoolId, isCurrent: true },
@@ -92,6 +92,7 @@ export default async function StudentsPage({
       students={rows}
       classes={classOptions(classes)}
       catalog={buildCatalog(allLevels)}
+      schoolMonthly={school?.monthlyTuition ?? null}
       schoolName={school?.name ?? "Madrasati"}
       currentYearLabel={currentYear?.label ?? null}
       initialQuery={q ?? ""}

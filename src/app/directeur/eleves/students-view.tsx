@@ -94,6 +94,7 @@ export function StudentsView({
   schoolName,
   currentYearLabel,
   catalog,
+  schoolMonthly,
   initialQuery = "",
   initialClassFilter = "ALL",
   initialFamilyFilter = null,
@@ -103,6 +104,8 @@ export function StudentsView({
   classes: StudentClassOption[];
   /** Catégories et niveaux, pour créer une classe depuis l'import. */
   catalog: CatalogGroup[];
+  /** Frais de scolarité d'un mois de l'école, proposés à l'inscription. */
+  schoolMonthly: number | null;
   schoolName: string;
   currentYearLabel: string | null;
   /** Terme envoyé par la recherche globale de l'en-tête (?q=…). */
@@ -425,6 +428,7 @@ export function StudentsView({
         classes={classes}
         editTarget={editTarget}
         currentYearLabel={currentYearLabel}
+        schoolMonthly={schoolMonthly}
       />
       <ImportDialog open={importOpen} onOpenChange={setImportOpen} classes={classes} catalog={catalog} />
       <ConfirmDialog
