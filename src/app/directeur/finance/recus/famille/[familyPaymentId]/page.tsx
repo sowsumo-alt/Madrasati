@@ -155,6 +155,8 @@ export default async function FamilyReceiptPage({
               amount: formatMRU(p.amount),
             }))}
             total={formatMRU(familyPayment.total)}
+            paidAmount={familyPayment.total}
+            methodCode={familyPayment.method}
             method={methodLabel}
             remaining={remaining > 0 ? t("finance.remainingIs").replace("{amount}", formatMRU(remaining)) : null}
             labels={{ paid: t("finance.paidAmount"), method: t("finance.method"), thanks: t("finance.thankYou") }}

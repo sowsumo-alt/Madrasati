@@ -8,14 +8,26 @@
   box-sizing: border-box;
   width: 100%;
   height: 100%;
-  padding: 7mm 11mm 6mm;
-  display: flex;
-  flex-direction: column;
+  padding: 6mm 9mm;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   color: #111827;
   background: #fff;
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
+}
+
+/* Le cadre du reçu, avec un liseré vert en tête. */
+.frame {
+  position: relative;
+  box-sizing: border-box;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 5mm 6mm 4mm;
+  border: 0.35mm solid #c7d3cc;
+  border-top: 1.6mm solid #0b5e38;
+  border-radius: 2mm;
+  overflow: hidden;
 }
 
 /* EN-TÊTE : l'école à gauche, le reçu à droite */
@@ -25,7 +37,7 @@
   justify-content: space-between;
   gap: 6mm;
   padding-bottom: 3mm;
-  border-bottom: 0.6mm solid #0b5e38;
+  border-bottom: 0.3mm solid #e5e7eb;
 }
 .school {
   display: flex;
@@ -37,156 +49,224 @@
   display: block;
   width: auto;
   height: auto;
-  max-height: 14mm;
-  max-width: 30mm;
+  max-height: 13mm;
+  max-width: 28mm;
   object-fit: contain;
 }
 .banner {
   display: block;
   width: auto;
   height: auto;
-  max-height: 17mm;
-  max-width: 120mm;
+  max-height: 15mm;
+  max-width: 112mm;
   object-fit: contain;
 }
 .schoolName {
   font-size: 12.5pt;
-  font-weight: 700;
+  font-weight: 800;
   color: #0b5e38;
-  line-height: 1.2;
+  line-height: 1.15;
 }
 .schoolMeta {
-  margin-top: 0.5mm;
-  font-size: 8pt;
+  margin-top: 0.6mm;
+  font-size: 7.8pt;
   color: #4b5563;
 }
 .title {
-  text-align: right;
   flex-shrink: 0;
+  text-align: right;
 }
 .titleLabel {
-  font-size: 7.5pt;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-size: 10pt;
+  font-weight: 800;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #0b5e38;
+  color: #111827;
 }
 .number {
-  margin-top: 0.5mm;
-  font-size: 13pt;
-  font-weight: 800;
+  display: inline-block;
+  margin-top: 1.2mm;
+  padding: 0.8mm 2.6mm;
+  border-radius: 10mm;
+  background: #0b5e38;
+  color: #fff;
+  font-size: 9pt;
+  font-weight: 700;
+  letter-spacing: 0.02em;
   font-variant-numeric: tabular-nums;
 }
-.date {
-  font-size: 8.5pt;
-  color: #4b5563;
-}
 
-/* QUI : élève, classe, parent */
-.parties {
+/* LES INFORMATIONS : deux colonnes, libellé au-dessus de la valeur */
+.info {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6mm;
+  grid-template-columns: 1.25fr 1fr;
+  gap: 2.2mm 6mm;
   padding: 3mm 0;
 }
-.partyLabel {
-  font-size: 7pt;
-  font-weight: 600;
-  letter-spacing: 0.06em;
+.fieldLabel {
+  font-size: 6.8pt;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #6b7280;
 }
-.partyName {
-  margin-top: 0.5mm;
-  font-size: 11pt;
+.fieldValue {
+  margin-top: 0.4mm;
+  font-size: 10pt;
   font-weight: 700;
+  line-height: 1.25;
 }
-.partySub {
+.fieldSub {
+  font-weight: 500;
   font-size: 8.5pt;
   color: #4b5563;
 }
+.methodChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 1.8mm;
+  margin-top: 0.6mm;
+  padding: 0.9mm 2.6mm 0.9mm 1.4mm;
+  border: 0.3mm solid #c7d3cc;
+  border-radius: 10mm;
+  background: #f4f8f6;
+  font-size: 9.5pt;
+  font-weight: 700;
+}
+.methodLogo {
+  width: 5mm;
+  height: 5mm;
+  object-fit: contain;
+}
+.methodDot {
+  width: 2.2mm;
+  height: 2.2mm;
+  margin: 0 0.6mm;
+  border-radius: 50%;
+  background: #0b5e38;
+}
 
-/* QUOI : objet(s) du paiement */
-.lines {
-  border: 0.3mm solid #d1d5db;
+/* LE DÉTAIL : un tableau désignation / montant */
+.table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 0.3mm solid #d7e0db;
   border-radius: 1.5mm;
   overflow: hidden;
+  font-size: 9pt;
 }
-.line {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 4mm;
-  padding: 1.8mm 3mm;
-  font-size: 9.5pt;
+.table th {
+  padding: 1.4mm 3mm;
+  background: #eef5f1;
+  color: #0b5e38;
+  font-size: 7pt;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: left;
 }
-.line + .line {
+.table th:last-child,
+.table td:last-child {
+  text-align: right;
+  white-space: nowrap;
+}
+.table td {
+  padding: 1.6mm 3mm;
   border-top: 0.3mm solid #e5e7eb;
+  vertical-align: top;
 }
 .lineLabel {
   font-weight: 600;
 }
 .lineDetail {
+  font-size: 7.8pt;
   color: #6b7280;
-  font-size: 8.5pt;
 }
 .lineAmount {
   font-weight: 700;
-  white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 
-/* COMBIEN : montant payé, mode, reste dû */
-.total {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 3mm;
-  padding: 2.5mm 3mm;
+/* EN LETTRES */
+.words {
+  margin-top: 2.2mm;
+  font-size: 8.5pt;
+  font-style: italic;
+  color: #374151;
+}
+.words b {
+  font-style: normal;
+  color: #111827;
+}
+
+/* LE BAS : cachet « Payé », signature, total */
+.bottom {
+  margin-top: auto;
+  display: grid;
+  grid-template-columns: 34mm 1fr 58mm;
+  align-items: end;
+  gap: 5mm;
+  padding-top: 3mm;
+}
+.stamp {
+  justify-self: start;
+  align-self: center;
+  transform: rotate(-8deg);
+  padding: 1.2mm 3mm;
+  border: 0.6mm solid currentColor;
   border-radius: 1.5mm;
-  background: #e6f4ed;
+  font-size: 11pt;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+.stampPaid {
+  color: #0b7a47;
+}
+.stampPartial {
+  color: #b45309;
+}
+.signature {
+  padding-top: 1.4mm;
+  border-top: 0.3mm solid #6b7280;
+  text-align: center;
+  font-size: 7.8pt;
+  color: #374151;
+}
+.totalBox {
+  padding: 2.4mm 3.2mm;
+  border-radius: 1.8mm;
+  background: #0b5e38;
+  color: #fff;
+  text-align: right;
 }
 .totalLabel {
-  font-size: 10pt;
+  font-size: 7pt;
   font-weight: 700;
-}
-.method {
-  font-size: 8.5pt;
-  color: #374151;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.85;
 }
 .totalAmount {
   font-size: 17pt;
   font-weight: 800;
-  color: #0b5e38;
+  line-height: 1.15;
   font-variant-numeric: tabular-nums;
 }
 .remaining {
-  margin-top: 1.5mm;
-  text-align: right;
-  font-size: 9pt;
+  margin-top: 0.8mm;
+  font-size: 7.8pt;
   font-weight: 600;
-  color: #b45309;
+  color: #fde68a;
 }
 
-/* SIGNATURES : en bas de la demi-feuille */
 .footer {
-  margin-top: auto;
+  margin-top: 2.6mm;
   display: flex;
   justify-content: space-between;
-  align-items: flex-end;
-  gap: 8mm;
-  padding-top: 3mm;
-}
-.signature {
-  width: 62mm;
-  padding-top: 1.5mm;
-  border-top: 0.3mm solid #6b7280;
-  text-align: center;
-  font-size: 8pt;
-  color: #374151;
-}
-.thanks {
-  font-size: 7.5pt;
+  font-size: 6.8pt;
   color: #9ca3af;
 }
 

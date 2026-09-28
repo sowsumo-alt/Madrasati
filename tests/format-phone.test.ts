@@ -15,3 +15,7 @@ test("un numéro d'un autre format est rendu tel quel, sans rien inventer", () =
   assert.equal(formatPhone("46523896"), "46523896");
   assert.equal(formatPhone("+2224652389"), "+2224652389");
 });
+
+test("un numéro enregistré sans « + » s'affiche comme les autres", () => {
+  assert.equal(formatPhone("22246523896"), "+222 46 52 38 96");
+});

@@ -122,7 +122,12 @@ export function ltrIsolate(text: string): string {
  */
 export function formatPhone(phone: string): string {
   const compact = phone.replace(/\s/g, "");
-  const local = compact.startsWith("+222") ? compact.slice(4) : null;
+  // « +22246… » ou « 22246… » : les formulaires enregistrent le numéro sans +.
+  const local = compact.startsWith("+222")
+    ? compact.slice(4)
+    : /^222\d{8}$/.test(compact)
+      ? compact.slice(3)
+      : null;
   if (!local || !/^\d{8}$/.test(local)) return phone;
   return `+222 ${local.slice(0, 2)} ${local.slice(2, 4)} ${local.slice(4, 6)} ${local.slice(6)}`;
 }

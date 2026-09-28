@@ -95,6 +95,8 @@ function receiptOf(
         },
       ]}
       total={formatMRU(payment.amount)}
+      paidAmount={payment.amount}
+      methodCode={payment.method}
       method={methodLabel(payment.method, t)}
       remaining={remaining > 0 ? t("finance.remainingIs").replace("{amount}", formatMRU(remaining)) : null}
       labels={{ paid: t("finance.paidAmount"), method: t("finance.method"), thanks: t("finance.thankYou") }}

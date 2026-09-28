@@ -5,13 +5,18 @@ import {
   schoolPlaceLine,
   type SchoolIdentity,
 } from "@/lib/official-header";
+import { amountInWords } from "@/lib/number-words";
+import { PaymentMethodLogo } from "@/components/ui/payment-method-logo";
 import styles from "./compact-receipt.module.css";
 
 /**
  * Reçu de paiement au format demi-feuille (21 × 14,8 cm) : deux reçus
  * tiennent sur une feuille A4, ou un reçu sur une demi-feuille déjà coupée.
- * Tout ce que le parent doit lire, rien de plus : l'école, le numéro et la
- * date, l'élève, ce qui est payé, le montant, le mode, la signature.
+ *
+ * Tout ce qu'un reçu professionnel porte : l'école, le numéro, la date, qui
+ * paie et pour quel élève, le mode de paiement avec son logo, le détail, la
+ * somme en chiffres et en lettres, le cachet « Payé » (ou « Acompte » s'il
+ * reste un solde), la signature.
  */
 export interface CompactReceiptProps {
   id?: string;
@@ -19,13 +24,26 @@ export interface CompactReceiptProps {
   title: string;
   receiptNumber: string;
   date: string;
+  /** Qui paie, pour qui : « Élève », « Reçu de »… */
   parties: { label: string; name: string; sub?: string | null }[];
   lines: { label: string; detail?: string | null; amount: string }[];
   total: string;
+  /** Montant payé en MRU, écrit aussi en lettres. */
+  paidAmount: number;
+  /** Code du mode de paiement (logo) et son libellé. */
+  methodCode: string;
   method: string;
   remaining?: string | null;
   /** Libellés dans la langue de l'interface ; le français par défaut. */
-  labels?: { paid?: string; method?: string; thanks?: string; signature?: string };
+  labels?: {
+    paid?: string;
+    method?: string;
+    date?: string;
+    thanks?: string;
+    signature?: string;
+    designation?: string;
+    amount?: string;
+  };
 }
 
 export function CompactReceipt({
@@ -37,6 +55,8 @@ export function CompactReceipt({
   parties,
   lines,
   total,
+  paidAmount,
+  methodCode,
   method,
   remaining,
   labels = {},
@@ -46,75 +66,110 @@ export function CompactReceipt({
 
   return (
     <div id={id} className={styles.receipt} data-testid="compact-receipt">
-      <div className={styles.head}>
-        <div className={styles.school}>
-          {school.logoIsLetterhead && school.logoUrl ? (
-            <Image src={school.logoUrl} alt="" width={1000} height={300} unoptimized className={styles.banner} />
-          ) : (
-            <>
-              {school.logoUrl && (
-                <Image src={school.logoUrl} alt="" width={400} height={400} unoptimized className={styles.logo} />
-              )}
-              <div className="min-w-0">
-                <div className={styles.schoolName}>{school.name}</div>
-                {(place || phone) && (
-                  <div className={styles.schoolMeta}>
-                    {[place, phone && `Tél. ${phone}`].filter(Boolean).join(" · ")}
-                  </div>
+      <div className={styles.frame}>
+        <div className={styles.head}>
+          <div className={styles.school}>
+            {school.logoIsLetterhead && school.logoUrl ? (
+              <Image src={school.logoUrl} alt="" width={1000} height={300} unoptimized className={styles.banner} />
+            ) : (
+              <>
+                {school.logoUrl && (
+                  <Image src={school.logoUrl} alt="" width={400} height={400} unoptimized className={styles.logo} />
                 )}
-              </div>
-            </>
-          )}
-        </div>
-        <div className={styles.title}>
-          <div className={styles.titleLabel}>{title}</div>
-          <div className={styles.number} dir="ltr">
-            {receiptNumber}
-          </div>
-          <div className={styles.date}>{date}</div>
-        </div>
-      </div>
-
-      <div className={styles.parties}>
-        {parties.map((p) => (
-          <div key={p.label}>
-            <div className={styles.partyLabel}>{p.label}</div>
-            <div className={styles.partyName}>{p.name}</div>
-            {p.sub && (
-              <div className={styles.partySub} dir="auto">
-                {p.sub}
-              </div>
+                <div className="min-w-0">
+                  <div className={styles.schoolName}>{school.name}</div>
+                  {(place || phone) && (
+                    <div className={styles.schoolMeta}>
+                      {[place, phone && `Tél. ${phone}`].filter(Boolean).join(" · ")}
+                    </div>
+                  )}
+                </div>
+              </>
             )}
           </div>
-        ))}
-      </div>
-
-      <div className={styles.lines}>
-        {lines.map((l, i) => (
-          <div key={i} className={styles.line}>
-            <div>
-              <div className={styles.lineLabel}>{l.label}</div>
-              {l.detail && <div className={styles.lineDetail}>{l.detail}</div>}
+          <div className={styles.title}>
+            <div className={styles.titleLabel}>{title}</div>
+            <div className={styles.number} dir="ltr">
+              N° {receiptNumber}
             </div>
-            <div className={styles.lineAmount}>{l.amount}</div>
-          </div>
-        ))}
-      </div>
-
-      <div className={styles.total}>
-        <div>
-          <div className={styles.totalLabel}>{labels.paid ?? "Montant payé"}</div>
-          <div className={styles.method}>
-            {labels.method ?? "Mode de paiement"} : {method}
           </div>
         </div>
-        <div className={styles.totalAmount}>{total}</div>
-      </div>
-      {remaining && <div className={styles.remaining}>{remaining}</div>}
 
-      <div className={styles.footer}>
-        <div className={styles.thanks}>{labels.thanks ?? "Merci pour votre confiance. Reçu à conserver."}</div>
-        <div className={styles.signature}>{labels.signature ?? "Signature et cachet de l'école"}</div>
+        <div className={styles.info}>
+          <div className="space-y-[2.2mm]">
+            {parties.map((p) => (
+              <div key={p.label}>
+                <div className={styles.fieldLabel}>{p.label}</div>
+                <div className={styles.fieldValue}>
+                  {p.name}
+                  {p.sub && (
+                    <span className={styles.fieldSub} dir="auto">
+                      {" "}· {p.sub}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="space-y-[2.2mm]">
+            <div>
+              <div className={styles.fieldLabel}>{labels.date ?? "Date"}</div>
+              <div className={styles.fieldValue}>{date}</div>
+            </div>
+            <div>
+              <div className={styles.fieldLabel}>{labels.method ?? "Mode de paiement"}</div>
+              <div className={styles.methodChip} data-testid="receipt-method">
+                <PaymentMethodLogo
+                  method={methodCode}
+                  className={styles.methodLogo}
+                  fallback={<span className={styles.methodDot} aria-hidden />}
+                />
+                {method}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <table className={styles.table}>
+          <thead>
+            <tr>
+              <th>{labels.designation ?? "Désignation"}</th>
+              <th>{labels.amount ?? "Montant"}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {lines.map((l, i) => (
+              <tr key={i}>
+                <td>
+                  <div className={styles.lineLabel}>{l.label}</div>
+                  {l.detail && <div className={styles.lineDetail}>{l.detail}</div>}
+                </td>
+                <td className={styles.lineAmount}>{l.amount}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <p className={styles.words} data-testid="amount-words">
+          Arrêté le présent reçu à la somme de <b>{amountInWords(paidAmount)}</b>.
+        </p>
+
+        <div className={styles.bottom}>
+          <div className={`${styles.stamp} ${remaining ? styles.stampPartial : styles.stampPaid}`} data-testid="receipt-stamp">
+            {remaining ? "Acompte" : "Payé"}
+          </div>
+          <div className={styles.signature}>{labels.signature ?? "Signature et cachet de l'école"}</div>
+          <div className={styles.totalBox}>
+            <div className={styles.totalLabel}>{labels.paid ?? "Montant payé"}</div>
+            <div className={styles.totalAmount}>{total}</div>
+            {remaining && <div className={styles.remaining}>{remaining}</div>}
+          </div>
+        </div>
+
+        <div className={styles.footer}>
+          <span>{labels.thanks ?? "Merci pour votre confiance."} Reçu à conserver.</span>
+          <span>Madrasati</span>
+        </div>
       </div>
     </div>
   );
