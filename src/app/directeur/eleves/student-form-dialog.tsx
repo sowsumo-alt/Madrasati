@@ -35,6 +35,7 @@ import {
 import { PaymentMethodLogo } from "@/components/ui/payment-method-logo";
 import { PAYMENT_METHOD_LABELS } from "@/lib/payment-methods";
 import { DEFAULT_NATIONALITY, NATIONALITY_SUGGESTIONS } from "@/lib/student-form";
+import { ClassSelectItems } from "@/components/classes/class-select-items";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { studentSchema, type StudentFormValues } from "./schema";
 import { createStudent, updateStudent, findDuplicateStudents, type DuplicateStudent, checkStudentNnis } from "./actions";
@@ -46,6 +47,8 @@ import { STATUS_KEYS, STUDENT_STATUSES } from "./students-list/student-status";
 export interface StudentClassOption {
   id: string;
   name: string;
+  /** Pour regrouper la liste par catégorie (voir classOptions). */
+  category?: string | null;
 }
 
 export interface StudentEditTarget {
@@ -371,11 +374,7 @@ export function StudentFormDialog({
                     </span>
                   </SelectTrigger>
                   <SelectContent>
-                    {classes.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
+                    <ClassSelectItems classes={classes} />
                   </SelectContent>
                 </Select>
               </FormField>

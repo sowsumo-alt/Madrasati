@@ -1,4 +1,5 @@
 import { requireRole } from "@/lib/session";
+import { classOptions } from "@/lib/class-catalog";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { CURRENT_YEAR } from "@/lib/school-year";
@@ -20,8 +21,7 @@ export default async function FamilyEnrollmentPage({
   const [classes, parent] = await Promise.all([
     prisma.classRoom.findMany({
       where: { schoolId: user.schoolId, ...CURRENT_YEAR },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
+      select: { id: true, name: true, level: true, category: true },
     }),
     famille
       ? prisma.parent.findFirst({
@@ -41,7 +41,7 @@ export default async function FamilyEnrollmentPage({
 
   return (
     <FamilyEnrollmentForm
-      classes={classes}
+      classes={classOptions(classes)}
       initialFamily={
         parent
           ? {

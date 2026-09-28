@@ -3,8 +3,9 @@
 import { IdCard, MapPin, Plus, School, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { DateInput } from "@/components/ui/date-input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FormField } from "@/components/forms/form-field";
+import { ClassSelectItems } from "@/components/classes/class-select-items";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { cn } from "@/lib/utils";
 import type { ChildDraft, FieldErrors } from "./enrollment-draft";
@@ -12,6 +13,8 @@ import type { ChildDraft, FieldErrors } from "./enrollment-draft";
 export interface EnrollmentClassOption {
   id: string;
   name: string;
+  /** Pour regrouper la liste par catégorie (voir classOptions). */
+  category?: string | null;
 }
 
 function GenderToggle({
@@ -202,11 +205,7 @@ export function ChildrenStep({
                     </span>
                   </SelectTrigger>
                   <SelectContent>
-                    {classes.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
+                    <ClassSelectItems classes={classes} />
                   </SelectContent>
                 </Select>
               </FormField>

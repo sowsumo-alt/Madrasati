@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { ClassSelectItems } from "@/components/classes/class-select-items";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import type { StudentClassOption } from "../student-form-dialog";
 import { STATUS_KEYS, STUDENT_STATUSES, type StudentStatus } from "./student-status";
@@ -100,11 +101,7 @@ export function StudentsToolbar({
           <SelectContent>
             <SelectItem value="ALL">{t("students.allClasses")}</SelectItem>
             <SelectItem value="NONE">{t("students.noClass")}</SelectItem>
-            {classes.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                {c.name}
-              </SelectItem>
-            ))}
+            <ClassSelectItems classes={classes} />
           </SelectContent>
         </Select>
 

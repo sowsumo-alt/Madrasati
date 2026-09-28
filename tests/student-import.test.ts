@@ -105,6 +105,23 @@ test("seuls les vrais élèves sont importés ; les totaux et lignes vides sont 
   assert.deepEqual(aminata.warnings, ["NNI incomplet, laissé vide"]);
 });
 
+test("les totaux écrits autrement (pluriel, « Effective ») ne deviennent jamais des élèves", () => {
+  const rows: ImportCell[][] = [
+    ["N°", "Prénoms et Nom", "NNI"],
+    [1, "Mounira Mint Abidine", ""],
+    ["", "Nombres de Filles: 10", ""],
+    ["", "Nombres de Garçons: : 10", ""],
+    ["", "Effective 20", ""],
+    ["", "Total 40", ""],
+    ["", "Classe 12 élèves", ""],
+  ];
+  const preview = buildImportPreview(rows, 0, ["number", "fullName", "nni"]);
+  assert.deepEqual(preview.students.map((s) => s.firstName), ["Mounira"]);
+  assert.equal(preview.ignored.filter((i) => i.reason === "Ligne de total").length, 4);
+  // Un nom avec des chiffres n'est pas importé, même non reconnu comme total.
+  assert.deepEqual(preview.errors.map((e) => e.row), [7]);
+});
+
 test("un même NNI deux fois dans le fichier est signalé en erreur", () => {
   const rows: ImportCell[][] = [
     ["Nom", "Prénom", "NNI"],

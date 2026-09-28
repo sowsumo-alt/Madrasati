@@ -29,6 +29,7 @@ import {
   type ImportField,
   type ImportedStudent,
 } from "@/lib/student-import";
+import { ClassSelectItems } from "@/components/classes/class-select-items";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { cn } from "@/lib/utils";
 import { importStudentList, takenNnis } from "./import-actions";
@@ -37,7 +38,7 @@ interface ImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Classes de l'année en cours. */
-  classes: { id: string; name: string }[];
+  classes: { id: string; name: string; category?: string | null }[];
   /** Catégories et niveaux proposés pour créer la classe sur place. */
   catalog: CatalogGroup[];
 }
@@ -336,11 +337,7 @@ export function ImportDialog({ open, onOpenChange, classes, catalog }: ImportDia
                     <SelectValue placeholder="Choisir la classe" />
                   </SelectTrigger>
                   <SelectContent>
-                    {classes.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
+                    <ClassSelectItems classes={classes} />
                   </SelectContent>
                 </Select>
               )}

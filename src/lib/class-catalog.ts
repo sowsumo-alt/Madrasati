@@ -192,3 +192,22 @@ export function compareClasses(
   const [cb, lb, nb] = classSortKey(b);
   return ca - cb || la - lb || na.localeCompare(nb, "fr", { numeric: true });
 }
+
+export interface ClassOption {
+  id: string;
+  name: string;
+  /** Catégorie de la classe (voir classCategory) ; null si non reconnue. */
+  category: string | null;
+}
+
+/**
+ * Classes à proposer dans une liste de choix : dans l'ordre de la scolarité,
+ * chacune avec sa catégorie pour être regroupée (Préscolaire, Fondamental…).
+ */
+export function classOptions(
+  classes: { id: string; name: string; level: string; category?: string | null }[],
+): ClassOption[] {
+  return [...classes]
+    .sort(compareClasses)
+    .map((c) => ({ id: c.id, name: c.name, category: classCategory(c) }));
+}

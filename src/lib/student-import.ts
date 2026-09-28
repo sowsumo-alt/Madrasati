@@ -169,8 +169,9 @@ export function splitBirthPlaceDate(value: unknown): { place: string | null; dat
 function isSummaryCell(value: unknown): boolean {
   const v = normalizeHeader(value);
   return (
-    /^(effectifs?|totale?s?|nombre|nbre|nb|sous total|recapitulatif)\b/.test(v) ||
-    /^(garcons|filles)\b.*\d/.test(v)
+    // « Effectif », « Effective », « Nombres de Filles: 10 », « Nbre garçons »…
+    /^(effecti\w*|totale?s?|nombres?|nbres?|nb|sous totale?s?|recapitulatif)\b/.test(v) ||
+    /^(garcons?|filles?|eleves?)\b.*\d/.test(v)
   );
 }
 
@@ -277,6 +278,12 @@ export function buildImportPreview(
     }
     if (!firstName || !lastName) {
       preview.errors.push({ row, reason: "Prénom ou nom manquant", text: line });
+      continue;
+    }
+    // Un nom avec des chiffres (« Total 40 ») n'est pas un élève : on le
+    // montre au directeur plutôt que de l'inscrire.
+    if (/\d/.test(`${firstName} ${lastName}`)) {
+      preview.errors.push({ row, reason: "Nom avec des chiffres (ligne de total ?)", text: line });
       continue;
     }
 

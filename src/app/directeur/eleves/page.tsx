@@ -3,7 +3,7 @@ import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { StudentsView, type StudentRow } from "./students-view";
 import { CURRENT_YEAR } from "@/lib/school-year";
-import { buildCatalog } from "@/lib/class-catalog";
+import { buildCatalog, classOptions } from "@/lib/class-catalog";
 
 export default async function StudentsPage({
   searchParams,
@@ -30,8 +30,7 @@ export default async function StudentsPage({
     }),
     prisma.classRoom.findMany({
       where: { schoolId: user.schoolId, ...CURRENT_YEAR },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
+      select: { id: true, name: true, level: true, category: true },
     }),
     prisma.school.findUnique({
       where: { id: user.schoolId },
@@ -88,7 +87,7 @@ export default async function StudentsPage({
       // l'état local garderait l'ancien filtre.
       key={`${q ?? ""}|${classe ?? ""}|${famille ?? ""}`}
       students={rows}
-      classes={classes}
+      classes={classOptions(classes)}
       catalog={buildCatalog(allLevels)}
       schoolName={school?.name ?? "Madrasati"}
       currentYearLabel={currentYear?.label ?? null}

@@ -14,10 +14,10 @@ import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
-  SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ClassSelectItems } from "@/components/classes/class-select-items";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import type { StudentClassOption } from "../student-form-dialog";
 
@@ -59,11 +59,7 @@ export function BulkMoveDialog({
             <SelectValue placeholder={t("students.selectClass")}>{selectedName}</SelectValue>
           </SelectTrigger>
           <SelectContent>
-            {classes.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                {c.name}
-              </SelectItem>
-            ))}
+            <ClassSelectItems classes={classes} />
           </SelectContent>
         </Select>
 

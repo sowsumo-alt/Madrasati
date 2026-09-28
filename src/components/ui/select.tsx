@@ -70,3 +70,17 @@ export const SelectItem = forwardRef<
   </SelectPrimitive.Item>
 ));
 SelectItem.displayName = "SelectItem";
+
+export const SelectGroup = SelectPrimitive.Group;
+
+export const SelectLabel = forwardRef<
+  ElementRef<typeof SelectPrimitive.Label>,
+  ComponentPropsWithoutRef<typeof SelectPrimitive.Label>
+>(({ className, ...props }, ref) => (
+  <SelectPrimitive.Label
+    ref={ref}
+    className={cn("px-2 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-primary-700", className)}
+    {...props}
+  />
+));
+SelectLabel.displayName = "SelectLabel";
