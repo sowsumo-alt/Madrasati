@@ -192,6 +192,33 @@ export function SecondaryReportCard({
         </div>
       </div>
 
+      {/* Trimestres déjà passés, puis le trimestre en cours — comme le
+          récapitulatif du bulletin annuel. Absent au 1er trimestre. */}
+      {previousAverages.length > 0 && (
+        <div
+          className={`${styles.trimRecap} ${previousAverages.length === 1 ? styles.trimRecapTwo : styles.trimRecapThree}`}
+          data-testid="term-recap"
+        >
+          {previousAverages.map((p) => (
+            <div key={p.term} className={styles.trimCard} data-testid="term-recap-card">
+              <div className={styles.trimLabel}>{p.term}</div>
+              {p.average != null ? (
+                <div className={styles.trimValue}>{twoDecimals(p.average)}/20</div>
+              ) : (
+                <div className={styles.trimMissing}>Non disponible</div>
+              )}
+            </div>
+          ))}
+          <div className={`${styles.trimCard} ${styles.trimCardAnnual}`}>
+            <div className={styles.trimLabel}>{card.term}</div>
+            <div className={styles.trimValue}>
+              {card.average != null ? `${twoDecimals(card.average)}/20` : "—"}
+            </div>
+            <div className={styles.trimCoef}>Trimestre en cours</div>
+          </div>
+        </div>
+      )}
+
       {/* TABLEAU DES NOTES — une seule ligne par matière */}
       <div className={styles.tableWrap}>
         <table className={styles.table}>
@@ -298,16 +325,6 @@ export function SecondaryReportCard({
           {evolution?.general && (
             <div className={styles.generalTrend}>
               <Trend value={evolution.general} long />
-            </div>
-          )}
-          {previousAverages.length > 0 && (
-            <div className={styles.previousAverages} data-testid="previous-averages">
-              {previousAverages.map((p) => (
-                <div key={p.term}>
-                  Moyenne {p.term} :{" "}
-                  <b>{p.average != null ? `${twoDecimals(p.average)}/20` : "Non disponible"}</b>
-                </div>
-              ))}
             </div>
           )}
         </div>

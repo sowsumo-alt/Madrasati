@@ -112,6 +112,31 @@ export function StandardReportCard({
         </div>
       </div>
 
+      {/* Trimestres déjà passés, puis le trimestre en cours — comme le
+          récapitulatif du bulletin annuel. Absent au 1er trimestre. */}
+      {previousAverages.length > 0 && (
+        <div
+          className={cn("mb-6 grid gap-3", previousAverages.length === 1 ? "grid-cols-2" : "grid-cols-3")}
+          data-testid="term-recap"
+        >
+          {previousAverages.map((p) => (
+            <div key={p.term} className="rounded-lg border border-border bg-surface-muted px-3 py-2.5 text-center" data-testid="term-recap-card">
+              <p className="text-[10px] font-medium uppercase tracking-wide text-foreground/50">{p.term}</p>
+              <p className={cn("mt-0.5 font-bold", p.average != null ? "text-lg text-foreground" : "text-sm text-foreground/40")}>
+                {p.average != null ? `${p.average.toFixed(2)} / 20` : t("bulletin.notAvailable")}
+              </p>
+            </div>
+          ))}
+          <div className="rounded-lg border border-primary-700 bg-primary-50 px-3 py-2.5 text-center">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-foreground/50">{card.term}</p>
+            <p className="mt-0.5 text-lg font-bold text-primary-800">
+              {card.average != null ? `${card.average.toFixed(2)} / 20` : "—"}
+            </p>
+            <p className="text-[10px] font-semibold text-accent-600">{t("bulletin.currentTerm")}</p>
+          </div>
+        </div>
+      )}
+
       <table className="w-full text-sm">
         <thead>
           <tr className="border-y border-border bg-surface-muted/60 text-left text-xs font-medium uppercase tracking-wide text-foreground/50">
@@ -160,18 +185,6 @@ export function StandardReportCard({
             <p className="mt-0.5 text-xs font-semibold">
               <Trend value={evolution.general} long />
             </p>
-          )}
-          {previousAverages.length > 0 && (
-            <div className="mt-2 border-t border-dashed border-border pt-1.5 text-xs text-foreground/70" data-testid="previous-averages">
-              {previousAverages.map((p) => (
-                <p key={p.term}>
-                  {t("bulletin.previousAverage").replace("{term}", p.term)}{" "}
-                  <span className="font-semibold text-primary-800">
-                    {p.average != null ? `${p.average.toFixed(2)} / 20` : t("bulletin.notAvailable")}
-                  </span>
-                </p>
-              ))}
-            </div>
           )}
         </div>
         <div>

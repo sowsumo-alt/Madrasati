@@ -227,18 +227,7 @@
 .synthMention {
   color: #c9973a;
 }
-/* Moyennes des trimestres précédents, reprises de leurs bulletins. */
-.previousAverages {
-  margin-top: 6px;
-  padding-top: 5px;
-  border-top: 1px dashed #d1d5db;
-  font-size: 11px;
-  line-height: 1.5;
-  color: #374151;
-}
-.previousAverages b {
-  color: #0b5e38;
-}
+
 
 /* Évolution depuis le trimestre précédent */
 .subjectTrend {
@@ -384,6 +373,19 @@
   color: #c9973a;
   font-weight: 700;
   margin-top: 2px;
+}
+/* Bulletins des 2e et 3e trimestres : les trimestres passés + celui en cours. */
+.trimRecapTwo {
+  grid-template-columns: 1fr 1.3fr;
+}
+.trimRecapThree {
+  grid-template-columns: 1fr 1fr 1.3fr;
+}
+.trimMissing {
+  font-size: 12px;
+  font-weight: 600;
+  color: #9ca3af;
+  padding: 3px 0;
 }
 .trimCardAnnual {
   background: #e6f4ed;
