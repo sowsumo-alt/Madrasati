@@ -41,6 +41,9 @@ test("« Non réglés » garde tout ce qui n'est pas soldé", () => {
   assert.equal(matchesFeeFilters(fee({ status: "OVERDUE" }), unpaid), true);
   assert.equal(matchesFeeFilters(fee({ status: "PAID" }), unpaid), false);
   assert.equal(matchesFeeFilters(fee({ status: "PAID" }), { ...ALL, status: "PAID" }), true);
+  // Le mois prochain d'une formule de paiement n'est pas encore un impayé.
+  assert.equal(matchesFeeFilters(fee({ status: "PENDING", isDue: false }), unpaid), false);
+  assert.equal(matchesFeeFilters(fee({ status: "PENDING", isDue: false }), ALL), true);
 });
 
 test("la recherche ignore accents et majuscules, et trouve un reçu ou le parent", () => {
