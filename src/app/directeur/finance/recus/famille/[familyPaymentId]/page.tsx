@@ -24,6 +24,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { getTranslations } from "@/lib/i18n/server";
 import type { TranslationKey } from "@/lib/i18n/dictionaries";
 import { buildWhatsAppUrl, schoolSignatureAr, schoolSignatureFr, withArabic } from "@/lib/whatsapp";
+import { familyReceiptLines, studentReceiptLines } from "@/lib/receipt-lines";
 
 /** « +22246523896 » ou « 22246523896 » -> « +222 46 52 38 96 ». */
 function displayPhone(phone: string) {
@@ -58,7 +59,15 @@ export default async function FamilyReceiptPage({
       payments: {
         include: {
           student: { select: { firstName: true, lastName: true, classRoom: { select: { name: true } } } },
-          fee: { select: { label: true, amount: true, payments: { select: { amount: true } } } },
+          fee: {
+            select: {
+              label: true,
+              amount: true,
+              periodStart: true,
+              periodEnd: true,
+              payments: { select: { amount: true } },
+            },
+          },
         },
       },
     },
@@ -83,10 +92,20 @@ export default async function FamilyReceiptPage({
   }, 0);
 
   // Un seul élève : un versement qui couvre plusieurs mois de sa formule
-  // (« 4 mois d'un coup »). Le reçu est alors celui de l'élève, mois par
-  // mois — pas un reçu « famille, 4 enfants ».
+  // (« 4 mois d'un coup »). Le reçu est alors celui de l'élève — pas un reçu
+  // « famille, 4 enfants ».
   const oneStudent = new Set(payments.map((p) => p.studentId)).size === 1 ? payments[0].student : null;
-  const period = (label: string) => label.replace("Frais de scolarité — ", "");
+  // Lignes regroupées (les mois d'un enfant sur une ligne) : une ligne par
+  // mois faisait déborder le reçu de sa demi-feuille.
+  const parts = payments.map((p) => ({
+    studentId: p.studentId,
+    studentLabel: `${p.student.firstName} ${p.student.lastName}${p.student.classRoom ? ` — ${p.student.classRoom.name}` : ""}`,
+    feeLabel: p.fee.label,
+    amount: p.amount,
+    periodStart: p.fee.periodStart,
+    periodEnd: p.fee.periodEnd,
+  }));
+  const receiptLines = oneStudent ? studentReceiptLines(parts) : familyReceiptLines(parts);
 
   const bilingual = schoolHasFeature(school, FEATURES.BILINGUAL_MESSAGES);
   // Une famille : une ligne par enfant (inscription et juin additionnés),
@@ -98,10 +117,10 @@ export default async function FamilyReceiptPage({
     perChild.set(p.studentId, entry);
   }
   const lines = oneStudent
-    ? payments.map((p) => `- ${period(p.fee.label)} : ${formatAmount(p.amount)} MRU`)
+    ? receiptLines.map((l) => `- ${l.label}${l.detail ? ` (${l.detail})` : ""} : ${formatAmount(l.amount)} MRU`)
     : [...perChild.values()].map((c) => `- ${c.firstName} : ${formatAmount(c.amount)} MRU`);
   const linesAr = oneStudent
-    ? payments.map((p) => `- ${period(p.fee.label)}: ${formatAmount(p.amount)} أوقية`)
+    ? receiptLines.map((l) => `- ${l.detail ?? l.label}: ${formatAmount(l.amount)} أوقية`)
     : [...perChild.values()].map((c) => `- ${c.firstName}: ${formatAmount(c.amount)} أوقية`);
   const forWhom = oneStudent ? `${oneStudent.firstName} ${oneStudent.lastName}` : "vos enfants";
   const forWhomAr = oneStudent ? `لـ ${oneStudent.firstName} ${oneStudent.lastName}` : "لأطفالكم";
@@ -175,15 +194,7 @@ export default async function FamilyReceiptPage({
                 : { label: t("family.receiptFamily"), name, sub: t("family.childCount").replace("{count}", String(perChild.size)) },
               { label: t("finance.parentOrGuardian"), name: parentName ?? "—", sub: parent ? displayPhone(parent.phone) : null },
             ]}
-            lines={payments.map((p) =>
-              oneStudent
-                ? { label: period(p.fee.label), detail: p.fee.label.startsWith("Frais de scolarité") ? "Frais de scolarité" : null, amount: formatMRU(p.amount) }
-                : {
-                    label: `${p.student.firstName} ${p.student.lastName}${p.student.classRoom ? ` — ${p.student.classRoom.name}` : ""}`,
-                    detail: p.fee.label,
-                    amount: formatMRU(p.amount),
-                  },
-            )}
+            lines={receiptLines.map((l) => ({ label: l.label, detail: l.detail, amount: formatMRU(l.amount) }))}
             total={formatMRU(familyPayment.total)}
             paidAmount={familyPayment.total}
             methodCode={familyPayment.method}
