@@ -108,8 +108,8 @@ export function TuitionChoice({
           {value.paidMonths === 1 ? "Le premier mois est" : `Les ${value.paidMonths} premiers mois sont`} déjà
           réglé{value.paidMonths > 1 ? "s" : ""} : enregistré{value.paidMonths > 1 ? "s" : ""} comme payé
           {value.paidMonths > 1 ? "s" : ""}, avec reçu
-          {Number(value.monthly) > 0 ? ` (${formatMRU(value.paidMonths * Number(value.monthly))})` : ""}. Ils
-          n&apos;apparaîtront pas dans les impayés.
+          {Number(value.monthly) > 0 ? ` (${formatMRU(value.paidMonths * Number(value.monthly))})` : ""}.{" "}
+          {value.paidMonths > 1 ? "Ils n'apparaîtront" : "Il n'apparaîtra"} pas dans les impayés.
         </p>
       )}
       {hint && <p className="text-xs text-foreground/55">{hint}</p>}
