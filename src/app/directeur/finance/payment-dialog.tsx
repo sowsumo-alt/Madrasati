@@ -20,6 +20,7 @@ import { FormField, IconInput } from "@/components/forms/form-field";
 import { StudentAvatar } from "@/components/students/student-avatar";
 import { PaymentMethodPicker } from "@/components/payments/payment-method-picker";
 import { formatMRU } from "@/lib/format";
+import { allocateOldestFirst } from "@/lib/tuition";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { cn } from "@/lib/utils";
 import { paymentSchema, type PaymentFormValues } from "./schema";
@@ -70,9 +71,39 @@ export function PaymentDialog({
       `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`, "fr"),
     );
   }, [unsettled]);
-  const studentFees = unsettled.filter((f) => f.student.id === studentId);
+  // Du plus ancien au plus récent : le premier proposé est celui à régler.
+  const studentFees = unsettled
+    .filter((f) => f.student.id === studentId)
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
   const fee = fees.find((f) => f.id === (feeId ?? chosenFeeId)) ?? null;
   const student = students.find((s) => s.id === studentId) ?? fee?.student ?? null;
+
+  // Échéance d'une formule : le versement règle les mois du plus ancien au
+  // plus récent (voir recordPayment), sur plusieurs mois s'il le faut.
+  const planOpen = useMemo(
+    () =>
+      fee?.tuitionPlanId
+        ? unsettled
+            .filter((f) => f.tuitionPlanId === fee.tuitionPlanId)
+            .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+        : null,
+    [fee, unsettled],
+  );
+  const shown = planOpen?.[0] ?? fee;
+  const planLeft = planOpen?.reduce((sum, f) => sum + f.remaining, 0) ?? null;
+  const typedAmount = Number(watch("amount")) || 0;
+  const allocation = planOpen && typedAmount > 0 ? allocateOldestFirst(planOpen, typedAmount) : null;
+  const tooMuch = planLeft != null && typedAmount > planLeft;
+
+  /** Montant proposé : ce qui reste sur le mois à régler en premier. */
+  function suggestedAmount(target: FeeRow | undefined) {
+    if (!target) return 0;
+    if (!target.tuitionPlanId) return target.remaining;
+    const oldest = unsettled
+      .filter((f) => f.tuitionPlanId === target.tuitionPlanId)
+      .sort((a, b) => a.dueDate.localeCompare(b.dueDate))[0];
+    return (oldest ?? target).remaining;
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -81,7 +112,9 @@ export function PaymentDialog({
     setChosenFeeId(fixed?.id ?? "");
     setFeeError(null);
     setJustSaved(false);
-    reset({ amount: fixed?.remaining ?? 0, method: "CASH", note: "" });
+    reset({ amount: suggestedAmount(fixed), method: "CASH", note: "" });
+    // suggestedAmount ne dépend que de `fees`, déjà suivi.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, feeId, fees, reset]);
 
   function chooseStudent(id: string) {
@@ -90,22 +123,24 @@ export function PaymentDialog({
     // pour l'élève était aussitôt effacé et le montant remis à zéro.
     if (!id) return;
     setStudentId(id);
-    const own = unsettled.filter((f) => f.student.id === id);
-    const only = own.length === 1 ? own[0] : null;
-    setChosenFeeId(only?.id ?? "");
-    setValue("amount", only?.remaining ?? 0);
+    // Le plus ancien reste à régler, choisi d'office.
+    const oldest = unsettled
+      .filter((f) => f.student.id === id)
+      .sort((a, b) => a.dueDate.localeCompare(b.dueDate))[0];
+    setChosenFeeId(oldest?.id ?? "");
+    setValue("amount", suggestedAmount(oldest));
     setFeeError(null);
   }
 
   function chooseFee(id: string) {
     if (!id) return;
     setChosenFeeId(id);
-    setValue("amount", fees.find((f) => f.id === id)?.remaining ?? 0, { shouldValidate: true });
+    setValue("amount", suggestedAmount(fees.find((f) => f.id === id)), { shouldValidate: true });
     setFeeError(null);
   }
 
   async function onSubmit(values: PaymentFormValues) {
-    if (!fee) return;
+    if (!fee || tooMuch) return;
     try {
       const result = await recordPayment(fee.id, values);
       // Un court accusé de réception visuel avant de fermer : sans lui, le
@@ -204,12 +239,12 @@ export function PaymentDialog({
                         <span className="ms-2 text-xs font-medium text-primary-700">{fee.student.className}</span>
                       )}
                     </p>
-                    <p className="truncate text-xs text-foreground/60">{fee.label}</p>
+                    <p className="truncate text-xs text-foreground/60">{shown?.label ?? fee.label}</p>
                   </div>
                   <div className="shrink-0 text-end">
                     <p className="text-xs text-foreground/50">{t("finance.remaining")}</p>
                     <p className="font-bold text-primary-800" style={{ fontVariantNumeric: "tabular-nums" }}>
-                      {formatMRU(fee.remaining)}
+                      {formatMRU(shown?.remaining ?? fee.remaining)}
                     </p>
                   </div>
                 </div>
@@ -241,6 +276,24 @@ export function PaymentDialog({
                   inputMode="numeric"
                   {...register("amount")}
                 />
+                {allocation && allocation.length > 0 && !tooMuch && (
+                  <p className="mt-1.5 text-xs text-primary-800" data-testid="payment-allocation">
+                    Ce paiement règle :{" "}
+                    {allocation
+                      .map(
+                        (p) =>
+                          `${p.item.label.replace("Frais de scolarité — ", "")} (${formatMRU(p.amount)}${
+                            p.amount < p.item.remaining ? " sur " + formatMRU(p.item.remaining) : ""
+                          })`,
+                      )
+                      .join(" · ")}
+                  </p>
+                )}
+                {tooMuch && planLeft != null && (
+                  <p className="mt-1.5 text-xs font-medium text-danger" data-testid="payment-too-much">
+                    Plus que ce qui reste à payer pour l&apos;année ({formatMRU(planLeft)}).
+                  </p>
+                )}
               </FormField>
               <FormField
                 label={method === "CHEQUE" ? t("finance.chequeNumber") : t("finance.note")}
@@ -256,7 +309,7 @@ export function PaymentDialog({
             <Button type="button" variant="secondary" className="sm:min-w-28" onClick={() => onOpenChange(false)}>
               {t("common.cancel")}
             </Button>
-            <Button type="submit" disabled={isSubmitting} className={cn("sm:min-w-44", justSaved && "bg-primary-600")}>
+            <Button type="submit" disabled={isSubmitting || tooMuch} className={cn("sm:min-w-44", justSaved && "bg-primary-600")}>
               {justSaved ? (
                 <Check className="h-4 w-4 animate-check-pop" />
               ) : isSubmitting ? (

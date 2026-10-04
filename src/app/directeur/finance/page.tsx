@@ -98,6 +98,7 @@ export default async function FinancePage({
         dueDate: f.dueDate.toISOString(),
         totalPaid,
         remaining: remainingOf(amounts),
+        tuitionPlanId: f.tuitionPlanId,
         isDue: f.dueDate <= now,
         status: feeDisplayStatus(amounts, now),
         overdueDays: daysOverdue(amounts, now),
@@ -120,8 +121,16 @@ export default async function FinancePage({
       };
     })
     // Les mouvements les plus récents en tête : dernier paiement reçu, ou
-    // échéance pour un frais encore sans versement.
-    .sort((a, b) => feeListDay(b).localeCompare(feeListDay(a)));
+    // échéance pour un frais encore sans versement. Les échéances à venir,
+    // jamais payées, passent en dessous, de la plus proche à la plus
+    // lointaine : en tête, juin 2027 faisait encaisser juin avant octobre.
+    .sort((a, b) => {
+      const upcomingA = !a.isDue && a.payments.length === 0;
+      const upcomingB = !b.isDue && b.payments.length === 0;
+      if (upcomingA !== upcomingB) return upcomingA ? 1 : -1;
+      if (upcomingA) return a.dueDate.localeCompare(b.dueDate);
+      return feeListDay(b).localeCompare(feeListDay(a));
+    });
 
   // — Tuiles : argent reçu mois par mois sur six mois, et recouvrement global.
   const months = lastMonthKeys(now, 6);

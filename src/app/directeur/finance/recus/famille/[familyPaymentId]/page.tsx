@@ -82,14 +82,30 @@ export default async function FamilyReceiptPage({
     return sum + Math.max(p.fee.amount - paid, 0);
   }, 0);
 
+  // Un seul élève : un versement qui couvre plusieurs mois de sa formule
+  // (« 4 mois d'un coup »). Le reçu est alors celui de l'élève, mois par
+  // mois — pas un reçu « famille, 4 enfants ».
+  const oneStudent = new Set(payments.map((p) => p.studentId)).size === 1 ? payments[0].student : null;
+  const period = (label: string) => label.replace("Frais de scolarité — ", "");
+
   const bilingual = schoolHasFeature(school, FEATURES.BILINGUAL_MESSAGES);
-  const lines = payments.map((p) => `- ${p.student.firstName} : ${formatAmount(p.amount)} MRU`);
-  const linesAr = payments.map((p) => `- ${p.student.firstName}: ${formatAmount(p.amount)} أوقية`);
+  const lines = payments.map((p) =>
+    oneStudent
+      ? `- ${period(p.fee.label)} : ${formatAmount(p.amount)} MRU`
+      : `- ${p.student.firstName} : ${formatAmount(p.amount)} MRU`,
+  );
+  const linesAr = payments.map((p) =>
+    oneStudent
+      ? `- ${period(p.fee.label)}: ${formatAmount(p.amount)} أوقية`
+      : `- ${p.student.firstName}: ${formatAmount(p.amount)} أوقية`,
+  );
+  const forWhom = oneStudent ? `${oneStudent.firstName} ${oneStudent.lastName}` : "vos enfants";
+  const forWhomAr = oneStudent ? `لـ ${oneStudent.firstName} ${oneStudent.lastName}` : "لأطفالكم";
   const confirmationMessage = parent
     ? withArabic(
-        `Bonjour ${parentName},\n\nNous confirmons la réception d'un paiement de ${formatAmount(familyPayment.total)} MRU pour vos enfants, effectué le ${formatLongDate(familyPayment.paidAt)} :\n${lines.join("\n")}\n\nReçu n° ${familyPayment.receiptNumber}. Merci pour votre règlement.\n\n${schoolSignatureFr(school.name)}`,
+        `Bonjour ${parentName},\n\nNous confirmons la réception d'un paiement de ${formatAmount(familyPayment.total)} MRU pour ${forWhom}, effectué le ${formatLongDate(familyPayment.paidAt)} :\n${lines.join("\n")}\n\nReçu n° ${familyPayment.receiptNumber}. Merci pour votre règlement.\n\n${schoolSignatureFr(school.name)}`,
         bilingual
-          ? `مرحبًا ${parentName}،\n\nنؤكد استلام دفعة بمبلغ ${formatAmount(familyPayment.total)} أوقية موريتانية لأطفالكم، بتاريخ ${formatLongDateAr(familyPayment.paidAt)}:\n${linesAr.join("\n")}\n\nإيصال رقم ${familyPayment.receiptNumber}. شكرًا لتسديدكم.\n\n${schoolSignatureAr(school.name)}`
+          ? `مرحبًا ${parentName}،\n\nنؤكد استلام دفعة بمبلغ ${formatAmount(familyPayment.total)} أوقية موريتانية ${forWhomAr}، بتاريخ ${formatLongDateAr(familyPayment.paidAt)}:\n${linesAr.join("\n")}\n\nإيصال رقم ${familyPayment.receiptNumber}. شكرًا لتسديدكم.\n\n${schoolSignatureAr(school.name)}`
           : null,
       )
     : "";
@@ -142,18 +158,28 @@ export default async function FamilyReceiptPage({
           <CompactReceipt
             id="recu-card"
             school={toSchoolIdentity(school)}
-            title={t("family.receiptTitle")}
+            title={oneStudent ? t("finance.receiptTitle") : t("family.receiptTitle")}
             receiptNumber={familyPayment.receiptNumber}
             date={formatDateIn(locale, familyPayment.paidAt, { day: "numeric", month: "long", year: "numeric" })}
             parties={[
-              { label: t("family.receiptFamily"), name, sub: t("family.childCount").replace("{count}", String(payments.length)) },
+              oneStudent
+                ? {
+                    label: t("finance.student"),
+                    name: `${oneStudent.firstName} ${oneStudent.lastName}`,
+                    sub: oneStudent.classRoom?.name ?? t("students.noClass"),
+                  }
+                : { label: t("family.receiptFamily"), name, sub: t("family.childCount").replace("{count}", String(payments.length)) },
               { label: t("finance.parentOrGuardian"), name: parentName ?? "—", sub: parent ? displayPhone(parent.phone) : null },
             ]}
-            lines={payments.map((p) => ({
-              label: `${p.student.firstName} ${p.student.lastName}${p.student.classRoom ? ` — ${p.student.classRoom.name}` : ""}`,
-              detail: p.fee.label,
-              amount: formatMRU(p.amount),
-            }))}
+            lines={payments.map((p) =>
+              oneStudent
+                ? { label: period(p.fee.label), detail: p.fee.label.startsWith("Frais de scolarité") ? "Frais de scolarité" : null, amount: formatMRU(p.amount) }
+                : {
+                    label: `${p.student.firstName} ${p.student.lastName}${p.student.classRoom ? ` — ${p.student.classRoom.name}` : ""}`,
+                    detail: p.fee.label,
+                    amount: formatMRU(p.amount),
+                  },
+            )}
             total={formatMRU(familyPayment.total)}
             paidAmount={familyPayment.total}
             methodCode={familyPayment.method}

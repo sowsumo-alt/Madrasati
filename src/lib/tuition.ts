@@ -171,6 +171,29 @@ export function prepaidShare(
   return Math.min(installment.amount, monthsBetween(installment.periodStart, last).length * monthlyAmount);
 }
 
+/**
+ * Répartit un versement sur les échéances d'une formule, de la plus ancienne
+ * à la plus récente : un parent règle octobre avant juin, et un versement de
+ * plusieurs mois (3 200 MRU à 800 par mois) solde les quatre premiers.
+ * `installments` doit être trié par date ; ce qui dépasse le total restant
+ * n'est pas réparti (à l'appelant de le refuser).
+ */
+export function allocateOldestFirst<T extends { remaining: number }>(
+  installments: T[],
+  amount: number,
+): { item: T; amount: number }[] {
+  const parts: { item: T; amount: number }[] = [];
+  let left = amount;
+  for (const item of installments) {
+    if (left <= 0) break;
+    if (item.remaining <= 0) continue;
+    const share = Math.min(item.remaining, left);
+    parts.push({ item, amount: share });
+    left -= share;
+  }
+  return parts;
+}
+
 /** Résumé d'une formule pour le directeur : « Trimestriel — 15 000 MRU tous les 3 mois ». */
 export function describePlan(frequency: TuitionFrequency, periodMonths: number): string {
   if (frequency === "MONTHLY") return "Mensuel";

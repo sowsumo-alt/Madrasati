@@ -49,6 +49,8 @@ export interface FeeRow {
   dueDate: string;
   totalPaid: number;
   remaining: number;
+  /** Échéance d'une formule de paiement ; null pour un frais saisi à la main. */
+  tuitionPlanId: string | null;
   /**
    * Échéance arrivée (aujourd'hui ou avant). Une échéance future — le mois
    * prochain d'une formule mensuelle — n'est ni un impayé, ni un reste dû, ni

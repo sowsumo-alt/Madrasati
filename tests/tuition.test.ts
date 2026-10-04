@@ -8,6 +8,7 @@ import {
   periodLabel,
   periodMonthsOf,
   prepaidShare,
+  allocateOldestFirst,
 } from "../src/lib/tuition";
 
 const m = (year: number, month: number) => new Date(Date.UTC(year, month - 1, 1));
@@ -106,4 +107,29 @@ test("mois déjà payés avant Madrasati : 1 mois en mensuel, 4 mois en une fois
   // Trimestriel : un seul mois payé → un tiers du trimestre, le reste dû.
   const quarter = buildInstallments({ months: year, periodMonths: 3, monthlyAmount: 5000, frequency: "QUARTERLY", yearFirstMonth: year[0] });
   assert.equal(prepaidShare(quarter[0], m(2026, 10), 5000), 5000);
+});
+
+test("un versement règle d'abord le mois le plus ancien, puis les suivants", () => {
+  const months = [
+    { id: "oct", remaining: 800 },
+    { id: "nov", remaining: 800 },
+    { id: "dec", remaining: 800 },
+    { id: "jan", remaining: 800 },
+    { id: "feb", remaining: 800 },
+  ];
+  // Un mois : octobre, jamais février.
+  assert.deepEqual(allocateOldestFirst(months, 800).map((p) => [p.item.id, p.amount]), [["oct", 800]]);
+  // Quatre mois d'un coup : octobre à janvier soldés.
+  assert.deepEqual(
+    allocateOldestFirst(months, 3200).map((p) => [p.item.id, p.amount]),
+    [["oct", 800], ["nov", 800], ["dec", 800], ["jan", 800]],
+  );
+  // Un versement partiel complète d'abord le mois entamé.
+  const started = [{ id: "oct", remaining: 300 }, ...months.slice(1)];
+  assert.deepEqual(
+    allocateOldestFirst(started, 1000).map((p) => [p.item.id, p.amount]),
+    [["oct", 300], ["nov", 700]],
+  );
+  // Au-delà du total, rien n'est inventé.
+  assert.equal(allocateOldestFirst(months, 10_000).reduce((s, p) => s + p.amount, 0), 4000);
 });

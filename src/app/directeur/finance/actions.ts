@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
-import { generateReceiptNumber, runWithReceipt } from "@/lib/receipts";
+import { familyPartReceiptNumber, generateReceiptNumber, runWithReceipt } from "@/lib/receipts";
+import { allocateOldestFirst } from "@/lib/tuition";
+import { formatMRU } from "@/lib/format";
 import {
   feeEditSchema,
   feeSchema,
@@ -95,6 +97,85 @@ export async function recordPayment(feeId: string, values: PaymentFormValues) {
     where: { id: feeId, schoolId: user.schoolId },
   });
   if (!fee) throw new Error("Frais introuvable.");
+
+  // Échéance d'une formule de paiement : le versement règle les mois de la
+  // plus ancienne à la plus récente, quelle que soit la ligne cliquée, et
+  // couvre plusieurs mois s'il le faut — un seul reçu pour le tout.
+  if (fee.tuitionPlanId) {
+    const tuitionPlanId = fee.tuitionPlanId;
+    const paymentId = await runWithReceipt(async (tx, attempt) => {
+      const installments = await tx.fee.findMany({
+        where: { tuitionPlanId, schoolId: user.schoolId },
+        orderBy: [{ periodStart: "asc" }, { dueDate: "asc" }],
+        select: { id: true, amount: true, payments: { select: { amount: true } } },
+      });
+      const open = installments.map((f) => ({
+        id: f.id,
+        amount: f.amount,
+        paid: f.payments.reduce((sum, p) => sum + p.amount, 0),
+      }));
+      const parts = allocateOldestFirst(
+        open.map((f) => ({ ...f, remaining: f.amount - f.paid })),
+        data.amount,
+      );
+      const covered = parts.reduce((sum, p) => sum + p.amount, 0);
+      if (covered < data.amount) {
+        throw new Error(
+          `Le montant dépasse ce qui reste à payer pour l'année (${formatMRU(covered)}).`,
+        );
+      }
+
+      const receiptNumber = await generateReceiptNumber(tx, user.schoolId, attempt);
+      let familyPaymentId: string | null = null;
+      if (parts.length > 1) {
+        const parent = await tx.studentParent.findFirst({
+          where: { studentId: fee.studentId, isPrimary: true },
+          select: { parentId: true },
+        });
+        familyPaymentId = (
+          await tx.familyPayment.create({
+            data: {
+              schoolId: user.schoolId,
+              parentId: parent?.parentId ?? null,
+              receiptNumber,
+              total: data.amount,
+              method: data.method,
+              note: data.note || null,
+              recordedByUserId: user.id,
+            },
+          })
+        ).id;
+      }
+
+      let firstId = "";
+      for (const [index, part] of parts.entries()) {
+        const payment = await tx.payment.create({
+          data: {
+            schoolId: user.schoolId,
+            feeId: part.item.id,
+            studentId: fee.studentId,
+            amount: part.amount,
+            method: data.method,
+            note: data.note || null,
+            receiptNumber: familyPaymentId ? familyPartReceiptNumber(receiptNumber, index + 1) : receiptNumber,
+            familyPaymentId,
+            recordedByUserId: user.id,
+          },
+        });
+        firstId ||= payment.id;
+        const paid = part.item.paid + part.amount;
+        await tx.fee.update({
+          where: { id: part.item.id },
+          data: { status: paid >= part.item.amount ? "PAID" : "PARTIAL" },
+        });
+      }
+      return firstId;
+    });
+
+    revalidatePath("/directeur/finance");
+    revalidatePath("/directeur");
+    return { paymentId };
+  }
 
   // La création du reçu et le recalcul du statut doivent réussir ou échouer
   // ensemble, sinon deux paiements simultanés peuvent tous les deux lire
