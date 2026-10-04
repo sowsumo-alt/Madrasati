@@ -156,19 +156,27 @@ export function coveredMonths(fees: { periodStart: Date | null; periodEnd: Date 
 }
 
 /**
- * Part d'une échéance déjà réglée quand le parent a payé jusqu'au mois
- * `through` inclus : ses mois jusque-là, au montant mensuel, sans dépasser
- * l'échéance. Un trimestre dont seul le premier mois est réglé en reçoit un
- * tiers ; une échéance qui commence après `through`, rien.
+ * Part d'une échéance réglée quand le parent a payé les mois `paidMonths`
+ * (premiers jours des mois, en millisecondes) : ses mois payés, au montant
+ * mensuel, sans dépasser l'échéance. Ce peut être les premiers mois (élève
+ * inscrit avant Madrasati) ou le dernier — juin, que beaucoup d'écoles font
+ * payer dès l'inscription. Un trimestre dont un seul mois est réglé en reçoit
+ * un tiers.
  */
 export function prepaidShare(
   installment: { periodStart: Date; periodEnd: Date; amount: number },
-  through: Date,
+  paidMonths: Set<number>,
   monthlyAmount: number,
 ): number {
-  if (installment.periodStart > through) return 0;
-  const last = installment.periodEnd < through ? installment.periodEnd : through;
-  return Math.min(installment.amount, monthsBetween(installment.periodStart, last).length * monthlyAmount);
+  const months = monthsBetween(installment.periodStart, installment.periodEnd).filter((m) =>
+    paidMonths.has(m.getTime()),
+  ).length;
+  return Math.min(installment.amount, months * monthlyAmount);
+}
+
+/** Les mois choisis (ISO ou dates), en clés de `prepaidShare`. */
+export function monthKeys(months: (string | Date)[]): Set<number> {
+  return new Set(months.map((m) => monthStart(new Date(m)).getTime()));
 }
 
 /**

@@ -1,7 +1,8 @@
 "use client";
 
 import { Banknote, CalendarClock, Receipt, ReceiptText, Wallet } from "lucide-react";
-import { TuitionChoice, type TuitionChoiceValue } from "@/components/finance/tuition-choice";
+import { TuitionChoice, chosenPaidMonths, type TuitionChoiceValue } from "@/components/finance/tuition-choice";
+import { monthLabel } from "@/lib/tuition";
 import { FormSection } from "@/components/forms/form-section";
 import { PaymentMethodPicker } from "@/components/payments/payment-method-picker";
 import { StudentAvatar } from "@/components/students/student-avatar";
@@ -34,6 +35,7 @@ export function PaymentStep({
   onMethodChange,
   tuition,
   onTuitionChange,
+  months,
 }: {
   entries: ChildDraft[];
   classes: EnrollmentClassOption[];
@@ -44,10 +46,16 @@ export function PaymentStep({
   onMethodChange: (method: PaymentMethod) => void;
   tuition: TuitionChoiceValue;
   onTuitionChange: (value: TuitionChoiceValue) => void;
+  /** Mois facturés, ISO : de ce mois-ci à la fin de l'année. */
+  months: string[];
 }) {
   const { t } = useLanguage();
-  const total = familyTotal(entries.map((c) => c.amount));
-  const payingChildren = entries.filter((c) => parseAmount(c.amount) > 0).length;
+  // Mois payés aujourd'hui (juin…) : pour chaque enfant, en plus de l'inscription.
+  const paidMonths = chosenPaidMonths(tuition, months);
+  const perChildMonths = paidMonths.length * (Number(tuition.monthly) || 0);
+  const total = familyTotal(entries.map((c) => c.amount)) + perChildMonths * entries.length;
+  const payingChildren =
+    perChildMonths > 0 ? entries.length : entries.filter((c) => parseAmount(c.amount) > 0).length;
 
   return (
     <div className="space-y-4">
@@ -56,6 +64,7 @@ export function PaymentStep({
           <TuitionChoice
             value={tuition}
             onChange={onTuitionChange}
+            months={months}
             hint={
               entries.length > 1
                 ? `La même formule pour les ${entries.length} enfants : leurs échéances sont créées automatiquement, chacun les siennes.`
@@ -103,6 +112,17 @@ export function PaymentStep({
             );
           })}
         </ul>
+        {perChildMonths > 0 && (
+          <div className="flex items-center justify-between gap-3 border-t border-border/70 px-4 py-2.5 text-sm" data-testid="family-months">
+            <span className="text-foreground/70">
+              Scolarité payée aujourd&apos;hui ({paidMonths.map((m) => monthLabel(new Date(m))).join(", ")}) ×{" "}
+              {entries.length} enfant{entries.length > 1 ? "s" : ""}
+            </span>
+            <span className="font-semibold text-foreground" dir="ltr">
+              {formatMRU(perChildMonths * entries.length)}
+            </span>
+          </div>
+        )}
         <div
           className="flex items-center justify-between gap-3 border-t border-primary-200 bg-primary-50/70 px-4 py-3.5"
           aria-live="polite"

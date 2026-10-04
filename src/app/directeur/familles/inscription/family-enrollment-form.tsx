@@ -27,7 +27,13 @@ import {
 import { FamilyStep } from "./family-step";
 import { ChildrenStep, type EnrollmentClassOption } from "./children-step";
 import { PaymentStep } from "./payment-step";
-import type { TuitionChoiceValue } from "@/components/finance/tuition-choice";
+import {
+  billedMonthsFrom,
+  chosenPaidMonths,
+  defaultTuitionChoice,
+  type TuitionChoiceValue,
+} from "@/components/finance/tuition-choice";
+import type { TuitionSettings } from "@/lib/tuition-data";
 
 type Step = 1 | 2 | 3;
 
@@ -85,11 +91,11 @@ function Stepper({ step, onGo }: { step: Step; onGo: (step: Step) => void }) {
 export function FamilyEnrollmentForm({
   classes,
   initialFamily,
-  schoolMonthly,
+  tuitionSettings,
 }: {
   classes: EnrollmentClassOption[];
-  /** Frais de scolarité d'un mois de l'école, proposés pour chaque enfant. */
-  schoolMonthly: number | null;
+  /** Montant d'un mois, mois de l'année, juin payé d'avance : proposés pour chaque enfant. */
+  tuitionSettings: TuitionSettings;
   /** Famille existante à compléter (?famille=…), sinon null. */
   initialFamily: (KnownFamily & { phone: string }) | null;
 }) {
@@ -117,12 +123,9 @@ export function FamilyEnrollmentForm({
   const [mode, setMode] = useState<FamilyPaymentMode>("FAMILY");
   const [method, setMethod] = useState<PaymentMethod>("CASH");
   // Une formule pour toute la famille : mensuelle au montant de l'école par défaut.
-  const [tuition, setTuition] = useState<TuitionChoiceValue>({
-    frequency: schoolMonthly ? "MONTHLY" : "NONE",
-    customMonths: 4,
-    monthly: schoolMonthly ? String(schoolMonthly) : "",
-    paidMonths: 0,
-  });
+  const [tuition, setTuition] = useState<TuitionChoiceValue>(() => defaultTuitionChoice(tuitionSettings));
+  // Inscription du jour : mois facturés de ce mois-ci à la fin de l'année.
+  const [billedMonths] = useState(() => billedMonthsFrom(tuitionSettings.yearMonths, new Date()));
   const [submitting, setSubmitting] = useState(false);
   // Le nom de la famille se déduit du parent tant que le directeur ne l'a pas
   // saisi lui-même : « Moussa BA » donne « Famille BA ».
@@ -231,14 +234,19 @@ export function FamilyEnrollmentForm({
   }
 
   const total = familyTotal(children.map((c) => c.amount));
-  const payingChildren = children.filter((c) => parseAmount(c.amount) > 0).length;
+  // Des mois de scolarité payés aujourd'hui : chaque enfant paie quelque chose.
+  const monthsPaid = chosenPaidMonths(tuition, billedMonths).length > 0 && Number(tuition.monthly) > 0;
+  const payingChildren = monthsPaid ? children.length : children.filter((c) => parseAmount(c.amount) > 0).length;
   // Avec un seul enfant qui paie, un reçu « familial » n'apporterait rien.
   const effectiveMode: FamilyPaymentMode = payingChildren > 1 ? mode : "SEPARATE";
 
   async function submit() {
     setSubmitting(true);
     try {
-      const result = await enrollFamily(toEnrollmentValues(draft, children, effectiveMode, method, tuition));
+      const result = await enrollFamily(toEnrollmentValues(draft, children, effectiveMode, method, {
+          ...tuition,
+          paidMonths: chosenPaidMonths(tuition, billedMonths),
+        }));
       toast.success(t("family.enrolled").replace("{count}", String(result.studentIds.length)));
       router.push(
         result.familyPaymentId
@@ -322,6 +330,7 @@ export function FamilyEnrollmentForm({
               onMethodChange={setMethod}
               tuition={tuition}
               onTuitionChange={setTuition}
+              months={billedMonths}
             />
           )}
 

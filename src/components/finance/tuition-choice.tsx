@@ -4,7 +4,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { formatMRU } from "@/lib/format";
-import { FREQUENCY_LABELS, TUITION_FREQUENCIES, type TuitionFrequency } from "@/lib/tuition";
+import { FREQUENCY_LABELS, TUITION_FREQUENCIES, monthLabel, monthStart, type TuitionFrequency } from "@/lib/tuition";
+import type { TuitionSettings } from "@/lib/tuition-data";
+import { MonthChips } from "./month-chips";
 
 export interface TuitionChoiceValue {
   /** "NONE" : la formule sera choisie plus tard, depuis la fiche de l'élève. */
@@ -13,10 +15,40 @@ export interface TuitionChoiceValue {
   /** Montant d'un mois en MRU, en texte pendant la saisie. */
   monthly: string;
   /**
-   * Mois déjà réglés par le parent avant l'enregistrement dans Madrasati
-   * (un élève inscrit depuis la rentrée) : enregistrés comme payés.
+   * Mois réglés dès l'inscription, ISO : juin (le dernier mois, que beaucoup
+   * d'écoles font payer d'avance), ou les premiers mois d'un élève inscrit
+   * avant Madrasati. Enregistrés comme payés, sur le reçu de l'inscription.
    */
-  paidMonths: number;
+  paidMonths: string[];
+}
+
+/** Formule proposée d'office : mensuelle au montant de l'école, juin coché si l'école le demande. */
+export function defaultTuitionChoice(settings: TuitionSettings): TuitionChoiceValue {
+  const last = settings.yearMonths[settings.yearMonths.length - 1];
+  return {
+    frequency: settings.monthly ? "MONTHLY" : "NONE",
+    customMonths: 4,
+    monthly: settings.monthly ? String(settings.monthly) : "",
+    paidMonths: settings.prepayLastMonth && last ? [last] : [],
+  };
+}
+
+/**
+ * Mois facturés pour une inscription à cette date : du mois d'inscription
+ * (ramené dans l'année scolaire, comme le fait applyTuitionPlan) à la fin.
+ */
+export function billedMonthsFrom(yearMonths: string[], enrolledAt: Date): string[] {
+  if (yearMonths.length === 0) return [];
+  const month = monthStart(enrolledAt).toISOString();
+  const first =
+    month < yearMonths[0] ? yearMonths[0] : month > yearMonths[yearMonths.length - 1] ? yearMonths[yearMonths.length - 1] : month;
+  return yearMonths.filter((m) => m >= first);
+}
+
+/** Les mois cochés qui sont bien facturés (après le mois d'inscription). */
+export function chosenPaidMonths(value: TuitionChoiceValue, months: string[]): string[] {
+  if (value.frequency === "NONE") return [];
+  return value.paidMonths.filter((m) => months.includes(m));
 }
 
 /**
@@ -27,13 +59,18 @@ export interface TuitionChoiceValue {
 export function TuitionChoice({
   value,
   onChange,
+  months,
   hint,
 }: {
   value: TuitionChoiceValue;
   onChange: (value: TuitionChoiceValue) => void;
+  /** Mois facturés, ISO : de l'inscription à la fin de l'année. */
+  months: string[];
   hint?: string;
 }) {
   const options: (TuitionFrequency | "NONE")[] = [...TUITION_FREQUENCIES, "NONE"];
+  const paid = chosenPaidMonths(value, months);
+  const monthly = Number(value.monthly) || 0;
   return (
     <div className="space-y-3" data-testid="tuition-choice">
       <div className="flex flex-wrap gap-2">
@@ -85,31 +122,22 @@ export function TuitionChoice({
               data-testid="enroll-monthly"
             />
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="enroll-paid-months">Mois déjà payés</Label>
-            <Input
-              id="enroll-paid-months"
-              type="number"
-              min={0}
-              max={12}
-              value={value.paidMonths || ""}
-              placeholder="0"
-              onChange={(e) =>
-                onChange({ ...value, paidMonths: Math.max(0, Math.min(12, Math.round(Number(e.target.value)) || 0)) })
-              }
-              className="w-28"
-              data-testid="enroll-paid-months"
-            />
-          </div>
         </div>
       )}
-      {value.frequency !== "NONE" && value.paidMonths > 0 && (
-        <p className="rounded-lg bg-primary-50 px-3 py-2 text-xs text-primary-800" data-testid="enroll-paid-summary">
-          {value.paidMonths === 1 ? "Le premier mois est" : `Les ${value.paidMonths} premiers mois sont`} déjà
-          réglé{value.paidMonths > 1 ? "s" : ""} : enregistré{value.paidMonths > 1 ? "s" : ""} comme payé
-          {value.paidMonths > 1 ? "s" : ""}, avec reçu
-          {Number(value.monthly) > 0 ? ` (${formatMRU(value.paidMonths * Number(value.monthly))})` : ""}.{" "}
-          {value.paidMonths > 1 ? "Ils n'apparaîtront" : "Il n'apparaîtra"} pas dans les impayés.
+      {value.frequency !== "NONE" && months.length > 0 && (
+        <div className="space-y-1.5">
+          <Label>Mois payés aujourd&apos;hui</Label>
+          <MonthChips months={months} value={value.paidMonths} onChange={(paidMonths) => onChange({ ...value, paidMonths })} />
+          <p className="text-xs text-foreground/50">
+            Touchez les mois que le parent règle avec l&apos;inscription — par exemple juin, le dernier mois.
+          </p>
+        </div>
+      )}
+      {paid.length > 0 && (
+        <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-900" data-testid="enroll-paid-summary">
+          Payé aujourd&apos;hui : {paid.map((m) => monthLabel(new Date(m))).join(", ")}
+          {monthly > 0 ? ` (${formatMRU(paid.length * monthly)})` : ""}, sur le même reçu que l&apos;inscription.{" "}
+          {paid.length > 1 ? "Ces mois n'apparaîtront" : "Ce mois n'apparaîtra"} pas dans les impayés.
         </p>
       )}
       {hint && <p className="text-xs text-foreground/55">{hint}</p>}

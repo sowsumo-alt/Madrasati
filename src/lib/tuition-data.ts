@@ -112,3 +112,28 @@ export async function loadTuitionForm(schoolId: string, studentId: string): Prom
     paidMonths,
   };
 }
+
+/** Ce que les formulaires d'inscription proposent d'office pour la scolarité. */
+export interface TuitionSettings {
+  /** Montant d'un mois de l'école (Paramètres) ; null s'il n'est pas renseigné. */
+  monthly: number | null;
+  /** Le dernier mois de l'année est payé dès l'inscription (coché d'office). */
+  prepayLastMonth: boolean;
+  /** Mois de l'année scolaire en cours, ISO (premier jour du mois). */
+  yearMonths: string[];
+}
+
+export async function loadTuitionSettings(schoolId: string): Promise<TuitionSettings> {
+  const [school, year] = await Promise.all([
+    prisma.school.findUnique({ where: { id: schoolId }, select: { monthlyTuition: true, prepayLastMonth: true } }),
+    prisma.academicYear.findFirst({
+      where: { schoolId, isCurrent: true },
+      select: { startDate: true, endDate: true },
+    }),
+  ]);
+  return {
+    monthly: school?.monthlyTuition ?? null,
+    prepayLastMonth: school?.prepayLastMonth ?? false,
+    yearMonths: year ? monthsBetween(year.startDate, year.endDate).map((m) => m.toISOString()) : [],
+  };
+}

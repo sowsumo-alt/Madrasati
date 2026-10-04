@@ -26,9 +26,13 @@ import {
   monthsBetween,
   periodMonthsOf,
   prepaidShare,
+  monthKeys,
   type TuitionFrequency,
 } from "@/lib/tuition";
 import type { TuitionFormData } from "@/lib/tuition-data";
+import type { PaymentMethod } from "@/lib/payment-methods";
+import { PaymentMethodPicker } from "@/components/payments/payment-method-picker";
+import { MonthChips } from "./month-chips";
 import { saveTuitionPlan, tuitionForm } from "@/app/directeur/finance/tuition-actions";
 
 /**
@@ -57,8 +61,9 @@ export function TuitionPlanDialog({
   const [customMonths, setCustomMonths] = useState(4);
   const [monthly, setMonthly] = useState("");
   const [firstMonth, setFirstMonth] = useState("");
-  /** Dernier mois déjà réglé avant Madrasati ; "" : rien. */
-  const [paidThrough, setPaidThrough] = useState("");
+  /** Mois déjà réglés par le parent (les premiers, juin…), ISO. */
+  const [paidMonths, setPaidMonths] = useState<string[]>([]);
+  const [method, setMethod] = useState<PaymentMethod>("CASH");
 
   const target = studentId || chosen;
 
@@ -79,7 +84,8 @@ export function TuitionPlanDialog({
         setCustomMonths(data.plan?.frequency === "CUSTOM" ? data.plan.periodMonths : 4);
         setMonthly(String(data.plan?.monthlyAmount ?? data.schoolMonthly ?? ""));
         setFirstMonth(data.plan?.firstMonth ?? data.yearMonths[0] ?? "");
-        setPaidThrough("");
+        setPaidMonths([]);
+        setMethod("CASH");
       })
       .finally(() => !cancelled && setLoading(false));
     return () => {
@@ -103,8 +109,8 @@ export function TuitionPlanDialog({
       yearLabel: form.yearLabel,
     });
     // Ce qui sera enregistré comme déjà payé, échéance par échéance.
-    const through = paidThrough ? new Date(paidThrough) : null;
-    const rows = installments.map((i) => ({ ...i, prepaid: through ? prepaidShare(i, through, amount) : 0 }));
+    const keys = monthKeys(paidMonths.filter((m) => m >= firstMonth));
+    const rows = installments.map((i) => ({ ...i, prepaid: prepaidShare(i, keys, amount) }));
     const prepaidTotal = rows.reduce((sum, i) => sum + i.prepaid, 0);
     return {
       installments: rows,
@@ -113,7 +119,7 @@ export function TuitionPlanDialog({
       total: installments.reduce((sum, i) => sum + i.amount, 0),
       prepaidTotal,
     };
-  }, [form, firstMonth, frequency, customMonths, amount, paidThrough]);
+  }, [form, firstMonth, frequency, customMonths, amount, paidMonths]);
 
   async function save() {
     if (!form) return;
@@ -125,7 +131,8 @@ export function TuitionPlanDialog({
         customMonths,
         monthlyAmount: amount,
         firstMonth,
-        paidThrough: paidThrough && paidThrough >= firstMonth ? paidThrough : "",
+        paidMonths: paidMonths.filter((m) => m >= firstMonth),
+        method,
       });
       if (!result.ok) {
         toast.error(result.error);
@@ -244,7 +251,7 @@ export function TuitionPlanDialog({
                   value={firstMonth}
                   onValueChange={(m) => {
                     setFirstMonth(m);
-                    if (paidThrough && paidThrough < m) setPaidThrough("");
+                    setPaidMonths((list) => list.filter((x) => x >= m));
                   }}
                 >
                   <SelectTrigger data-testid="first-month">
@@ -263,24 +270,15 @@ export function TuitionPlanDialog({
 
             {preview && amount > 0 && (
               <div className="space-y-1.5">
-                <Label>Déjà payé avant Madrasati, jusqu&apos;à</Label>
-                <Select value={paidThrough || "NONE"} onValueChange={(m) => setPaidThrough(m === "NONE" ? "" : m)}>
-                  <SelectTrigger data-testid="paid-through">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="NONE">Rien — tout reste à payer</SelectItem>
-                    {preview.billed.map((m) => (
-                      <SelectItem key={m} value={m}>
-                        {monthLabel(new Date(m))} inclus
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Mois déjà payés</Label>
+                <MonthChips months={preview.billed} value={paidMonths} onChange={setPaidMonths} />
                 <p className="text-xs text-foreground/50">
-                  Pour un élève inscrit avant Madrasati : les mois déjà réglés sont enregistrés comme payés
-                  (avec reçu) et n&apos;apparaissent pas dans les impayés.
+                  Les mois que le parent a déjà réglés (juin payé à l&apos;inscription, ou les premiers mois) :
+                  enregistrés comme payés, sur un seul reçu, et absents des impayés.
                 </p>
+                {paidMonths.some((m) => m >= firstMonth) && (
+                  <PaymentMethodPicker value={method} onChange={setMethod} />
+                )}
               </div>
             )}
 

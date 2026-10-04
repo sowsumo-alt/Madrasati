@@ -45,6 +45,10 @@ model School {
   // (mensuel, trimestriel…) proposées à chaque élève. Null tant que l'école
   // ne l'a pas renseigné dans ses Paramètres.
   monthlyTuition     Int?
+  // À l'inscription, le parent règle aussi le dernier mois de l'année (juin) :
+  // l'usage de beaucoup d'écoles, qui craignent un dernier mois impayé. Le
+  // mois est alors coché d'office dans le formulaire d'inscription.
+  prepayLastMonth    Boolean   @default(false)
   // Impression des reçus : "TWO_PER_PAGE" (deux reçus par feuille A4, à
   // couper) ou "HALF_SHEET" (un reçu par demi-feuille A5 déjà coupée).
   receiptPrintMode   String    @default("TWO_PER_PAGE")

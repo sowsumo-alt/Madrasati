@@ -8,8 +8,9 @@ import { ROLES } from "@/lib/roles";
 import { UserError, asResult } from "@/lib/user-error";
 import { loadTuitionForm } from "@/lib/tuition-data";
 import { TUITION_FREQUENCIES, monthStart, monthsBetween } from "@/lib/tuition";
-import { applyTuitionPlan, settlePrepaidMonths } from "@/lib/tuition-plan";
+import { applyTuitionPlan, prepaidParts, recordGroupedPayment } from "@/lib/tuition-plan";
 import { runWithReceipt } from "@/lib/receipts";
+import { PAYMENT_METHODS } from "@/lib/payment-methods";
 
 /** Données du formulaire « Formule de paiement » d'un élève. */
 export async function tuitionForm(studentId: string) {
@@ -25,10 +26,12 @@ const planSchema = z.object({
   monthlyAmount: z.coerce.number().int().positive("Indiquez le montant d'un mois").max(10_000_000),
   /** Premier mois facturé, ISO. */
   firstMonth: z.string().min(1),
-  /** Dernier mois déjà réglé avant Madrasati, ISO ; "" : rien. */
-  paidThrough: z.string().optional().or(z.literal("")),
+  /** Mois déjà réglés (ISO, premier jour du mois) : les premiers, juin… */
+  paidMonths: z.array(z.string().min(1)).max(24).default([]),
+  /** Mode de paiement de ces mois. */
+  method: z.enum(PAYMENT_METHODS).default("CASH"),
 });
-export type TuitionPlanInput = z.infer<typeof planSchema>;
+export type TuitionPlanInput = z.input<typeof planSchema>;
 
 /** Enregistre la formule de paiement d'un élève et (re)crée ses échéances (voir applyTuitionPlan). */
 export async function saveTuitionPlan(input: TuitionPlanInput) {
@@ -51,10 +54,10 @@ export async function saveTuitionPlan(input: TuitionPlanInput) {
       throw new UserError("Choisissez un mois de l'année scolaire.");
     }
 
-    const paidThrough = data.paidThrough ? monthStart(new Date(data.paidThrough)) : null;
-    if (paidThrough && paidThrough < firstMonth) {
-      throw new UserError("Le dernier mois payé doit venir après le premier mois facturé.");
-    }
+    // Seuls les mois facturés par la formule comptent.
+    const paidMonths = data.paidMonths
+      .map((m) => monthStart(new Date(m)))
+      .filter((m) => !Number.isNaN(m.getTime()) && m >= firstMonth);
 
     const result = await runWithReceipt(async (tx, attempt) => {
       const applied = await applyTuitionPlan(tx, {
@@ -66,19 +69,18 @@ export async function saveTuitionPlan(input: TuitionPlanInput) {
         monthlyAmount: data.monthlyAmount,
         firstMonth,
       });
-      // Les mois que le parent avait déjà réglés : payés, pas « impayés ».
-      const prepaid = paidThrough
-        ? await settlePrepaidMonths(tx, {
-            schoolId: user.schoolId,
-            planId: applied.planId,
-            through: paidThrough,
-            method: "CASH",
-            paidAt: new Date(),
-            userId: user.id,
-            attempt,
-          })
-        : { paymentIds: [], total: 0 };
-      return { ...applied, prepaid: prepaid.paymentIds.length, prepaidTotal: prepaid.total };
+      // Les mois que le parent avait déjà réglés : payés, pas « impayés »,
+      // sur un seul reçu.
+      const parts = await prepaidParts(tx, applied.planId, paidMonths);
+      await recordGroupedPayment(tx, {
+        schoolId: user.schoolId,
+        parts,
+        method: data.method,
+        userId: user.id,
+        attempt,
+        note: "Déjà payé avant l'enregistrement dans Madrasati",
+      });
+      return { ...applied, prepaid: parts.length, prepaidTotal: parts.reduce((sum, p) => sum + p.amount, 0) };
     });
 
     revalidatePath("/directeur/finance");

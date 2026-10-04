@@ -30,7 +30,7 @@ import { BulkActionsBar } from "./students-list/bulk-actions-bar";
 import { BulkMoveDialog } from "./students-list/bulk-move-dialog";
 import { StudentProfileSheet } from "./students-list/student-profile-sheet";
 import { TuitionPlanDialog } from "@/components/finance/tuition-plan-dialog";
-import type { TuitionSummary } from "@/lib/tuition-data";
+import type { TuitionSettings, TuitionSummary } from "@/lib/tuition-data";
 
 export interface StudentRow {
   id: string;
@@ -94,7 +94,7 @@ export function StudentsView({
   schoolName,
   currentYearLabel,
   catalog,
-  schoolMonthly,
+  tuitionSettings,
   initialQuery = "",
   initialClassFilter = "ALL",
   initialFamilyFilter = null,
@@ -105,7 +105,7 @@ export function StudentsView({
   /** Catégories et niveaux, pour créer une classe depuis l'import. */
   catalog: CatalogGroup[];
   /** Frais de scolarité d'un mois de l'école, proposés à l'inscription. */
-  schoolMonthly: number | null;
+  tuitionSettings: TuitionSettings;
   schoolName: string;
   currentYearLabel: string | null;
   /** Terme envoyé par la recherche globale de l'en-tête (?q=…). */
@@ -428,7 +428,7 @@ export function StudentsView({
         classes={classes}
         editTarget={editTarget}
         currentYearLabel={currentYearLabel}
-        schoolMonthly={schoolMonthly}
+        tuitionSettings={tuitionSettings}
       />
       <ImportDialog open={importOpen} onOpenChange={setImportOpen} classes={classes} catalog={catalog} />
       <ConfirmDialog

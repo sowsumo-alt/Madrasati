@@ -5,7 +5,13 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { assertNnisAvailable } from "@/lib/nni-data";
 import { storedNni } from "@/lib/nni";
-import { applyTuitionPlan, enrollmentPlan, prepaidThrough, settlePrepaidMonths } from "@/lib/tuition-plan";
+import {
+  applyTuitionPlan,
+  enrollmentPlan,
+  prepaidParts,
+  recordGroupedPayment,
+  type PaymentPart,
+} from "@/lib/tuition-plan";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { familyPartReceiptNumber, generateReceiptNumber, runWithReceipt } from "@/lib/receipts";
@@ -163,12 +169,10 @@ export async function enrollFamily(values: FamilyEnrollmentValues): Promise<Fami
       : null;
     if ((withFee || plan) && !year) throw new Error("Aucune année scolaire active.");
 
-    // — Les enfants, chacun avec son frais d'inscription s'il y en a un.
+    // — Les enfants, chacun avec son frais d'inscription s'il y en a un, et
+    // les mois de scolarité réglés dès l'inscription (juin, ou les premiers).
     const now = new Date();
-    const children: { studentId: string; feeId: string | null; amount: number }[] = [];
-    // Mois déjà réglés avant Madrasati, enregistrés après les frais
-    // d'inscription pour que leurs reçus suivent celui de l'inscription.
-    const prepaidPlans: { planId: string; through: Date }[] = [];
+    const children: { studentId: string; parts: PaymentPart[] }[] = [];
     for (const child of data.children) {
       const student = await tx.student.create({
         data: {
@@ -190,7 +194,7 @@ export async function enrollFamily(values: FamilyEnrollmentValues): Promise<Fami
         data: { studentId: student.id, parentId: parent.id, isPrimary: true },
       });
 
-      let feeId: string | null = null;
+      const parts: PaymentPart[] = [];
       if (child.amount > 0 && year) {
         const fee = await tx.fee.create({
           data: {
@@ -200,12 +204,11 @@ export async function enrollFamily(values: FamilyEnrollmentValues): Promise<Fami
             label: `Frais d'inscription — ${year.label}`,
             amount: child.amount,
             dueDate: now,
-            status: "PAID",
+            status: "PENDING",
           },
         });
-        feeId = fee.id;
+        parts.push({ feeId: fee.id, studentId: student.id, amount: child.amount, feeAmount: child.amount, paidBefore: 0 });
       }
-      children.push({ studentId: student.id, feeId, amount: child.amount });
 
       // Les échéances des frais de scolarité de cet enfant, selon la formule
       // choisie pour la famille.
@@ -218,77 +221,30 @@ export async function enrollFamily(values: FamilyEnrollmentValues): Promise<Fami
           ...formula,
           firstMonth: now,
         });
-        const through = prepaidThrough(applied.firstMonth, paidMonths);
-        if (through) prepaidPlans.push({ planId: applied.planId, through });
+        parts.push(...(await prepaidParts(tx, applied.planId, paidMonths)));
       }
+      children.push({ studentId: student.id, parts });
     }
 
     // — Le règlement : un reçu pour la famille, ou un reçu par enfant.
-    const paid = children.filter((c) => c.feeId && c.amount > 0);
     let familyPaymentId: string | null = null;
     const paymentIds: string[] = [];
+    const common = { schoolId: user.schoolId, method: data.method, paidAt: now, userId: user.id, attempt, parentId: parent.id };
 
-    if (paid.length > 0 && data.paymentMode === "FAMILY") {
-      const receiptNumber = await generateReceiptNumber(tx, user.schoolId, attempt);
-      const familyPayment = await tx.familyPayment.create({
-        data: {
-          schoolId: user.schoolId,
-          parentId: parent.id,
-          receiptNumber,
-          total: paid.reduce((sum, c) => sum + c.amount, 0),
-          method: data.method,
-          paidAt: now,
-          recordedByUserId: user.id,
-        },
-      });
-      familyPaymentId = familyPayment.id;
-      for (const [index, c] of paid.entries()) {
-        const payment = await tx.payment.create({
-          data: {
-            schoolId: user.schoolId,
-            feeId: c.feeId!,
-            studentId: c.studentId,
-            amount: c.amount,
-            method: data.method,
-            receiptNumber: familyPartReceiptNumber(receiptNumber, index + 1),
-            familyPaymentId,
-            paidAt: now,
-            recordedByUserId: user.id,
-          },
-        });
-        paymentIds.push(payment.id);
+    if (data.paymentMode === "FAMILY") {
+      const all = children.flatMap((c) => c.parts);
+      if (all.length > 0) {
+        const paid = await recordGroupedPayment(tx, { ...common, parts: all, forceGroup: true });
+        familyPaymentId = paid.groupId;
+        if (paid.firstPaymentId) paymentIds.push(paid.firstPaymentId);
       }
     } else {
       // Chaque appel relit le plus grand numéro, y compris ceux que cette
       // transaction vient d'attribuer : les reçus se suivent.
-      for (const c of paid) {
-        const payment = await tx.payment.create({
-          data: {
-            schoolId: user.schoolId,
-            feeId: c.feeId!,
-            studentId: c.studentId,
-            amount: c.amount,
-            method: data.method,
-            receiptNumber: await generateReceiptNumber(tx, user.schoolId, attempt),
-            paidAt: now,
-            recordedByUserId: user.id,
-          },
-        });
-        paymentIds.push(payment.id);
+      for (const c of children) {
+        const paid = await recordGroupedPayment(tx, { ...common, parts: c.parts });
+        if (paid.firstPaymentId) paymentIds.push(paid.firstPaymentId);
       }
-    }
-
-    for (const p of prepaidPlans) {
-      const prepaid = await settlePrepaidMonths(tx, {
-        schoolId: user.schoolId,
-        planId: p.planId,
-        through: p.through,
-        method: data.method,
-        paidAt: now,
-        userId: user.id,
-        attempt,
-      });
-      paymentIds.push(...prepaid.paymentIds);
     }
 
     return {

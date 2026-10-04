@@ -37,6 +37,7 @@ const schoolSchema = z.object({
   city: z.string().trim().optional().or(z.literal("")),
   receiptPrintMode: z.enum(["TWO_PER_PAGE", "HALF_SHEET"]).optional(),
   monthlyTuition: z.union([z.literal(""), z.coerce.number().int().positive().max(10_000_000)]).optional(),
+  prepayLastMonth: z.boolean().optional(),
   phone: z.string().trim().optional().or(z.literal("")),
   email: z.string().trim().optional().or(z.literal("")),
   logoUrl: z.string().nullable().optional(),
@@ -234,6 +235,20 @@ export function SettingsView({
                 <p className="text-xs text-foreground/50">
                   Proposé pour chaque élève dans sa formule de paiement (mensuel, trimestriel…).
                 </p>
+                <label className="mt-2 flex items-start gap-2 text-sm text-foreground">
+                  <input
+                    type="checkbox"
+                    {...schoolForm.register("prepayLastMonth")}
+                    className="mt-0.5 h-4 w-4 rounded border-border text-primary-700 focus:ring-primary-500"
+                    data-testid="prepay-last-month"
+                  />
+                  <span>
+                    À l&apos;inscription, le parent paie aussi le dernier mois (juin)
+                    <span className="block text-xs text-foreground/50">
+                      Juin est coché d&apos;office dans le formulaire d&apos;inscription, et payé sur le même reçu.
+                    </span>
+                  </span>
+                </label>
               </div>
               <div className="space-y-1.5 sm:col-span-2">
                 <Label>Impression des reçus</Label>

@@ -41,7 +41,14 @@ import { useLanguage } from "@/lib/i18n/language-provider";
 import { studentSchema, type StudentFormValues } from "./schema";
 import { createStudent, updateStudent, findDuplicateStudents, type DuplicateStudent, checkStudentNnis } from "./actions";
 import { FormSection } from "@/components/forms/form-section";
-import { TuitionChoice, type TuitionChoiceValue } from "@/components/finance/tuition-choice";
+import {
+  TuitionChoice,
+  billedMonthsFrom,
+  chosenPaidMonths,
+  defaultTuitionChoice,
+  type TuitionChoiceValue,
+} from "@/components/finance/tuition-choice";
+import type { TuitionSettings } from "@/lib/tuition-data";
 import { FormField, IconInput } from "@/components/forms/form-field";
 import { PhotoAvatarPicker } from "./student-form/photo-avatar-picker";
 import { STATUS_KEYS, STUDENT_STATUSES } from "./students-list/student-status";
@@ -81,7 +88,7 @@ interface StudentFormDialogProps {
   /** Année des classes proposées, affichée en lecture seule. */
   currentYearLabel: string | null;
   /** Frais de scolarité d'un mois de l'école (Paramètres), proposés à l'inscription. */
-  schoolMonthly: number | null;
+  tuitionSettings: TuitionSettings;
 }
 
 /**
@@ -110,16 +117,6 @@ function newStudentValues(): StudentFormValues {
   };
 }
 
-/** Formule de paiement proposée : mensuelle, au montant de l'école s'il est connu. */
-function defaultTuition(schoolMonthly: number | null): TuitionChoiceValue {
-  return {
-    frequency: schoolMonthly ? "MONTHLY" : "NONE",
-    customMonths: 4,
-    monthly: schoolMonthly ? String(schoolMonthly) : "",
-    paidMonths: 0,
-  };
-}
-
 /**
  * Formulaire d'inscription et de modification d'un élève, en blocs comme sur
  * la maquette : informations personnelles, scolaires, parents, puis frais
@@ -131,7 +128,7 @@ export function StudentFormDialog({
   classes,
   editTarget,
   currentYearLabel,
-  schoolMonthly,
+  tuitionSettings,
 }: StudentFormDialogProps) {
   const router = useRouter();
   const { t } = useLanguage();
@@ -149,7 +146,7 @@ export function StudentFormDialog({
     defaultValues: newStudentValues(),
   });
 
-  const [tuition, setTuition] = useState<TuitionChoiceValue>(() => defaultTuition(schoolMonthly));
+  const [tuition, setTuition] = useState<TuitionChoiceValue>(() => defaultTuitionChoice(tuitionSettings));
   const [duplicates, setDuplicates] = useState<DuplicateStudent[]>([]);
   const [duplicateAck, setDuplicateAck] = useState(false);
 
@@ -157,7 +154,7 @@ export function StudentFormDialog({
     if (open) {
       setDuplicates([]);
       setDuplicateAck(false);
-      setTuition(defaultTuition(schoolMonthly));
+      setTuition(defaultTuitionChoice(tuitionSettings));
       reset(
         editTarget
           ? {
@@ -183,7 +180,7 @@ export function StudentFormDialog({
           : newStudentValues(),
       );
     }
-  }, [open, editTarget, reset, schoolMonthly]);
+  }, [open, editTarget, reset, tuitionSettings]);
 
   async function onSubmit(values: StudentFormValues) {
     try {
@@ -213,7 +210,7 @@ export function StudentFormDialog({
           frequency: tuition.frequency,
           customMonths: tuition.customMonths,
           monthly: tuition.monthly === "" ? "" : Number(tuition.monthly) || 0,
-          paidMonths: tuition.paidMonths,
+          paidMonths: chosenPaidMonths(tuition, billedMonths),
         });
         if (result.paymentId) {
           // Navigation dans le même onglet, et non window.open : le geste de
@@ -241,6 +238,13 @@ export function StudentFormDialog({
   const photoUrl = watch("photoUrl") ?? null;
   const enrollmentAmount = watch("enrollmentAmount");
   const enrollmentMethod = watch("enrollmentMethod");
+  const enrollmentDate = watch("enrollmentDate");
+  // Mois facturés : du mois d'inscription à la fin de l'année.
+  const billedMonths = billedMonthsFrom(
+    tuitionSettings.yearMonths,
+    enrollmentDate ? new Date(enrollmentDate) : new Date(),
+  );
+  const paysMonths = chosenPaidMonths(tuition, billedMonths).length > 0;
   const selectedClass = classes.find((c) => c.id === classId);
 
   return (
@@ -513,7 +517,7 @@ export function StudentFormDialog({
                     onValueChange={(v) =>
                       setValue("enrollmentMethod", v as StudentFormValues["enrollmentMethod"])
                     }
-                    disabled={!enrollmentAmount}
+                    disabled={!enrollmentAmount && !paysMonths}
                   >
                     <SelectTrigger id="student-enrollment-method-select">
                       <SelectValue placeholder={t("students.selectPlaceholder")} />
@@ -539,6 +543,7 @@ export function StudentFormDialog({
                   <TuitionChoice
                     value={tuition}
                     onChange={setTuition}
+                    months={billedMonths}
                     hint="Les échéances sont créées automatiquement à partir du mois de la date d'inscription. « Plus tard » : à choisir depuis la fiche de l'élève."
                   />
                 </div>

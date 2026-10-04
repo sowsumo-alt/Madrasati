@@ -5,7 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
-import { generateReceiptNumber, runWithReceipt } from "@/lib/receipts";
+import { runWithReceipt } from "@/lib/receipts";
 import { splitFullName } from "@/lib/student-form";
 import { studentSchema, type StudentFormValues } from "./schema";
 import { CURRENT_YEAR } from "@/lib/school-year";
@@ -15,9 +15,11 @@ import {
   applyTuitionPlan,
   enrollmentPlan,
   enrollmentTuitionSchema,
-  prepaidThrough,
-  settlePrepaidMonths,
+  prepaidParts,
+  recordGroupedPayment,
   type EnrollmentTuition,
+  type PaymentPart,
+
 } from "@/lib/tuition-plan";
 
 /** Compare deux noms en ignorant casse, accents composés et espaces multiples. */
@@ -122,6 +124,7 @@ export async function createStudent(values: StudentFormValues, tuition?: Enrollm
       },
     });
 
+    let primaryParentId: string | null = null;
     if (data.parentName && data.parentPhone) {
       const parentName = splitFullName(data.parentName);
       // Même nom et même téléphone : c'est le même tuteur, pas un homonyme.
@@ -163,18 +166,26 @@ export async function createStudent(values: StudentFormValues, tuition?: Enrollm
       await tx.studentParent.create({
         data: { studentId: student.id, parentId, isPrimary: true },
       });
+      primaryParentId = parentId;
     }
 
-    let paymentId: string | undefined;
+    const year =
+      (data.enrollmentAmount ?? 0) > 0 || plan
+        ? await tx.academicYear.findFirst({
+            where: { schoolId: user.schoolId, isCurrent: true },
+            select: { id: true, label: true, startDate: true, endDate: true },
+          })
+        : null;
+    if (((data.enrollmentAmount ?? 0) > 0 || plan) && !year) throw new Error("Aucune année scolaire active.");
+
+    // Ce que le parent règle aujourd'hui, sur un seul reçu : l'inscription,
+    // et les mois cochés (juin, que beaucoup d'écoles font payer d'avance,
+    // ou les premiers mois d'un élève inscrit avant Madrasati).
+    const parts: PaymentPart[] = [];
 
     // Frais d'inscription payé sur place, optionnel : réutilise le même
-    // circuit Frais/Paiement/Reçu que le module Finance, réglé en une fois.
-    if (data.enrollmentAmount && data.enrollmentAmount > 0) {
-      const year = await tx.academicYear.findFirst({
-        where: { schoolId: user.schoolId, isCurrent: true },
-      });
-      if (!year) throw new Error("Aucune année scolaire active.");
-
+    // circuit Frais/Paiement/Reçu que le module Finance.
+    if (data.enrollmentAmount && data.enrollmentAmount > 0 && year) {
       const fee = await tx.fee.create({
         data: {
           schoolId: user.schoolId,
@@ -183,32 +194,20 @@ export async function createStudent(values: StudentFormValues, tuition?: Enrollm
           label: `Frais d'inscription — ${year.label}`,
           amount: data.enrollmentAmount,
           dueDate: new Date(),
-          status: "PAID",
+          status: "PENDING",
         },
       });
-
-      const receiptNumber = await generateReceiptNumber(tx, user.schoolId, attempt);
-      const payment = await tx.payment.create({
-        data: {
-          schoolId: user.schoolId,
-          feeId: fee.id,
-          studentId: student.id,
-          amount: data.enrollmentAmount,
-          method: data.enrollmentMethod ?? "CASH",
-          receiptNumber,
-          recordedByUserId: user.id,
-        },
+      parts.push({
+        feeId: fee.id,
+        studentId: student.id,
+        amount: data.enrollmentAmount,
+        feeAmount: data.enrollmentAmount,
+        paidBefore: 0,
       });
-      paymentId = payment.id;
     }
 
     // Les échéances des frais de scolarité, à partir du mois d'inscription.
-    if (plan) {
-      const year = await tx.academicYear.findFirst({
-        where: { schoolId: user.schoolId, isCurrent: true },
-        select: { id: true, label: true, startDate: true, endDate: true },
-      });
-      if (!year) throw new Error("Aucune année scolaire active.");
+    if (plan && year) {
       const { paidMonths, ...formula } = plan;
       const applied = await applyTuitionPlan(tx, {
         schoolId: user.schoolId,
@@ -217,25 +216,19 @@ export async function createStudent(values: StudentFormValues, tuition?: Enrollm
         ...formula,
         firstMonth: student.enrollmentDate,
       });
-      // Les mois que le parent avait déjà réglés : payés, pas « impayés ».
-      const through = prepaidThrough(applied.firstMonth, paidMonths);
-      if (through) {
-        const now = new Date();
-        const prepaid = await settlePrepaidMonths(tx, {
-          schoolId: user.schoolId,
-          planId: applied.planId,
-          through,
-          method: data.enrollmentMethod ?? "CASH",
-          // Réglés le jour de l'inscription quand elle est passée.
-          paidAt: student.enrollmentDate < now ? student.enrollmentDate : now,
-          userId: user.id,
-          attempt,
-        });
-        paymentId ??= prepaid.paymentIds[0];
-      }
+      parts.push(...(await prepaidParts(tx, applied.planId, paidMonths)));
     }
 
-    return { id: student.id, paymentId };
+    const { firstPaymentId } = await recordGroupedPayment(tx, {
+      schoolId: user.schoolId,
+      parts,
+      method: data.enrollmentMethod ?? "CASH",
+      userId: user.id,
+      attempt,
+      parentId: primaryParentId,
+    });
+
+    return { id: student.id, paymentId: firstPaymentId ?? undefined };
   });
 
   revalidatePath("/directeur/eleves");

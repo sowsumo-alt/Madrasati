@@ -8,6 +8,7 @@ import {
   periodLabel,
   periodMonthsOf,
   prepaidShare,
+  monthKeys,
   allocateOldestFirst,
 } from "../src/lib/tuition";
 
@@ -96,17 +97,25 @@ test("un mois déjà payé au milieu coupe la période", () => {
   assert.equal(periodLabel(m(2026, 10), m(2026, 12)), "octobre à décembre 2026");
 });
 
-test("mois déjà payés avant Madrasati : 1 mois en mensuel, 4 mois en une fois, trimestre entamé", () => {
-  // Mensuel à 600 : payé jusqu'en octobre → octobre réglé, novembre non.
+test("mois payés à l'inscription : premiers mois, juin seul, trimestre entamé", () => {
+  // Mensuel à 600 : octobre payé → octobre réglé, novembre non.
   const monthly = buildInstallments({ months: year, periodMonths: 1, monthlyAmount: 600, frequency: "MONTHLY", yearFirstMonth: year[0] });
-  assert.deepEqual(monthly.slice(0, 2).map((i) => prepaidShare(i, m(2026, 10), 600)), [600, 0]);
-  // 4 mois en une fois à 800 : les 4 premiers mois payés → la 1re échéance soldée.
+  assert.deepEqual(monthly.slice(0, 2).map((i) => prepaidShare(i, monthKeys([m(2026, 10)]), 600)), [600, 0]);
+  // Inscription + juin, l'usage de beaucoup d'écoles : seul juin est réglé.
+  const june = monthKeys([m(2027, 6)]);
+  assert.deepEqual(
+    monthly.map((i) => prepaidShare(i, june, 600)),
+    [0, 0, 0, 0, 0, 0, 0, 0, 600],
+  );
+  // 4 mois en une fois à 800 : octobre à janvier payés → la 1re échéance soldée.
   const four = buildInstallments({ months: year, periodMonths: 4, monthlyAmount: 800, frequency: "CUSTOM", yearFirstMonth: year[0] });
   assert.equal(four[0].amount, 3200);
-  assert.deepEqual(four.map((i) => prepaidShare(i, m(2027, 1), 800)), [3200, 0, 0]);
+  const firstFour = monthKeys([m(2026, 10), m(2026, 11), m(2026, 12), m(2027, 1)]);
+  assert.deepEqual(four.map((i) => prepaidShare(i, firstFour, 800)), [3200, 0, 0]);
   // Trimestriel : un seul mois payé → un tiers du trimestre, le reste dû.
   const quarter = buildInstallments({ months: year, periodMonths: 3, monthlyAmount: 5000, frequency: "QUARTERLY", yearFirstMonth: year[0] });
-  assert.equal(prepaidShare(quarter[0], m(2026, 10), 5000), 5000);
+  assert.equal(prepaidShare(quarter[0], monthKeys([m(2026, 10)]), 5000), 5000);
+  assert.equal(prepaidShare(quarter[2], june, 5000), 5000);
 });
 
 test("un versement règle d'abord le mois le plus ancien, puis les suivants", () => {

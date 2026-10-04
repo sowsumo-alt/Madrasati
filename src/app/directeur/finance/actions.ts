@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
-import { familyPartReceiptNumber, generateReceiptNumber, runWithReceipt } from "@/lib/receipts";
+import { generateReceiptNumber, runWithReceipt } from "@/lib/receipts";
+import { recordGroupedPayment } from "@/lib/tuition-plan";
 import { allocateOldestFirst } from "@/lib/tuition";
 import { formatMRU } from "@/lib/format";
 import {
@@ -125,51 +126,21 @@ export async function recordPayment(feeId: string, values: PaymentFormValues) {
         );
       }
 
-      const receiptNumber = await generateReceiptNumber(tx, user.schoolId, attempt);
-      let familyPaymentId: string | null = null;
-      if (parts.length > 1) {
-        const parent = await tx.studentParent.findFirst({
-          where: { studentId: fee.studentId, isPrimary: true },
-          select: { parentId: true },
-        });
-        familyPaymentId = (
-          await tx.familyPayment.create({
-            data: {
-              schoolId: user.schoolId,
-              parentId: parent?.parentId ?? null,
-              receiptNumber,
-              total: data.amount,
-              method: data.method,
-              note: data.note || null,
-              recordedByUserId: user.id,
-            },
-          })
-        ).id;
-      }
-
-      let firstId = "";
-      for (const [index, part] of parts.entries()) {
-        const payment = await tx.payment.create({
-          data: {
-            schoolId: user.schoolId,
-            feeId: part.item.id,
-            studentId: fee.studentId,
-            amount: part.amount,
-            method: data.method,
-            note: data.note || null,
-            receiptNumber: familyPaymentId ? familyPartReceiptNumber(receiptNumber, index + 1) : receiptNumber,
-            familyPaymentId,
-            recordedByUserId: user.id,
-          },
-        });
-        firstId ||= payment.id;
-        const paid = part.item.paid + part.amount;
-        await tx.fee.update({
-          where: { id: part.item.id },
-          data: { status: paid >= part.item.amount ? "PAID" : "PARTIAL" },
-        });
-      }
-      return firstId;
+      const paid = await recordGroupedPayment(tx, {
+        schoolId: user.schoolId,
+        parts: parts.map((p) => ({
+          feeId: p.item.id,
+          studentId: fee.studentId,
+          amount: p.amount,
+          feeAmount: p.item.amount,
+          paidBefore: p.item.paid,
+        })),
+        method: data.method,
+        note: data.note || null,
+        userId: user.id,
+        attempt,
+      });
+      return paid.firstPaymentId!;
     });
 
     revalidatePath("/directeur/finance");

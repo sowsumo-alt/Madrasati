@@ -1,14 +1,14 @@
 import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { UserError } from "@/lib/user-error";
-import { generateReceiptNumber } from "@/lib/receipts";
+import { familyPartReceiptNumber, generateReceiptNumber } from "@/lib/receipts";
 import {
   TUITION_FREQUENCIES,
-  addMonths,
   buildInstallments,
   coveredMonths,
   monthStart,
   prepaidShare,
+  monthKeys,
   monthsBetween,
   periodMonthsOf,
   type TuitionFrequency,
@@ -108,36 +108,37 @@ export async function applyTuitionPlan(
   };
 }
 
+/** Une part d'un versement : ce qu'il apporte à un frais. */
+export interface PaymentPart {
+  feeId: string;
+  studentId: string;
+  amount: number;
+  /** Montant du frais et ce qu'il avait déjà reçu : pour son nouveau statut. */
+  feeAmount: number;
+  paidBefore: number;
+}
+
 /**
- * Mois déjà réglés avant Madrasati : un élève inscrit depuis la rentrée dont
- * le parent a payé, par exemple, 4 mois d'avance. Ces mois ne doivent
- * apparaître ni « en attente » ni « impayés » : chaque échéance qui les
- * couvre reçoit le paiement correspondant (avec son reçu), entier ou partiel
- * — un trimestre dont un seul mois est réglé reste partiel.
- *
- * `through` : dernier mois réglé, inclus. Rien n'est jamais payé deux fois :
- * ce qu'une échéance a déjà reçu est déduit.
+ * Les parts à régler pour que les mois choisis d'une formule soient payés :
+ * les premiers mois (élève inscrit avant Madrasati), ou le dernier — juin,
+ * que beaucoup d'écoles font payer dès l'inscription. Chaque échéance qui
+ * couvre ces mois reçoit sa part, entière ou partielle (un trimestre dont un
+ * seul mois est réglé reste partiel). Ce qu'une échéance a déjà reçu est
+ * déduit : rien n'est payé deux fois.
  */
-export async function settlePrepaidMonths(
+export async function prepaidParts(
   tx: Prisma.TransactionClient,
-  input: {
-    schoolId: string;
-    planId: string;
-    through: Date;
-    method: string;
-    paidAt: Date;
-    userId: string;
-    attempt: number;
-  },
-): Promise<{ paymentIds: string[]; total: number }> {
-  const through = monthStart(input.through);
+  planId: string,
+  months: Date[],
+): Promise<PaymentPart[]> {
+  const keys = monthKeys(months);
+  if (keys.size === 0) return [];
   const plan = await tx.tuitionPlan.findUniqueOrThrow({
-    where: { id: input.planId },
+    where: { id: planId },
     select: {
       studentId: true,
       monthlyAmount: true,
       fees: {
-        where: { periodStart: { lte: through } },
         orderBy: { periodStart: "asc" },
         select: {
           id: true,
@@ -150,45 +151,109 @@ export async function settlePrepaidMonths(
     },
   });
 
-  const paymentIds: string[] = [];
-  let total = 0;
+  const parts: PaymentPart[] = [];
   for (const fee of plan.fees) {
     if (!fee.periodStart || !fee.periodEnd) continue;
     const target = prepaidShare(
       { periodStart: fee.periodStart, periodEnd: fee.periodEnd, amount: fee.amount },
-      through,
+      keys,
       plan.monthlyAmount,
     );
     const already = fee.payments.reduce((sum, p) => sum + p.amount, 0);
-    const due = target - already;
-    if (due <= 0) continue;
+    if (target - already <= 0) continue;
+    parts.push({
+      feeId: fee.id,
+      studentId: plan.studentId,
+      amount: target - already,
+      feeAmount: fee.amount,
+      paidBefore: already,
+    });
+  }
+  return parts;
+}
+
+/**
+ * Un versement, sur un ou plusieurs frais, avec un seul reçu : l'inscription
+ * et le mois de juin payés ensemble, quatre mois d'un coup, ou les frais de
+ * plusieurs enfants d'une même famille. Plusieurs parts : un reçu groupé
+ * (REC-2026-0012) dont chaque part porte le numéro suivi de son rang
+ * (REC-2026-0012-1, -2…). Une seule part : un reçu ordinaire, sauf
+ * `forceGroup` (le reçu « famille » de l'inscription groupée).
+ *
+ * Renvoie le premier paiement — sa page de reçu mène au reçu groupé — et le
+ * reçu groupé s'il y en a un.
+ */
+export async function recordGroupedPayment(
+  tx: Prisma.TransactionClient,
+  input: {
+    schoolId: string;
+    parts: PaymentPart[];
+    method: string;
+    userId: string;
+    attempt: number;
+    paidAt?: Date;
+    note?: string | null;
+    /** Parent du reçu groupé ; non précisé : le parent principal du premier élève. */
+    parentId?: string | null;
+    forceGroup?: boolean;
+  },
+): Promise<{ firstPaymentId: string | null; groupId: string | null }> {
+  const parts = input.parts.filter((p) => p.amount > 0);
+  if (parts.length === 0) return { firstPaymentId: null, groupId: null };
+  const paidAt = input.paidAt ?? new Date();
+  const receiptNumber = await generateReceiptNumber(tx, input.schoolId, input.attempt);
+
+  let groupId: string | null = null;
+  if (parts.length > 1 || input.forceGroup) {
+    const parentId =
+      input.parentId !== undefined
+        ? input.parentId
+        : ((
+            await tx.studentParent.findFirst({
+              where: { studentId: parts[0].studentId, isPrimary: true },
+              select: { parentId: true },
+            })
+          )?.parentId ?? null);
+    groupId = (
+      await tx.familyPayment.create({
+        data: {
+          schoolId: input.schoolId,
+          parentId,
+          receiptNumber,
+          total: parts.reduce((sum, p) => sum + p.amount, 0),
+          method: input.method,
+          paidAt,
+          note: input.note || null,
+          recordedByUserId: input.userId,
+        },
+      })
+    ).id;
+  }
+
+  let firstPaymentId: string | null = null;
+  for (const [index, part] of parts.entries()) {
     const payment = await tx.payment.create({
       data: {
         schoolId: input.schoolId,
-        feeId: fee.id,
-        studentId: plan.studentId,
-        amount: due,
+        feeId: part.feeId,
+        studentId: part.studentId,
+        amount: part.amount,
         method: input.method,
-        receiptNumber: await generateReceiptNumber(tx, input.schoolId, input.attempt),
-        paidAt: input.paidAt,
+        note: input.note || null,
+        receiptNumber: groupId ? familyPartReceiptNumber(receiptNumber, index + 1) : receiptNumber,
+        familyPaymentId: groupId,
+        paidAt,
         recordedByUserId: input.userId,
-        note: "Déjà payé avant l'enregistrement dans Madrasati",
       },
     });
-    const paid = already + due;
+    firstPaymentId ??= payment.id;
+    const paid = part.paidBefore + part.amount;
     await tx.fee.update({
-      where: { id: fee.id },
-      data: { status: paid >= fee.amount ? "PAID" : "PARTIAL" },
+      where: { id: part.feeId },
+      data: { status: paid >= part.feeAmount ? "PAID" : "PARTIAL" },
     });
-    paymentIds.push(payment.id);
-    total += due;
   }
-  return { paymentIds, total };
-}
-
-/** Dernier mois réglé quand les `count` premiers mois de la formule sont payés. */
-export function prepaidThrough(firstMonth: Date, count: number): Date | null {
-  return count > 0 ? addMonths(monthStart(firstMonth), count - 1) : null;
+  return { firstPaymentId, groupId };
 }
 
 /**
@@ -201,8 +266,8 @@ export const enrollmentTuitionSchema = z
     frequency: z.enum([...TUITION_FREQUENCIES, "NONE"]),
     customMonths: z.coerce.number().int().min(1).max(12),
     monthly: z.union([z.literal(""), z.coerce.number().int().nonnegative().max(10_000_000)]),
-    /** Mois déjà réglés avant Madrasati, à partir du premier mois facturé. */
-    paidMonths: z.coerce.number().int().min(0).max(12).default(0),
+    /** Mois payés dès l'inscription (ISO, premier jour du mois) : juin, ou les premiers mois. */
+    paidMonths: z.array(z.string().min(1)).max(24).default([]),
   })
   .optional();
 export type EnrollmentTuition = z.input<typeof enrollmentTuitionSchema>;
@@ -210,7 +275,7 @@ export type EnrollmentTuition = z.input<typeof enrollmentTuitionSchema>;
 /** La formule à appliquer, ou null quand il n'y a rien à créer. */
 export function enrollmentPlan(
   tuition: z.infer<typeof enrollmentTuitionSchema>,
-): { frequency: TuitionFrequency; customMonths: number; monthlyAmount: number; paidMonths: number } | null {
+): { frequency: TuitionFrequency; customMonths: number; monthlyAmount: number; paidMonths: Date[] } | null {
   if (!tuition || tuition.frequency === "NONE") return null;
   const monthly = typeof tuition.monthly === "number" ? tuition.monthly : 0;
   if (monthly <= 0) return null;
@@ -218,6 +283,9 @@ export function enrollmentPlan(
     frequency: tuition.frequency,
     customMonths: tuition.customMonths,
     monthlyAmount: monthly,
-    paidMonths: tuition.paidMonths ?? 0,
+    paidMonths: (tuition.paidMonths ?? [])
+      .map((m) => new Date(m))
+      .filter((d) => !Number.isNaN(d.getTime()))
+      .map(monthStart),
   };
 }

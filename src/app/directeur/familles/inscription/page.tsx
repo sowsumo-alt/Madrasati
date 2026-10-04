@@ -3,6 +3,7 @@ import { classOptions } from "@/lib/class-catalog";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { CURRENT_YEAR } from "@/lib/school-year";
+import { loadTuitionSettings } from "@/lib/tuition-data";
 import { FamilyEnrollmentForm } from "./family-enrollment-form";
 
 /**
@@ -18,7 +19,7 @@ export default async function FamilyEnrollmentPage({
   const user = await requireRole(ROLES.DIRECTOR);
   const { famille } = await searchParams;
 
-  const [classes, parent, school] = await Promise.all([
+  const [classes, parent, tuitionSettings] = await Promise.all([
     prisma.classRoom.findMany({
       where: { schoolId: user.schoolId, ...CURRENT_YEAR },
       select: { id: true, name: true, level: true, category: true },
@@ -37,13 +38,13 @@ export default async function FamilyEnrollmentPage({
           },
         })
       : null,
-    prisma.school.findUnique({ where: { id: user.schoolId }, select: { monthlyTuition: true } }),
+    loadTuitionSettings(user.schoolId),
   ]);
 
   return (
     <FamilyEnrollmentForm
       classes={classOptions(classes)}
-      schoolMonthly={school?.monthlyTuition ?? null}
+      tuitionSettings={tuitionSettings}
       initialFamily={
         parent
           ? {
