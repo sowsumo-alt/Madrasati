@@ -89,16 +89,20 @@ export default async function FamilyReceiptPage({
   const period = (label: string) => label.replace("Frais de scolarité — ", "");
 
   const bilingual = schoolHasFeature(school, FEATURES.BILINGUAL_MESSAGES);
-  const lines = payments.map((p) =>
-    oneStudent
-      ? `- ${period(p.fee.label)} : ${formatAmount(p.amount)} MRU`
-      : `- ${p.student.firstName} : ${formatAmount(p.amount)} MRU`,
-  );
-  const linesAr = payments.map((p) =>
-    oneStudent
-      ? `- ${period(p.fee.label)}: ${formatAmount(p.amount)} أوقية`
-      : `- ${p.student.firstName}: ${formatAmount(p.amount)} أوقية`,
-  );
+  // Une famille : une ligne par enfant (inscription et juin additionnés),
+  // dans l'ordre des parts.
+  const perChild = new Map<string, { firstName: string; amount: number }>();
+  for (const p of payments) {
+    const entry = perChild.get(p.studentId) ?? { firstName: p.student.firstName, amount: 0 };
+    entry.amount += p.amount;
+    perChild.set(p.studentId, entry);
+  }
+  const lines = oneStudent
+    ? payments.map((p) => `- ${period(p.fee.label)} : ${formatAmount(p.amount)} MRU`)
+    : [...perChild.values()].map((c) => `- ${c.firstName} : ${formatAmount(c.amount)} MRU`);
+  const linesAr = oneStudent
+    ? payments.map((p) => `- ${period(p.fee.label)}: ${formatAmount(p.amount)} أوقية`)
+    : [...perChild.values()].map((c) => `- ${c.firstName}: ${formatAmount(c.amount)} أوقية`);
   const forWhom = oneStudent ? `${oneStudent.firstName} ${oneStudent.lastName}` : "vos enfants";
   const forWhomAr = oneStudent ? `لـ ${oneStudent.firstName} ${oneStudent.lastName}` : "لأطفالكم";
   const confirmationMessage = parent
@@ -168,7 +172,7 @@ export default async function FamilyReceiptPage({
                     name: `${oneStudent.firstName} ${oneStudent.lastName}`,
                     sub: oneStudent.classRoom?.name ?? t("students.noClass"),
                   }
-                : { label: t("family.receiptFamily"), name, sub: t("family.childCount").replace("{count}", String(payments.length)) },
+                : { label: t("family.receiptFamily"), name, sub: t("family.childCount").replace("{count}", String(perChild.size)) },
               { label: t("finance.parentOrGuardian"), name: parentName ?? "—", sub: parent ? displayPhone(parent.phone) : null },
             ]}
             lines={payments.map((p) =>
