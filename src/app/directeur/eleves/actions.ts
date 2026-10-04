@@ -11,7 +11,14 @@ import { studentSchema, type StudentFormValues } from "./schema";
 import { CURRENT_YEAR } from "@/lib/school-year";
 import { assertNnisAvailable, nniConflict } from "@/lib/nni-data";
 import { storedNni } from "@/lib/nni";
-import { applyTuitionPlan, enrollmentPlan, enrollmentTuitionSchema, type EnrollmentTuition } from "@/lib/tuition-plan";
+import {
+  applyTuitionPlan,
+  enrollmentPlan,
+  enrollmentTuitionSchema,
+  prepaidThrough,
+  settlePrepaidMonths,
+  type EnrollmentTuition,
+} from "@/lib/tuition-plan";
 
 /** Compare deux noms en ignorant casse, accents composés et espaces multiples. */
 function normalizeName(value: string) {
@@ -202,13 +209,30 @@ export async function createStudent(values: StudentFormValues, tuition?: Enrollm
         select: { id: true, label: true, startDate: true, endDate: true },
       });
       if (!year) throw new Error("Aucune année scolaire active.");
-      await applyTuitionPlan(tx, {
+      const { paidMonths, ...formula } = plan;
+      const applied = await applyTuitionPlan(tx, {
         schoolId: user.schoolId,
         studentId: student.id,
         year,
-        ...plan,
+        ...formula,
         firstMonth: student.enrollmentDate,
       });
+      // Les mois que le parent avait déjà réglés : payés, pas « impayés ».
+      const through = prepaidThrough(applied.firstMonth, paidMonths);
+      if (through) {
+        const now = new Date();
+        const prepaid = await settlePrepaidMonths(tx, {
+          schoolId: user.schoolId,
+          planId: applied.planId,
+          through,
+          method: data.enrollmentMethod ?? "CASH",
+          // Réglés le jour de l'inscription quand elle est passée.
+          paidAt: student.enrollmentDate < now ? student.enrollmentDate : now,
+          userId: user.id,
+          attempt,
+        });
+        paymentId ??= prepaid.paymentIds[0];
+      }
     }
 
     return { id: student.id, paymentId };

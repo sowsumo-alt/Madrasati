@@ -118,6 +118,7 @@ export function toEnrollmentValues(
           frequency: tuition.frequency,
           customMonths: tuition.customMonths,
           monthly: tuition.monthly === "" ? "" : Number(tuition.monthly) || 0,
+          paidMonths: tuition.paidMonths ?? 0,
         }
       : undefined,
   };

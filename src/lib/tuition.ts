@@ -155,6 +155,22 @@ export function coveredMonths(fees: { periodStart: Date | null; periodEnd: Date 
   return covered;
 }
 
+/**
+ * Part d'une échéance déjà réglée quand le parent a payé jusqu'au mois
+ * `through` inclus : ses mois jusque-là, au montant mensuel, sans dépasser
+ * l'échéance. Un trimestre dont seul le premier mois est réglé en reçoit un
+ * tiers ; une échéance qui commence après `through`, rien.
+ */
+export function prepaidShare(
+  installment: { periodStart: Date; periodEnd: Date; amount: number },
+  through: Date,
+  monthlyAmount: number,
+): number {
+  if (installment.periodStart > through) return 0;
+  const last = installment.periodEnd < through ? installment.periodEnd : through;
+  return Math.min(installment.amount, monthsBetween(installment.periodStart, last).length * monthlyAmount);
+}
+
 /** Résumé d'une formule pour le directeur : « Trimestriel — 15 000 MRU tous les 3 mois ». */
 export function describePlan(frequency: TuitionFrequency, periodMonths: number): string {
   if (frequency === "MONTHLY") return "Mensuel";

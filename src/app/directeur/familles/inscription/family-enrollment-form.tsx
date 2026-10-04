@@ -121,6 +121,7 @@ export function FamilyEnrollmentForm({
     frequency: schoolMonthly ? "MONTHLY" : "NONE",
     customMonths: 4,
     monthly: schoolMonthly ? String(schoolMonthly) : "",
+    paidMonths: 0,
   });
   const [submitting, setSubmitting] = useState(false);
   // Le nom de la famille se déduit du parent tant que le directeur ne l'a pas

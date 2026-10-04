@@ -5,7 +5,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { assertNnisAvailable } from "@/lib/nni-data";
 import { storedNni } from "@/lib/nni";
-import { applyTuitionPlan, enrollmentPlan } from "@/lib/tuition-plan";
+import { applyTuitionPlan, enrollmentPlan, prepaidThrough, settlePrepaidMonths } from "@/lib/tuition-plan";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { familyPartReceiptNumber, generateReceiptNumber, runWithReceipt } from "@/lib/receipts";
@@ -166,6 +166,9 @@ export async function enrollFamily(values: FamilyEnrollmentValues): Promise<Fami
     // — Les enfants, chacun avec son frais d'inscription s'il y en a un.
     const now = new Date();
     const children: { studentId: string; feeId: string | null; amount: number }[] = [];
+    // Mois déjà réglés avant Madrasati, enregistrés après les frais
+    // d'inscription pour que leurs reçus suivent celui de l'inscription.
+    const prepaidPlans: { planId: string; through: Date }[] = [];
     for (const child of data.children) {
       const student = await tx.student.create({
         data: {
@@ -207,13 +210,16 @@ export async function enrollFamily(values: FamilyEnrollmentValues): Promise<Fami
       // Les échéances des frais de scolarité de cet enfant, selon la formule
       // choisie pour la famille.
       if (plan && year) {
-        await applyTuitionPlan(tx, {
+        const { paidMonths, ...formula } = plan;
+        const applied = await applyTuitionPlan(tx, {
           schoolId: user.schoolId,
           studentId: student.id,
           year,
-          ...plan,
+          ...formula,
           firstMonth: now,
         });
+        const through = prepaidThrough(applied.firstMonth, paidMonths);
+        if (through) prepaidPlans.push({ planId: applied.planId, through });
       }
     }
 
@@ -270,6 +276,19 @@ export async function enrollFamily(values: FamilyEnrollmentValues): Promise<Fami
         });
         paymentIds.push(payment.id);
       }
+    }
+
+    for (const p of prepaidPlans) {
+      const prepaid = await settlePrepaidMonths(tx, {
+        schoolId: user.schoolId,
+        planId: p.planId,
+        through: p.through,
+        method: data.method,
+        paidAt: now,
+        userId: user.id,
+        attempt,
+      });
+      paymentIds.push(...prepaid.paymentIds);
     }
 
     return {

@@ -3,6 +3,7 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { formatMRU } from "@/lib/format";
 import { FREQUENCY_LABELS, TUITION_FREQUENCIES, type TuitionFrequency } from "@/lib/tuition";
 
 export interface TuitionChoiceValue {
@@ -11,6 +12,11 @@ export interface TuitionChoiceValue {
   customMonths: number;
   /** Montant d'un mois en MRU, en texte pendant la saisie. */
   monthly: string;
+  /**
+   * Mois déjà réglés par le parent avant l'enregistrement dans Madrasati
+   * (un élève inscrit depuis la rentrée) : enregistrés comme payés.
+   */
+  paidMonths: number;
 }
 
 /**
@@ -79,7 +85,32 @@ export function TuitionChoice({
               data-testid="enroll-monthly"
             />
           </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="enroll-paid-months">Mois déjà payés</Label>
+            <Input
+              id="enroll-paid-months"
+              type="number"
+              min={0}
+              max={12}
+              value={value.paidMonths || ""}
+              placeholder="0"
+              onChange={(e) =>
+                onChange({ ...value, paidMonths: Math.max(0, Math.min(12, Math.round(Number(e.target.value)) || 0)) })
+              }
+              className="w-28"
+              data-testid="enroll-paid-months"
+            />
+          </div>
         </div>
+      )}
+      {value.frequency !== "NONE" && value.paidMonths > 0 && (
+        <p className="rounded-lg bg-primary-50 px-3 py-2 text-xs text-primary-800" data-testid="enroll-paid-summary">
+          {value.paidMonths === 1 ? "Le premier mois est" : `Les ${value.paidMonths} premiers mois sont`} déjà
+          réglé{value.paidMonths > 1 ? "s" : ""} : enregistré{value.paidMonths > 1 ? "s" : ""} comme payé
+          {value.paidMonths > 1 ? "s" : ""}, avec reçu
+          {Number(value.monthly) > 0 ? ` (${formatMRU(value.paidMonths * Number(value.monthly))})` : ""}. Ils
+          n&apos;apparaîtront pas dans les impayés.
+        </p>
       )}
       {hint && <p className="text-xs text-foreground/55">{hint}</p>}
     </div>

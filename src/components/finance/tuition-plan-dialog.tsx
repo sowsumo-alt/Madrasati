@@ -25,6 +25,7 @@ import {
   monthLabel,
   monthsBetween,
   periodMonthsOf,
+  prepaidShare,
   type TuitionFrequency,
 } from "@/lib/tuition";
 import type { TuitionFormData } from "@/lib/tuition-data";
@@ -56,6 +57,8 @@ export function TuitionPlanDialog({
   const [customMonths, setCustomMonths] = useState(4);
   const [monthly, setMonthly] = useState("");
   const [firstMonth, setFirstMonth] = useState("");
+  /** Dernier mois déjà réglé avant Madrasati ; "" : rien. */
+  const [paidThrough, setPaidThrough] = useState("");
 
   const target = studentId || chosen;
 
@@ -76,6 +79,7 @@ export function TuitionPlanDialog({
         setCustomMonths(data.plan?.frequency === "CUSTOM" ? data.plan.periodMonths : 4);
         setMonthly(String(data.plan?.monthlyAmount ?? data.schoolMonthly ?? ""));
         setFirstMonth(data.plan?.firstMonth ?? data.yearMonths[0] ?? "");
+        setPaidThrough("");
       })
       .finally(() => !cancelled && setLoading(false));
     return () => {
@@ -98,12 +102,18 @@ export function TuitionPlanDialog({
       yearFirstMonth: new Date(form.yearMonths[0]),
       yearLabel: form.yearLabel,
     });
+    // Ce qui sera enregistré comme déjà payé, échéance par échéance.
+    const through = paidThrough ? new Date(paidThrough) : null;
+    const rows = installments.map((i) => ({ ...i, prepaid: through ? prepaidShare(i, through, amount) : 0 }));
+    const prepaidTotal = rows.reduce((sum, i) => sum + i.prepaid, 0);
     return {
-      installments,
+      installments: rows,
+      billed: billed.filter((m) => !paid.has(m.toISOString())).map((m) => m.toISOString()),
       paidLabels: billed.filter((m) => paid.has(m.toISOString())).map(monthLabel),
       total: installments.reduce((sum, i) => sum + i.amount, 0),
+      prepaidTotal,
     };
-  }, [form, firstMonth, frequency, customMonths, amount]);
+  }, [form, firstMonth, frequency, customMonths, amount, paidThrough]);
 
   async function save() {
     if (!form) return;
@@ -115,13 +125,15 @@ export function TuitionPlanDialog({
         customMonths,
         monthlyAmount: amount,
         firstMonth,
+        paidThrough: paidThrough && paidThrough >= firstMonth ? paidThrough : "",
       });
       if (!result.ok) {
         toast.error(result.error);
         return;
       }
       toast.success(
-        `Formule enregistrée pour ${form.student.name} : ${result.created} échéance(s) créée(s).`,
+        `Formule enregistrée pour ${form.student.name} : ${result.created} échéance(s) créée(s)` +
+          (result.prepaid > 0 ? `, ${formatMRU(result.prepaidTotal)} déjà payés enregistrés.` : "."),
       );
       onOpenChange(false);
       router.refresh();
@@ -228,7 +240,13 @@ export function TuitionPlanDialog({
               </div>
               <div className="space-y-1.5">
                 <Label>À partir de</Label>
-                <Select value={firstMonth} onValueChange={setFirstMonth}>
+                <Select
+                  value={firstMonth}
+                  onValueChange={(m) => {
+                    setFirstMonth(m);
+                    if (paidThrough && paidThrough < m) setPaidThrough("");
+                  }}
+                >
                   <SelectTrigger data-testid="first-month">
                     <SelectValue />
                   </SelectTrigger>
@@ -244,6 +262,29 @@ export function TuitionPlanDialog({
             </div>
 
             {preview && amount > 0 && (
+              <div className="space-y-1.5">
+                <Label>Déjà payé avant Madrasati, jusqu&apos;à</Label>
+                <Select value={paidThrough || "NONE"} onValueChange={(m) => setPaidThrough(m === "NONE" ? "" : m)}>
+                  <SelectTrigger data-testid="paid-through">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="NONE">Rien — tout reste à payer</SelectItem>
+                    {preview.billed.map((m) => (
+                      <SelectItem key={m} value={m}>
+                        {monthLabel(new Date(m))} inclus
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-foreground/50">
+                  Pour un élève inscrit avant Madrasati : les mois déjà réglés sont enregistrés comme payés
+                  (avec reçu) et n&apos;apparaissent pas dans les impayés.
+                </p>
+              </div>
+            )}
+
+            {preview && amount > 0 && (
               <div className="rounded-xl border border-border bg-surface-muted/40 p-3" data-testid="tuition-preview">
                 <p className="text-sm font-semibold text-foreground">
                   {preview.installments.length} échéance(s) · total {formatMRU(preview.total)}
@@ -252,10 +293,23 @@ export function TuitionPlanDialog({
                   {preview.installments.map((i) => (
                     <li key={i.periodStart.toISOString()} className="flex justify-between gap-3">
                       <span className="text-foreground/75">{i.label.replace("Frais de scolarité — ", "")}</span>
-                      <span className="whitespace-nowrap font-semibold text-foreground">{formatMRU(i.amount)}</span>
+                      <span className="whitespace-nowrap font-semibold text-foreground">
+                        {formatMRU(i.amount)}
+                        {i.prepaid > 0 && (
+                          <span className="ms-2 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                            {i.prepaid >= i.amount ? "payé" : `${formatMRU(i.prepaid)} payés`}
+                          </span>
+                        )}
+                      </span>
                     </li>
                   ))}
                 </ul>
+                {preview.prepaidTotal > 0 && (
+                  <p className="mt-2 text-xs font-medium text-emerald-700">
+                    Déjà payé : {formatMRU(preview.prepaidTotal)} · reste à payer{" "}
+                    {formatMRU(preview.total - preview.prepaidTotal)}
+                  </p>
+                )}
                 {preview.paidLabels.length > 0 && (
                   <p className="mt-2 text-xs text-primary-700">
                     Déjà réglé, non refacturé : {preview.paidLabels.join(", ")}.

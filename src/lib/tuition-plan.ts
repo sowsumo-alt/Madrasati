@@ -1,11 +1,14 @@
 import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { UserError } from "@/lib/user-error";
+import { generateReceiptNumber } from "@/lib/receipts";
 import {
   TUITION_FREQUENCIES,
+  addMonths,
   buildInstallments,
   coveredMonths,
   monthStart,
+  prepaidShare,
   monthsBetween,
   periodMonthsOf,
   type TuitionFrequency,
@@ -96,10 +99,96 @@ export async function applyTuitionPlan(
     });
   }
   return {
+    planId: plan.id,
+    /** Premier mois facturé, ramené dans l'année scolaire. */
+    firstMonth,
     created: installments.length,
     replaced: removed.count,
     first: installments[0] ? { label: installments[0].label, amount: installments[0].amount } : null,
   };
+}
+
+/**
+ * Mois déjà réglés avant Madrasati : un élève inscrit depuis la rentrée dont
+ * le parent a payé, par exemple, 4 mois d'avance. Ces mois ne doivent
+ * apparaître ni « en attente » ni « impayés » : chaque échéance qui les
+ * couvre reçoit le paiement correspondant (avec son reçu), entier ou partiel
+ * — un trimestre dont un seul mois est réglé reste partiel.
+ *
+ * `through` : dernier mois réglé, inclus. Rien n'est jamais payé deux fois :
+ * ce qu'une échéance a déjà reçu est déduit.
+ */
+export async function settlePrepaidMonths(
+  tx: Prisma.TransactionClient,
+  input: {
+    schoolId: string;
+    planId: string;
+    through: Date;
+    method: string;
+    paidAt: Date;
+    userId: string;
+    attempt: number;
+  },
+): Promise<{ paymentIds: string[]; total: number }> {
+  const through = monthStart(input.through);
+  const plan = await tx.tuitionPlan.findUniqueOrThrow({
+    where: { id: input.planId },
+    select: {
+      studentId: true,
+      monthlyAmount: true,
+      fees: {
+        where: { periodStart: { lte: through } },
+        orderBy: { periodStart: "asc" },
+        select: {
+          id: true,
+          amount: true,
+          periodStart: true,
+          periodEnd: true,
+          payments: { select: { amount: true } },
+        },
+      },
+    },
+  });
+
+  const paymentIds: string[] = [];
+  let total = 0;
+  for (const fee of plan.fees) {
+    if (!fee.periodStart || !fee.periodEnd) continue;
+    const target = prepaidShare(
+      { periodStart: fee.periodStart, periodEnd: fee.periodEnd, amount: fee.amount },
+      through,
+      plan.monthlyAmount,
+    );
+    const already = fee.payments.reduce((sum, p) => sum + p.amount, 0);
+    const due = target - already;
+    if (due <= 0) continue;
+    const payment = await tx.payment.create({
+      data: {
+        schoolId: input.schoolId,
+        feeId: fee.id,
+        studentId: plan.studentId,
+        amount: due,
+        method: input.method,
+        receiptNumber: await generateReceiptNumber(tx, input.schoolId, input.attempt),
+        paidAt: input.paidAt,
+        recordedByUserId: input.userId,
+        note: "Déjà payé avant l'enregistrement dans Madrasati",
+      },
+    });
+    const paid = already + due;
+    await tx.fee.update({
+      where: { id: fee.id },
+      data: { status: paid >= fee.amount ? "PAID" : "PARTIAL" },
+    });
+    paymentIds.push(payment.id);
+    total += due;
+  }
+  return { paymentIds, total };
+}
+
+/** Dernier mois réglé quand les `count` premiers mois de la formule sont payés. */
+export function prepaidThrough(firstMonth: Date, count: number): Date | null {
+  return count > 0 ? addMonths(monthStart(firstMonth), count - 1) : null;
 }
 
 /**
@@ -112,16 +201,23 @@ export const enrollmentTuitionSchema = z
     frequency: z.enum([...TUITION_FREQUENCIES, "NONE"]),
     customMonths: z.coerce.number().int().min(1).max(12),
     monthly: z.union([z.literal(""), z.coerce.number().int().nonnegative().max(10_000_000)]),
+    /** Mois déjà réglés avant Madrasati, à partir du premier mois facturé. */
+    paidMonths: z.coerce.number().int().min(0).max(12).default(0),
   })
   .optional();
-export type EnrollmentTuition = z.infer<typeof enrollmentTuitionSchema>;
+export type EnrollmentTuition = z.input<typeof enrollmentTuitionSchema>;
 
 /** La formule à appliquer, ou null quand il n'y a rien à créer. */
 export function enrollmentPlan(
-  tuition: EnrollmentTuition,
-): { frequency: TuitionFrequency; customMonths: number; monthlyAmount: number } | null {
+  tuition: z.infer<typeof enrollmentTuitionSchema>,
+): { frequency: TuitionFrequency; customMonths: number; monthlyAmount: number; paidMonths: number } | null {
   if (!tuition || tuition.frequency === "NONE") return null;
   const monthly = typeof tuition.monthly === "number" ? tuition.monthly : 0;
   if (monthly <= 0) return null;
-  return { frequency: tuition.frequency, customMonths: tuition.customMonths, monthlyAmount: monthly };
+  return {
+    frequency: tuition.frequency,
+    customMonths: tuition.customMonths,
+    monthlyAmount: monthly,
+    paidMonths: tuition.paidMonths ?? 0,
+  };
 }

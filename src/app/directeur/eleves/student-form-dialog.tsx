@@ -116,6 +116,7 @@ function defaultTuition(schoolMonthly: number | null): TuitionChoiceValue {
     frequency: schoolMonthly ? "MONTHLY" : "NONE",
     customMonths: 4,
     monthly: schoolMonthly ? String(schoolMonthly) : "",
+    paidMonths: 0,
   };
 }
 
@@ -212,6 +213,7 @@ export function StudentFormDialog({
           frequency: tuition.frequency,
           customMonths: tuition.customMonths,
           monthly: tuition.monthly === "" ? "" : Number(tuition.monthly) || 0,
+          paidMonths: tuition.paidMonths,
         });
         if (result.paymentId) {
           // Navigation dans le même onglet, et non window.open : le geste de
@@ -537,7 +539,7 @@ export function StudentFormDialog({
                   <TuitionChoice
                     value={tuition}
                     onChange={setTuition}
-                    hint="Les échéances sont créées automatiquement à partir du mois d'inscription. « Plus tard » : à choisir depuis la fiche de l'élève."
+                    hint="Les échéances sont créées automatiquement à partir du mois de la date d'inscription. « Plus tard » : à choisir depuis la fiche de l'élève."
                   />
                 </div>
               </FormSection>
