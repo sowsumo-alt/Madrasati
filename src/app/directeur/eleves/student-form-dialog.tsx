@@ -49,6 +49,8 @@ import {
   type TuitionChoiceValue,
 } from "@/components/finance/tuition-choice";
 import type { TuitionSettings } from "@/lib/tuition-data";
+import { clearDraft, loadDraft, useDraftAutosave } from "@/lib/form-draft";
+import { DraftBanner } from "@/components/forms/draft-banner";
 import { FormField, IconInput } from "@/components/forms/form-field";
 import { PhotoAvatarPicker } from "./student-form/photo-avatar-picker";
 import { STATUS_KEYS, STUDENT_STATUSES } from "./students-list/student-status";
@@ -89,6 +91,8 @@ interface StudentFormDialogProps {
   currentYearLabel: string | null;
   /** Frais de scolarité d'un mois de l'école (Paramètres), proposés à l'inscription. */
   tuitionSettings: TuitionSettings;
+  /** Clé du brouillon de l'inscription en cours (par école). */
+  draftKey: string;
 }
 
 /**
@@ -117,6 +121,29 @@ function newStudentValues(): StudentFormValues {
   };
 }
 
+/** Brouillon d'une inscription : la saisie et la formule de paiement. */
+interface StudentDraft {
+  values: StudentFormValues;
+  tuition: TuitionChoiceValue;
+}
+
+/** Rien de tapé : pas de brouillon à garder. */
+function isEmptyStudentDraft({ values }: StudentDraft) {
+  return ![
+    values.firstName,
+    values.lastName,
+    values.dateOfBirth,
+    values.placeOfBirth,
+    values.nni,
+    values.rimNumber,
+    values.parentName,
+    values.parentPhone,
+    values.parentAddress,
+    values.motherName,
+    values.photoUrl,
+  ].some((v) => typeof v === "string" && v.trim());
+}
+
 /**
  * Formulaire d'inscription et de modification d'un élève, en blocs comme sur
  * la maquette : informations personnelles, scolaires, parents, puis frais
@@ -129,6 +156,7 @@ export function StudentFormDialog({
   editTarget,
   currentYearLabel,
   tuitionSettings,
+  draftKey,
 }: StudentFormDialogProps) {
   const router = useRouter();
   const { t } = useLanguage();
@@ -149,11 +177,27 @@ export function StudentFormDialog({
   const [tuition, setTuition] = useState<TuitionChoiceValue>(() => defaultTuitionChoice(tuitionSettings));
   const [duplicates, setDuplicates] = useState<DuplicateStudent[]>([]);
   const [duplicateAck, setDuplicateAck] = useState(false);
+  // Brouillon : relu à l'ouverture, gardé à chaque frappe tant que
+  // l'inscription n'est pas enregistrée (jamais pour une modification).
+  const [draftReady, setDraftReady] = useState(false);
+  const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
 
   useEffect(() => {
+    if (!open) {
+      setDraftReady(false);
+      return;
+    }
     if (open) {
       setDuplicates([]);
       setDuplicateAck(false);
+      const saved = editTarget ? null : loadDraft<StudentDraft>(draftKey);
+      setDraftSavedAt(saved?.savedAt ?? null);
+      setDraftReady(!editTarget);
+      if (saved) {
+        reset({ ...newStudentValues(), ...saved.data.values });
+        setTuition({ ...defaultTuitionChoice(tuitionSettings), ...saved.data.tuition });
+        return;
+      }
       setTuition(defaultTuitionChoice(tuitionSettings));
       reset(
         editTarget
@@ -180,7 +224,21 @@ export function StudentFormDialog({
           : newStudentValues(),
       );
     }
-  }, [open, editTarget, reset, tuitionSettings]);
+  }, [open, editTarget, reset, tuitionSettings, draftKey]);
+
+  const allValues = watch();
+  const autosave = useDraftAutosave<StudentDraft>(
+    draftKey,
+    { values: allValues, tuition },
+    { enabled: open && !isEdit && draftReady, isEmpty: isEmptyStudentDraft },
+  );
+
+  function discardDraft() {
+    clearDraft(draftKey);
+    setDraftSavedAt(null);
+    setTuition(defaultTuitionChoice(tuitionSettings));
+    reset(newStudentValues());
+  }
 
   async function onSubmit(values: StudentFormValues) {
     try {
@@ -212,6 +270,9 @@ export function StudentFormDialog({
           monthly: tuition.monthly === "" ? "" : Number(tuition.monthly) || 0,
           paidMonths: chosenPaidMonths(tuition, billedMonths),
         });
+        // Inscription enregistrée : le brouillon n'a plus lieu d'être.
+        autosave.finish();
+        setDraftSavedAt(null);
         if (result.paymentId) {
           // Navigation dans le même onglet, et non window.open : le geste de
           // l'utilisateur a expiré pendant l'attente du serveur, si bien que
@@ -249,7 +310,15 @@ export function StudentFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[92vh] max-w-2xl flex-col overflow-y-hidden p-0">
+      <DialogContent
+        className="flex max-h-[92vh] max-w-2xl flex-col overflow-y-hidden p-0"
+        // Un clic à côté ne ferme plus une inscription en cours : on la
+        // perdait d'un geste. Annuler, la croix ou Échap restent possibles,
+        // et la saisie reste de toute façon en brouillon.
+        onInteractOutside={(e) => {
+          if (!isEdit) e.preventDefault();
+        }}
+      >
         <form onSubmit={handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col" noValidate>
           <div className="flex items-center gap-4 border-b border-border px-5 py-4 pe-12 sm:px-6">
             <PhotoAvatarPicker
@@ -270,6 +339,7 @@ export function StudentFormDialog({
           </div>
 
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-surface-muted/30 px-5 py-5 sm:px-6">
+            {!isEdit && draftSavedAt && <DraftBanner savedAt={draftSavedAt} onDiscard={discardDraft} />}
             <FormSection icon={UserRound} title={t("students.sectionPersonal")}>
               <FormField
                 label={t("students.firstName")}

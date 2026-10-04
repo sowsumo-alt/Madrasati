@@ -39,7 +39,9 @@ let keySeed = 0;
 export function newChild(lastName = ""): ChildDraft {
   keySeed += 1;
   return {
-    key: `enfant-${keySeed}`,
+    // Unique même après la reprise d'un brouillon : le compteur repart de
+    // zéro au rechargement, les enfants repris gardent leur clé.
+    key: `enfant-${Date.now().toString(36)}-${keySeed}`,
     firstName: "",
     lastName,
     dateOfBirth: "",

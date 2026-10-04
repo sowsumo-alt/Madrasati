@@ -95,6 +95,7 @@ export function StudentsView({
   currentYearLabel,
   catalog,
   tuitionSettings,
+  draftKey,
   initialQuery = "",
   initialClassFilter = "ALL",
   initialFamilyFilter = null,
@@ -106,6 +107,8 @@ export function StudentsView({
   catalog: CatalogGroup[];
   /** Frais de scolarité d'un mois de l'école, proposés à l'inscription. */
   tuitionSettings: TuitionSettings;
+  /** Clé du brouillon d'inscription, propre à l'école. */
+  draftKey: string;
   schoolName: string;
   currentYearLabel: string | null;
   /** Terme envoyé par la recherche globale de l'en-tête (?q=…). */
@@ -429,6 +432,7 @@ export function StudentsView({
         editTarget={editTarget}
         currentYearLabel={currentYearLabel}
         tuitionSettings={tuitionSettings}
+        draftKey={draftKey}
       />
       <ImportDialog open={importOpen} onOpenChange={setImportOpen} classes={classes} catalog={catalog} />
       <ConfirmDialog

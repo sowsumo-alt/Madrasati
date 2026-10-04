@@ -45,6 +45,7 @@ export default async function FamilyEnrollmentPage({
     <FamilyEnrollmentForm
       classes={classOptions(classes)}
       tuitionSettings={tuitionSettings}
+      draftKey={`famille-${user.schoolId}`}
       initialFamily={
         parent
           ? {

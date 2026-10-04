@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -34,6 +34,8 @@ import {
   type TuitionChoiceValue,
 } from "@/components/finance/tuition-choice";
 import type { TuitionSettings } from "@/lib/tuition-data";
+import { clearDraft, loadDraft, useDraftAutosave } from "@/lib/form-draft";
+import { DraftBanner } from "@/components/forms/draft-banner";
 
 type Step = 1 | 2 | 3;
 
@@ -83,6 +85,18 @@ function Stepper({ step, onGo }: { step: Step; onGo: (step: Step) => void }) {
   );
 }
 
+/** Brouillon de l'inscription d'une famille : tout ce qui a été saisi, étape comprise. */
+interface FamilyEnrollmentDraft {
+  step: Step;
+  draft: FamilyDraft;
+  usingKnown: KnownFamily | null;
+  children: ChildDraft[];
+  mode: FamilyPaymentMode;
+  method: PaymentMethod;
+  tuition: TuitionChoiceValue;
+  familyNameTouched: boolean;
+}
+
 /**
  * Inscription groupée d'une famille. Un parcours à part, ouvert par son
  * propre bouton : l'inscription d'un seul élève reste strictement celle
@@ -92,18 +106,20 @@ export function FamilyEnrollmentForm({
   classes,
   initialFamily,
   tuitionSettings,
+  draftKey,
 }: {
   classes: EnrollmentClassOption[];
   /** Montant d'un mois, mois de l'année, juin payé d'avance : proposés pour chaque enfant. */
   tuitionSettings: TuitionSettings;
   /** Famille existante à compléter (?famille=…), sinon null. */
   initialFamily: (KnownFamily & { phone: string }) | null;
+  /** Clé du brouillon d'inscription, propre à l'école. */
+  draftKey: string;
 }) {
   const router = useRouter();
   const { t } = useLanguage();
 
-  const [step, setStep] = useState<Step>(initialFamily ? 2 : 1);
-  const [draft, setDraft] = useState<FamilyDraft>(() => ({
+  const initialDraft = (): FamilyDraft => ({
     existingParentId: initialFamily?.parentId ?? "",
     familyName: initialFamily
       ? (initialFamily.familyName ??
@@ -112,13 +128,17 @@ export function FamilyEnrollmentForm({
     parentName: initialFamily ? `${initialFamily.parentFirstName} ${initialFamily.parentLastName}` : "",
     parentPhone: initialFamily?.phone ?? "",
     parentAddress: initialFamily?.address ?? "",
-  }));
+  });
+  const initialChildren = () => [
+    newChild(initialFamily ? familySurname(initialFamily.familyName ?? initialFamily.parentLastName) : ""),
+  ];
+
+  const [step, setStep] = useState<Step>(initialFamily ? 2 : 1);
+  const [draft, setDraft] = useState<FamilyDraft>(initialDraft);
   const [usingKnown, setUsingKnown] = useState<KnownFamily | null>(initialFamily);
   const [known, setKnown] = useState<KnownFamily[]>([]);
   const [familyErrors, setFamilyErrors] = useState<FieldErrors>({});
-  const [children, setChildren] = useState<ChildDraft[]>(() => [
-    newChild(initialFamily ? familySurname(initialFamily.familyName ?? initialFamily.parentLastName) : ""),
-  ]);
+  const [children, setChildren] = useState<ChildDraft[]>(initialChildren);
   const [childErrors, setChildErrors] = useState<Record<string, FieldErrors>>({});
   const [mode, setMode] = useState<FamilyPaymentMode>("FAMILY");
   const [method, setMethod] = useState<PaymentMethod>("CASH");
@@ -130,6 +150,63 @@ export function FamilyEnrollmentForm({
   // Le nom de la famille se déduit du parent tant que le directeur ne l'a pas
   // saisi lui-même : « Moussa BA » donne « Famille BA ».
   const familyNameTouched = useRef(Boolean(initialFamily));
+
+  // — Brouillon : la saisie revient après une page fermée ou une coupure de
+  // courant, jusqu'à ce que l'inscription soit enregistrée. Un brouillon par
+  // famille complétée (?famille=…), un pour une nouvelle famille.
+  const storageKey = initialFamily ? `${draftKey}-${initialFamily.parentId}` : draftKey;
+  const [draftReady, setDraftReady] = useState(false);
+  const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
+  useEffect(() => {
+    const saved = loadDraft<FamilyEnrollmentDraft>(storageKey);
+    if (saved) {
+      const d = saved.data;
+      setStep(d.step);
+      setDraft(d.draft);
+      setUsingKnown(d.usingKnown);
+      if (d.children.length > 0) setChildren(d.children);
+      setMode(d.mode);
+      setMethod(d.method);
+      setTuition({ ...defaultTuitionChoice(tuitionSettings), ...d.tuition });
+      familyNameTouched.current = d.familyNameTouched;
+      setDraftSavedAt(saved.savedAt);
+    }
+    setDraftReady(true);
+    // Relu une seule fois, à l'ouverture de la page.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storageKey]);
+
+  // Rien de tapé (une famille connue préremplie ne compte pas) : pas de brouillon.
+  const isEmptyDraft = useCallback(
+    (d: FamilyEnrollmentDraft) => {
+      const childTyped = d.children.some((c) => c.firstName.trim() || c.nni.trim() || c.dateOfBirth || c.classId);
+      const familyTyped =
+        !initialFamily && Boolean(d.draft.familyName.trim() || d.draft.parentName.trim() || d.draft.parentPhone.trim());
+      return !childTyped && !familyTyped;
+    },
+    [initialFamily],
+  );
+  const autosave = useDraftAutosave<FamilyEnrollmentDraft>(
+    storageKey,
+    { step, draft, usingKnown, children, mode, method, tuition, familyNameTouched: familyNameTouched.current },
+    { enabled: draftReady, isEmpty: isEmptyDraft },
+  );
+
+  function discardDraft() {
+    clearDraft(storageKey);
+    setDraftSavedAt(null);
+    setStep(initialFamily ? 2 : 1);
+    setDraft(initialDraft());
+    setUsingKnown(initialFamily);
+    setKnown([]);
+    setFamilyErrors({});
+    setChildren(initialChildren());
+    setChildErrors({});
+    setMode("FAMILY");
+    setMethod("CASH");
+    setTuition(defaultTuitionChoice(tuitionSettings));
+    familyNameTouched.current = Boolean(initialFamily);
+  }
 
   // Famille déjà enregistrée avec ce numéro : recherchée dès que le numéro
   // est complet, pour proposer de la compléter.
@@ -247,6 +324,8 @@ export function FamilyEnrollmentForm({
           ...tuition,
           paidMonths: chosenPaidMonths(tuition, billedMonths),
         }));
+      // Inscription enregistrée : le brouillon n'a plus lieu d'être.
+      autosave.finish();
       toast.success(t("family.enrolled").replace("{count}", String(result.studentIds.length)));
       router.push(
         result.familyPaymentId
@@ -263,6 +342,7 @@ export function FamilyEnrollmentForm({
 
   return (
     <div className="space-y-5">
+      {draftSavedAt && <DraftBanner savedAt={draftSavedAt} onDiscard={discardDraft} />}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <nav aria-label={t("nav.category.schooling")} className="mb-1.5 flex items-center gap-1.5 text-xs text-foreground/50">

@@ -94,6 +94,7 @@ export default async function StudentsPage({
       classes={classOptions(classes)}
       catalog={buildCatalog(allLevels)}
       tuitionSettings={tuitionSettings}
+      draftKey={`eleve-${user.schoolId}`}
       schoolName={school?.name ?? "Madrasati"}
       currentYearLabel={currentYear?.label ?? null}
       initialQuery={q ?? ""}
