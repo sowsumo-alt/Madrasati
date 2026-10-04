@@ -53,13 +53,35 @@
   max-width: 28mm;
   object-fit: contain;
 }
+/* En-tête complet de l'école : la bannière en grand, centrée, puis le titre
+   et le numéro du reçu sur une ligne. */
+.headLetterhead {
+  display: flex;
+  flex-direction: column;
+  gap: 2.4mm;
+  padding-bottom: 2.6mm;
+  border-bottom: 0.3mm solid #e5e7eb;
+}
+.bannerWrap {
+  display: flex;
+  justify-content: center;
+}
 .banner {
   display: block;
   width: auto;
   height: auto;
-  max-height: 15mm;
-  max-width: 112mm;
+  max-height: 25mm;
+  max-width: 100%;
   object-fit: contain;
+}
+.titleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4mm;
+}
+.titleRow .number {
+  margin-top: 0;
 }
 .schoolName {
   font-size: 12.5pt;

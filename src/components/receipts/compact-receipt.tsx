@@ -63,13 +63,17 @@ export function CompactReceipt({
 }: CompactReceiptProps) {
   const place = schoolPlaceLine(school);
   const phone = schoolPhoneLine(school);
+  // Un en-tête complet (bannière avec nom, logo, téléphone) se lit en grand,
+  // centré en haut du reçu ; réduit dans un coin à côté du titre, il
+  // devenait illisible.
+  const letterhead = Boolean(school.logoIsLetterhead && school.logoUrl);
 
   return (
     <div id={id} className={styles.receipt} data-testid="compact-receipt">
       <div className={styles.frame}>
-        <div className={styles.head}>
-          <div className={styles.school}>
-            {school.logoIsLetterhead && school.logoUrl ? (
+        <div className={letterhead ? styles.headLetterhead : styles.head}>
+          <div className={letterhead ? styles.bannerWrap : styles.school}>
+            {letterhead && school.logoUrl ? (
               <Image src={school.logoUrl} alt="" width={1000} height={300} unoptimized className={styles.banner} />
             ) : (
               <>
@@ -87,7 +91,7 @@ export function CompactReceipt({
               </>
             )}
           </div>
-          <div className={styles.title}>
+          <div className={letterhead ? styles.titleRow : styles.title}>
             <div className={styles.titleLabel}>{title}</div>
             <div className={styles.number} dir="ltr">
               N° {receiptNumber}
