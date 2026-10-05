@@ -261,10 +261,6 @@
 .stampPartial {
   color: #b45309;
 }
-/* Paiement reçu, mais la famille doit encore d'autres mois. */
-.stampReceived {
-  color: #1d4ed8;
-}
 .stampCancelled {
   color: #b91c1c;
   font-size: 13pt;

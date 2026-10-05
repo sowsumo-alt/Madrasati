@@ -3,6 +3,7 @@ import { UserError } from "@/lib/user-error";
 import { familyPartReceiptNumber, generateReceiptNumber } from "@/lib/receipts";
 import { logPayment } from "@/lib/activity";
 import {
+  addMonths,
   buildInstallments,
   coveredMonths,
   monthStart,
@@ -81,13 +82,14 @@ export async function applyTuitionPlan(
     yearFirstMonth: yearMonths[0],
     yearLabel: year.label,
   });
-  // Un élève entré le 5 octobre ne doit pas octobre depuis le 1er : l'échéance
-  // de son mois d'entrée tombe le jour de son inscription, pas avant — sinon
-  // il apparaît « en retard » dans les impayés le jour même où il s'inscrit.
+  // Le mois d'entrée de l'élève se paie dans le mois : son échéance tombe au
+  // début du mois suivant. Une famille qui vient de régler l'inscription et
+  // juin n'apparaît donc pas « impayée » pour octobre le jour où elle s'inscrit ;
+  // octobre ne devient impayé que s'il n'est pas réglé au 1er novembre.
   const student = await tx.student.findUnique({ where: { id: studentId }, select: { enrollmentDate: true } });
-  const enrolled = student?.enrollmentDate ?? null;
+  const entryMonth = student?.enrollmentDate ? monthStart(student.enrollmentDate) : null;
   const installments = built.map((i) =>
-    enrolled && i.dueDate < enrolled && i.periodEnd >= monthStart(enrolled) ? { ...i, dueDate: enrolled } : i,
+    entryMonth && i.periodStart.getTime() === entryMonth.getTime() ? { ...i, dueDate: addMonths(entryMonth, 1) } : i,
   );
   if (installments.length > 0) {
     await tx.fee.createMany({

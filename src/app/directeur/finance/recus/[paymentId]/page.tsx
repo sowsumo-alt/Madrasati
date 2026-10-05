@@ -31,8 +31,6 @@ import { markReceiptsPrinted } from "../../actions";
 import { CancelReceiptButton } from "../cancel-receipt-button";
 import { CancelledReceiptView } from "../cancelled-receipt";
 import { ReceiptDateButton } from "../receipt-date-button";
-import { familyStudentIds, loadReceiptStanding } from "@/lib/receipt-standing";
-import { receiptBalanceText, type ReceiptStanding } from "@/lib/receipt-status";
 
 const DEFAULT_CONFIRMATION =
   "Bonjour {parentName},\n\nNous confirmons la réception d'un paiement de {amount} MRU pour {studentName}, effectué le {date}. Merci pour votre règlement.\n\n{schoolName}";
@@ -60,31 +58,18 @@ function methodLabel(method: string, t: (key: TranslationKey) => string) {
   return label === key ? method : label;
 }
 
-/**
- * Reste dû après ce paiement et tampon (lib/receipt-status.ts) : pour un frais
- * de la fiche familiale, toute la famille ; sinon l'élève seul.
- */
-async function standingOf(payment: ReceiptPayment): Promise<ReceiptStanding> {
-  return loadReceiptStanding(prisma, {
-    studentIds: payment.fee.familyParentId
-      ? await familyStudentIds(prisma, payment.fee.familyParentId)
-      : [payment.studentId],
-    receiptFeeIds: [payment.feeId],
-    paidAt: payment.paidAt,
-    receiptNumber: payment.receiptNumber,
-  });
-}
-
 /** Le reçu compact d'un paiement, dans la langue de l'interface. */
 function receiptOf(
   payment: ReceiptPayment,
-  standing: ReceiptStanding,
   school: SchoolIdentity,
   t: (key: TranslationKey) => string,
   locale: Locale,
   id?: string,
 ) {
   const parent = payment.student.parentLinks[0]?.parent ?? null;
+  // Reste sur ce frais après ce versement : « Acompte » s'il y en a un, sinon « Payé ».
+  const totalPaid = payment.fee.payments.reduce((sum, p) => sum + p.amount, 0);
+  const remaining = Math.max(payment.fee.amount - totalPaid, 0);
   return (
     <CompactReceipt
       id={id}
@@ -115,8 +100,7 @@ function receiptOf(
       paidAmount={payment.amount}
       methodCode={payment.method}
       method={methodLabel(payment.method, t)}
-      stamp={standing.stamp}
-      balance={receiptBalanceText(standing, formatMRU)}
+      remaining={remaining > 0 ? t("finance.remainingIs").replace("{amount}", formatMRU(remaining)) : null}
       labels={{ paid: t("finance.paidAmount"), method: t("finance.method"), thanks: t("finance.thankYou") }}
     />
   );
@@ -296,8 +280,8 @@ export default async function ReceiptPage({
 
       <ReceiptSheet
         mode={mode}
-        top={receiptOf(payment, await standingOf(payment), school, t, locale, "recu-card")}
-        bottom={partner ? receiptOf(partner, await standingOf(partner), school, t, locale) : undefined}
+        top={receiptOf(payment, school, t, locale, "recu-card")}
+        bottom={partner ? receiptOf(partner, school, t, locale) : undefined}
         emptyHint="Bas de feuille libre : le prochain reçu du jour s'y placera. Vous pouvez aussi imprimer maintenant."
       />
     </div>

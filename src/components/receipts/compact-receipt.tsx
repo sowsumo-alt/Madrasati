@@ -6,7 +6,6 @@ import {
   type SchoolIdentity,
 } from "@/lib/official-header";
 import { amountInWords } from "@/lib/number-words";
-import { STAMP_LABELS, type ReceiptStamp } from "@/lib/receipt-status";
 import { PaymentMethodLogo } from "@/components/ui/payment-method-logo";
 import styles from "./compact-receipt.module.css";
 
@@ -16,9 +15,8 @@ import styles from "./compact-receipt.module.css";
  *
  * Tout ce qu'un reçu professionnel porte : l'école, le numéro, la date, qui
  * paie et pour quel élève, le mode de paiement avec son logo, le détail, la
- * somme en chiffres et en lettres, le reste dû après ce paiement, le cachet
- * (« Payé » si la famille est à jour, sinon « Reçu » ou « Paiement
- * partiel » — lib/receipt-status.ts), la signature.
+ * somme en chiffres et en lettres, le cachet « Payé » (ou « Acompte » s'il
+ * reste un solde sur ses lignes), la signature.
  *
  * Le nom de l'école est toujours celui des Paramètres, même sous un logo en
  * forme d'en-tête (une image peut porter un ancien nom, ou celui d'une autre
@@ -40,10 +38,6 @@ export interface CompactReceiptProps {
   methodCode: string;
   method: string;
   remaining?: string | null;
-  /** Le tampon (lib/receipt-status.ts) ; absent : « Acompte » s'il reste un solde, sinon « Payé ». */
-  stamp?: ReceiptStamp;
-  /** « Reste dû après ce paiement : 1 600 MRU ». */
-  balance?: string | null;
   /** Reçu annulé : tampon « ANNULÉ », date et motif ; l'argent n'est plus compté. */
   cancelled?: { date: string; reason: string; by?: string | null } | null;
   /** Libellés dans la langue de l'interface ; le français par défaut. */
@@ -71,19 +65,11 @@ export function CompactReceipt({
   methodCode,
   method,
   remaining,
-  stamp,
-  balance,
   cancelled,
   labels = {},
 }: CompactReceiptProps) {
-  const stampClass = cancelled
-    ? styles.stampCancelled
-    : stamp
-      ? { PAID: styles.stampPaid, RECEIVED: styles.stampReceived, PARTIAL: styles.stampPartial }[stamp]
-      : remaining
-        ? styles.stampPartial
-        : styles.stampPaid;
-  const stampLabel = cancelled ? "Annulé" : stamp ? STAMP_LABELS[stamp] : remaining ? "Acompte" : "Payé";
+  const stampClass = cancelled ? styles.stampCancelled : remaining ? styles.stampPartial : styles.stampPaid;
+  const stampLabel = cancelled ? "Annulé" : remaining ? "Acompte" : "Payé";
   const place = schoolPlaceLine(school);
   const phone = schoolPhoneLine(school);
   // Un en-tête complet (bannière avec nom, logo, téléphone) se lit en grand,
@@ -203,10 +189,9 @@ export function CompactReceipt({
           <div className={styles.totalBox}>
             <div className={styles.totalLabel}>{labels.paid ?? "Montant payé"}</div>
             <div className={styles.totalAmount}>{total}</div>
-            {remaining && !cancelled && !balance && <div className={styles.remaining}>{remaining}</div>}
-            {balance && !cancelled && (
+            {remaining && !cancelled && (
               <div className={styles.remaining} data-testid="receipt-balance">
-                {balance}
+                {remaining}
               </div>
             )}
           </div>
