@@ -6,6 +6,7 @@ import {
   type SchoolIdentity,
 } from "@/lib/official-header";
 import { amountInWords } from "@/lib/number-words";
+import { STAMP_LABELS, type ReceiptStamp } from "@/lib/receipt-status";
 import { PaymentMethodLogo } from "@/components/ui/payment-method-logo";
 import styles from "./compact-receipt.module.css";
 
@@ -15,8 +16,13 @@ import styles from "./compact-receipt.module.css";
  *
  * Tout ce qu'un reçu professionnel porte : l'école, le numéro, la date, qui
  * paie et pour quel élève, le mode de paiement avec son logo, le détail, la
- * somme en chiffres et en lettres, le cachet « Payé » (ou « Acompte » s'il
- * reste un solde), la signature.
+ * somme en chiffres et en lettres, le reste dû après ce paiement, le cachet
+ * (« Payé » si la famille est à jour, sinon « Reçu » ou « Paiement
+ * partiel » — lib/receipt-status.ts), la signature.
+ *
+ * Le nom de l'école est toujours celui des Paramètres, même sous un logo en
+ * forme d'en-tête (une image peut porter un ancien nom, ou celui d'une autre
+ * école).
  */
 export interface CompactReceiptProps {
   id?: string;
@@ -34,6 +40,10 @@ export interface CompactReceiptProps {
   methodCode: string;
   method: string;
   remaining?: string | null;
+  /** Le tampon (lib/receipt-status.ts) ; absent : « Acompte » s'il reste un solde, sinon « Payé ». */
+  stamp?: ReceiptStamp;
+  /** « Reste dû après ce paiement : 1 600 MRU ». */
+  balance?: string | null;
   /** Reçu annulé : tampon « ANNULÉ », date et motif ; l'argent n'est plus compté. */
   cancelled?: { date: string; reason: string; by?: string | null } | null;
   /** Libellés dans la langue de l'interface ; le français par défaut. */
@@ -61,9 +71,19 @@ export function CompactReceipt({
   methodCode,
   method,
   remaining,
+  stamp,
+  balance,
   cancelled,
   labels = {},
 }: CompactReceiptProps) {
+  const stampClass = cancelled
+    ? styles.stampCancelled
+    : stamp
+      ? { PAID: styles.stampPaid, RECEIVED: styles.stampReceived, PARTIAL: styles.stampPartial }[stamp]
+      : remaining
+        ? styles.stampPartial
+        : styles.stampPaid;
+  const stampLabel = cancelled ? "Annulé" : stamp ? STAMP_LABELS[stamp] : remaining ? "Acompte" : "Payé";
   const place = schoolPlaceLine(school);
   const phone = schoolPhoneLine(school);
   // Un en-tête complet (bannière avec nom, logo, téléphone) se lit en grand,
@@ -77,14 +97,21 @@ export function CompactReceipt({
         <div className={letterhead ? styles.headLetterhead : styles.head}>
           <div className={letterhead ? styles.bannerWrap : styles.school}>
             {letterhead && school.logoUrl ? (
-              <Image src={school.logoUrl} alt="" width={1000} height={300} unoptimized className={styles.banner} />
+              <div className="flex flex-col items-center">
+                <Image src={school.logoUrl} alt="" width={1000} height={300} unoptimized className={styles.banner} />
+                <div className={styles.letterheadName} data-testid="receipt-school-name">
+                  {school.name}
+                </div>
+              </div>
             ) : (
               <>
                 {school.logoUrl && (
                   <Image src={school.logoUrl} alt="" width={400} height={400} unoptimized className={styles.logo} />
                 )}
                 <div className="min-w-0">
-                  <div className={styles.schoolName}>{school.name}</div>
+                  <div className={styles.schoolName} data-testid="receipt-school-name">
+                    {school.name}
+                  </div>
                   {(place || phone) && (
                     <div className={styles.schoolMeta}>
                       {[place, phone && `Tél. ${phone}`].filter(Boolean).join(" · ")}
@@ -103,7 +130,7 @@ export function CompactReceipt({
         </div>
 
         <div className={styles.info}>
-          <div className="space-y-[2.2mm]">
+          <div className="space-y-[1.6mm]">
             {parties.map((p) => (
               <div key={p.label}>
                 <div className={styles.fieldLabel}>{p.label}</div>
@@ -118,7 +145,7 @@ export function CompactReceipt({
               </div>
             ))}
           </div>
-          <div className="space-y-[2.2mm]">
+          <div className="space-y-[1.6mm]">
             <div>
               <div className={styles.fieldLabel}>{labels.date ?? "Date"}</div>
               <div className={styles.fieldValue}>{date}</div>
@@ -169,17 +196,19 @@ export function CompactReceipt({
         )}
 
         <div className={styles.bottom}>
-          <div
-            className={`${styles.stamp} ${cancelled ? styles.stampCancelled : remaining ? styles.stampPartial : styles.stampPaid}`}
-            data-testid="receipt-stamp"
-          >
-            {cancelled ? "Annulé" : remaining ? "Acompte" : "Payé"}
+          <div className={`${styles.stamp} ${stampClass}`} data-testid="receipt-stamp">
+            {stampLabel}
           </div>
           <div className={styles.signature}>{labels.signature ?? "Signature et cachet de l'école"}</div>
           <div className={styles.totalBox}>
             <div className={styles.totalLabel}>{labels.paid ?? "Montant payé"}</div>
             <div className={styles.totalAmount}>{total}</div>
-            {remaining && !cancelled && <div className={styles.remaining}>{remaining}</div>}
+            {remaining && !cancelled && !balance && <div className={styles.remaining}>{remaining}</div>}
+            {balance && !cancelled && (
+              <div className={styles.remaining} data-testid="receipt-balance">
+                {balance}
+              </div>
+            )}
           </div>
         </div>
 

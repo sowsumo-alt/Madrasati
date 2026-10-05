@@ -58,9 +58,19 @@
 .headLetterhead {
   display: flex;
   flex-direction: column;
-  gap: 2.4mm;
-  padding-bottom: 2.6mm;
+  gap: 1.4mm;
+  padding-bottom: 1.8mm;
   border-bottom: 0.3mm solid #e5e7eb;
+}
+/* Le nom de l'école (Paramètres), sous un logo en forme d'en-tête. */
+.letterheadName {
+  margin-top: 0.6mm;
+  font-size: 8.5pt;
+  line-height: 1.1;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-align: center;
+  color: #111827;
 }
 .bannerWrap {
   display: flex;
@@ -70,7 +80,8 @@
   display: block;
   width: auto;
   height: auto;
-  max-height: 25mm;
+  /* 17 mm : la place du nom de l'école, de la famille et du reste dû sur la demi-feuille. */
+  max-height: 17mm;
   max-width: 100%;
   object-fit: contain;
 }
@@ -122,8 +133,8 @@
 .info {
   display: grid;
   grid-template-columns: 1.25fr 1fr;
-  gap: 2.2mm 6mm;
-  padding: 3mm 0;
+  gap: 1.6mm 6mm;
+  padding: 1.8mm 0;
 }
 .fieldLabel {
   font-size: 6.8pt;
@@ -179,7 +190,7 @@
   font-size: 9pt;
 }
 .table th {
-  padding: 1.4mm 3mm;
+  padding: 1.1mm 3mm;
   background: #eef5f1;
   color: #0b5e38;
   font-size: 7pt;
@@ -194,7 +205,7 @@
   white-space: nowrap;
 }
 .table td {
-  padding: 1.6mm 3mm;
+  padding: 1.3mm 3mm;
   border-top: 0.3mm solid #e5e7eb;
   vertical-align: top;
 }
@@ -212,7 +223,7 @@
 
 /* EN LETTRES */
 .words {
-  margin-top: 2.2mm;
+  margin-top: 1.6mm;
   font-size: 8.5pt;
   font-style: italic;
   color: #374151;
@@ -229,7 +240,7 @@
   grid-template-columns: 34mm 1fr 58mm;
   align-items: end;
   gap: 5mm;
-  padding-top: 3mm;
+  padding-top: 2mm;
 }
 .stamp {
   justify-self: start;
@@ -249,6 +260,10 @@
 }
 .stampPartial {
   color: #b45309;
+}
+/* Paiement reçu, mais la famille doit encore d'autres mois. */
+.stampReceived {
+  color: #1d4ed8;
 }
 .stampCancelled {
   color: #b91c1c;

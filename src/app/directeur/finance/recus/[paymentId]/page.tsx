@@ -30,6 +30,9 @@ import {
 import { markReceiptsPrinted } from "../../actions";
 import { CancelReceiptButton } from "../cancel-receipt-button";
 import { CancelledReceiptView } from "../cancelled-receipt";
+import { ReceiptDateButton } from "../receipt-date-button";
+import { familyStudentIds, loadReceiptStanding } from "@/lib/receipt-standing";
+import { receiptBalanceText, type ReceiptStanding } from "@/lib/receipt-status";
 
 const DEFAULT_CONFIRMATION =
   "Bonjour {parentName},\n\nNous confirmons la réception d'un paiement de {amount} MRU pour {studentName}, effectué le {date}. Merci pour votre règlement.\n\n{schoolName}";
@@ -57,19 +60,31 @@ function methodLabel(method: string, t: (key: TranslationKey) => string) {
   return label === key ? method : label;
 }
 
+/**
+ * Reste dû après ce paiement et tampon (lib/receipt-status.ts) : pour un frais
+ * de la fiche familiale, toute la famille ; sinon l'élève seul.
+ */
+async function standingOf(payment: ReceiptPayment): Promise<ReceiptStanding> {
+  return loadReceiptStanding(prisma, {
+    studentIds: payment.fee.familyParentId
+      ? await familyStudentIds(prisma, payment.fee.familyParentId)
+      : [payment.studentId],
+    receiptFeeIds: [payment.feeId],
+    paidAt: payment.paidAt,
+    receiptNumber: payment.receiptNumber,
+  });
+}
+
 /** Le reçu compact d'un paiement, dans la langue de l'interface. */
 function receiptOf(
   payment: ReceiptPayment,
+  standing: ReceiptStanding,
   school: SchoolIdentity,
   t: (key: TranslationKey) => string,
   locale: Locale,
   id?: string,
 ) {
   const parent = payment.student.parentLinks[0]?.parent ?? null;
-  // Reste dû après ce versement : un reçu qui n'annonce que le montant reçu
-  // laisse croire au parent que tout est soldé.
-  const totalPaid = payment.fee.payments.reduce((sum, p) => sum + p.amount, 0);
-  const remaining = Math.max(payment.fee.amount - totalPaid, 0);
   return (
     <CompactReceipt
       id={id}
@@ -100,7 +115,8 @@ function receiptOf(
       paidAmount={payment.amount}
       methodCode={payment.method}
       method={methodLabel(payment.method, t)}
-      remaining={remaining > 0 ? t("finance.remainingIs").replace("{amount}", formatMRU(remaining)) : null}
+      stamp={standing.stamp}
+      balance={receiptBalanceText(standing, formatMRU)}
       labels={{ paid: t("finance.paidAmount"), method: t("finance.method"), thanks: t("finance.thankYou") }}
     />
   );
@@ -263,6 +279,7 @@ export default async function ReceiptPage({
               {t("finance.confirmOnWhatsApp")}
             </a>
           )}
+          <ReceiptDateButton target={{ paymentId: payment.id }} current={payment.paidAt.toISOString().slice(0, 10)} />
           <PrintButton
             label={partner ? "Imprimer les 2 reçus" : t("finance.printReceipt")}
             onUse={markReceiptsPrinted.bind(null, printedIds)}
@@ -279,8 +296,8 @@ export default async function ReceiptPage({
 
       <ReceiptSheet
         mode={mode}
-        top={receiptOf(payment, school, t, locale, "recu-card")}
-        bottom={partner ? receiptOf(partner, school, t, locale) : undefined}
+        top={receiptOf(payment, await standingOf(payment), school, t, locale, "recu-card")}
+        bottom={partner ? receiptOf(partner, await standingOf(partner), school, t, locale) : undefined}
         emptyHint="Bas de feuille libre : le prochain reçu du jour s'y placera. Vous pouvez aussi imprimer maintenant."
       />
     </div>

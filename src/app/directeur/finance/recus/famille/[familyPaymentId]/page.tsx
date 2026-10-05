@@ -27,6 +27,10 @@ import { buildWhatsAppUrl, schoolSignatureAr, schoolSignatureFr, withArabic } fr
 import { familyReceiptLines, studentReceiptLines } from "@/lib/receipt-lines";
 import { CancelReceiptButton } from "../../cancel-receipt-button";
 import { CancelledReceiptView } from "../../cancelled-receipt";
+import { ReceiptDateButton } from "../../receipt-date-button";
+import { familyReferentId } from "@/lib/family-sheet-data";
+import { familyStudentIds, loadReceiptStanding } from "@/lib/receipt-standing";
+import { receiptBalanceText } from "@/lib/receipt-status";
 
 /** « +22246523896 » ou « 22246523896 » -> « +222 46 52 38 96 ». */
 function displayPhone(phone: string) {
@@ -57,7 +61,16 @@ export default async function FamilyReceiptPage({
     where: { id: familyPaymentId, schoolId: user.schoolId },
     include: {
       school: true,
-      parent: { include: { _count: { select: { studentLinks: true } } } },
+      parent: {
+        include: {
+          studentLinks: {
+            orderBy: { student: { createdAt: "asc" } },
+            select: {
+              student: { select: { id: true, firstName: true, lastName: true, status: true, classRoom: { select: { name: true } } } },
+            },
+          },
+        },
+      },
       cancelledParts: { orderBy: { receiptNumber: "asc" } },
       payments: {
         include: {
@@ -122,13 +135,6 @@ export default async function FamilyReceiptPage({
   const name = parent ? familyLabel(parent, t("family.defaultName")) : t("family.receiptFamily");
   const parentName = parent ? `${parent.firstName} ${parent.lastName}` : null;
 
-  // Reste dû après ce versement, frais par frais : un reçu qui n'annonce que
-  // le montant reçu laisse croire au parent que tout est soldé.
-  const remaining = payments.reduce((sum, p) => {
-    const paid = p.fee.payments.reduce((s, x) => s + x.amount, 0);
-    return sum + Math.max(p.fee.amount - paid, 0);
-  }, 0);
-
   // Un seul élève : un versement qui couvre plusieurs mois de sa formule
   // (« 4 mois d'un coup »). Le reçu est alors celui de l'élève — pas un reçu
   // « famille, 4 enfants ».
@@ -148,7 +154,31 @@ export default async function FamilyReceiptPage({
   // par l'élève référent — comme la fiche papier, le reçu dit la famille, le
   // nombre d'élèves inscrits et le référent.
   const familySheet = Boolean(oneStudent && parent && payments.some((p) => p.fee.familyParentId));
-  const enrolledCount = parent?._count.studentLinks ?? 0;
+  // Un reçu de famille : tous les enfants, chacun avec sa classe, et le même
+  // élève référent que la page famille (familyReferentId).
+  const familyReceipt = Boolean(parent && (familySheet || !oneStudent));
+  const paidIds = new Set(payments.map((p) => p.studentId));
+  const children = (parent?.studentLinks ?? [])
+    .map((l) => l.student)
+    .filter((s) => s.status === "ACTIVE" || paidIds.has(s.id));
+  const enrolledCount = children.length;
+  const referentId = parent && familySheet ? await familyReferentId(prisma, parent.id) : null;
+  const childrenLine = children
+    .map((s) => {
+      const detail = [s.classRoom?.name, s.id === referentId ? "référent" : null].filter(Boolean).join(", ");
+      return `${s.firstName} ${s.lastName}${detail ? ` (${detail})` : ""}`;
+    })
+    .join(" · ");
+
+  // Reste dû après ce paiement et tampon : toute la famille pour un reçu de
+  // famille — « Payé » seulement si elle est à jour (lib/receipt-status.ts).
+  const standing = await loadReceiptStanding(prisma, {
+    studentIds: familyReceipt && parent ? await familyStudentIds(prisma, parent.id) : [...paidIds],
+    receiptFeeIds: payments.map((p) => p.feeId),
+    paidAt: familyPayment.paidAt,
+    receiptNumber: familyPayment.receiptNumber,
+  });
+  const balanceText = receiptBalanceText(standing, formatMRU);
 
   const bilingual = schoolHasFeature(school, FEATURES.BILINGUAL_MESSAGES);
   // Une famille : une ligne par enfant (inscription et juin additionnés),
@@ -177,9 +207,9 @@ export default async function FamilyReceiptPage({
       : "لأطفالكم";
   const confirmationMessage = parent
     ? withArabic(
-        `Bonjour ${parentName},\n\nNous confirmons la réception d'un paiement de ${formatAmount(familyPayment.total)} MRU pour ${forWhom}, effectué le ${formatLongDate(familyPayment.paidAt)} :\n${lines.join("\n")}\n\nReçu n° ${familyPayment.receiptNumber}. Merci pour votre règlement.\n\n${schoolSignatureFr(school.name)}`,
+        `Bonjour ${parentName},\n\nNous confirmons la réception d'un paiement de ${formatAmount(familyPayment.total)} MRU pour ${forWhom}, effectué le ${formatLongDate(familyPayment.paidAt)} :\n${lines.join("\n")}\n\nReste dû après ce paiement : ${formatAmount(standing.dueAfter)} MRU.\nReçu n° ${familyPayment.receiptNumber}. Merci pour votre règlement.\n\n${schoolSignatureFr(school.name)}`,
         bilingual
-          ? `مرحبًا ${parentName}،\n\nنؤكد استلام دفعة بمبلغ ${formatAmount(familyPayment.total)} أوقية موريتانية ${forWhomAr}، بتاريخ ${formatLongDateAr(familyPayment.paidAt)}:\n${linesAr.join("\n")}\n\nإيصال رقم ${familyPayment.receiptNumber}. شكرًا لتسديدكم.\n\n${schoolSignatureAr(school.name)}`
+          ? `مرحبًا ${parentName}،\n\nنؤكد استلام دفعة بمبلغ ${formatAmount(familyPayment.total)} أوقية موريتانية ${forWhomAr}، بتاريخ ${formatLongDateAr(familyPayment.paidAt)}:\n${linesAr.join("\n")}\n\nالمتبقي بعد هذا الدفع: ${formatAmount(standing.dueAfter)} أوقية.\nإيصال رقم ${familyPayment.receiptNumber}. شكرًا لتسديدكم.\n\n${schoolSignatureAr(school.name)}`
           : null,
       )
     : "";
@@ -220,6 +250,10 @@ export default async function FamilyReceiptPage({
               {t("finance.confirmOnWhatsApp")}
             </a>
           )}
+          <ReceiptDateButton
+            target={{ familyPaymentId: familyPayment.id }}
+            current={familyPayment.paidAt.toISOString().slice(0, 10)}
+          />
           <PrintButton label={t("finance.printReceipt")} />
           <CancelReceiptButton
             target={{ familyPaymentId: familyPayment.id }}
@@ -241,24 +275,20 @@ export default async function FamilyReceiptPage({
             receiptNumber={familyPayment.receiptNumber}
             date={formatDateIn(locale, familyPayment.paidAt, { day: "numeric", month: "long", year: "numeric" })}
             parties={[
-              ...(familySheet && oneStudent
+              ...(familyReceipt
                 ? [
-                    { label: t("family.receiptFamily"), name, sub: `${enrolledCount} élèves inscrits` },
-                    {
-                      label: "Élève référent",
-                      name: `${oneStudent.firstName} ${oneStudent.lastName}`,
-                      sub: oneStudent.classRoom?.name ?? null,
-                    },
+                    { label: t("family.receiptFamily"), name, sub: `${enrolledCount} élève(s) inscrit(s)` },
+                    { label: "Élèves", name: childrenLine },
                   ]
-                : [
-              oneStudent
-                ? {
-                    label: t("finance.student"),
-                    name: `${oneStudent.firstName} ${oneStudent.lastName}`,
-                    sub: oneStudent.classRoom?.name ?? t("students.noClass"),
-                  }
-                : { label: t("family.receiptFamily"), name, sub: t("family.childCount").replace("{count}", String(perChild.size)) },
-                  ]),
+                : oneStudent
+                  ? [
+                      {
+                        label: t("finance.student"),
+                        name: `${oneStudent.firstName} ${oneStudent.lastName}`,
+                        sub: oneStudent.classRoom?.name ?? t("students.noClass"),
+                      },
+                    ]
+                  : [{ label: t("family.receiptFamily"), name, sub: t("family.childCount").replace("{count}", String(perChild.size)) }]),
               { label: t("finance.parentOrGuardian"), name: parentName ?? "—", sub: parent ? displayPhone(parent.phone) : null },
             ]}
             lines={receiptLines.map((l) => ({ label: l.label, detail: l.detail, amount: formatMRU(l.amount) }))}
@@ -266,7 +296,8 @@ export default async function FamilyReceiptPage({
             paidAmount={familyPayment.total}
             methodCode={familyPayment.method}
             method={methodLabel}
-            remaining={remaining > 0 ? t("finance.remainingIs").replace("{amount}", formatMRU(remaining)) : null}
+            stamp={standing.stamp}
+            balance={balanceText}
             labels={{ paid: t("finance.paidAmount"), method: t("finance.method"), thanks: t("finance.thankYou") }}
           />
         }

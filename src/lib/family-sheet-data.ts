@@ -145,6 +145,13 @@ export async function recordFamilySheet(
   const dateOf = (date: string | undefined) => (date && date !== today ? date : null);
 
   let fee = enrollmentFee;
+  // Fiche familiale : l'inscription est portée par le même élève référent que
+  // les mois — un seul référent, sur la page famille comme sur le reçu.
+  if (fee && familyParentId && fee.studentId !== studentId) {
+    await tx.fee.update({ where: { id: fee.id }, data: { studentId, familyParentId } });
+    await tx.payment.updateMany({ where: { feeId: fee.id }, data: { studentId } });
+    fee = { ...fee, studentId };
+  }
   if (!fee && sheet.enrollment.due > 0) {
     fee = await tx.fee.create({
       data: {
@@ -243,6 +250,25 @@ export async function recordSheetPayments(
     receipts.push({ ...paid, date: key || null });
   }
   return receipts;
+}
+
+/**
+ * L'élève référent de la fiche familiale : celui qui porte la fiche de
+ * l'année (ses mois), sinon celui qui porte l'inscription de la famille.
+ * La seule définition, lue par la page famille, la fiche et le reçu.
+ */
+export async function familyReferentId(db: Db, parentId: string): Promise<string | null> {
+  const plan = await db.tuitionPlan.findFirst({
+    where: { familyParentId: parentId, academicYear: { isCurrent: true } },
+    select: { studentId: true },
+  });
+  if (plan) return plan.studentId;
+  const fee = await db.fee.findFirst({
+    where: { familyParentId: parentId, academicYear: { isCurrent: true } },
+    orderBy: { createdAt: "asc" },
+    select: { studentId: true },
+  });
+  return fee?.studentId ?? null;
 }
 
 /**

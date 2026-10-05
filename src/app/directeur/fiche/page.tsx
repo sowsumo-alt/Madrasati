@@ -9,6 +9,7 @@ import { monthStart, monthsBetween } from "@/lib/tuition";
 import { newSheetDraft } from "@/lib/family-sheet-draft";
 import type { SheetChild, SheetExisting } from "@/app/directeur/familles/inscription/family-sheet-step";
 import { SheetEditor } from "./sheet-editor";
+import { familyReferentId } from "@/lib/family-sheet-data";
 
 const day = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -88,14 +89,10 @@ export default async function SheetPage({
 
   const familySheet = Boolean(parentId) && students.length >= 2 && settings.familySheetMode === "FAMILY";
 
-  // L'élève référent d'une fiche familiale : celui qui porte déjà la fiche, sinon le premier inscrit.
-  const familyPlan =
-    familySheet && year
-      ? await prisma.tuitionPlan.findFirst({
-          where: { familyParentId: parentId, academicYearId: year.id },
-          select: { studentId: true },
-        })
-      : null;
+  // L'élève référent d'une fiche familiale : celui qui porte déjà la fiche
+  // (familyReferentId, comme la page famille et le reçu), sinon le premier inscrit.
+  const referentId = familySheet && parentId ? await familyReferentId(prisma, parentId) : null;
+  const familyPlan = referentId ? { studentId: referentId } : null;
   const referents = familySheet
     ? [students.find((s) => s.id === familyPlan?.studentId) ?? students[0]]
     : students;

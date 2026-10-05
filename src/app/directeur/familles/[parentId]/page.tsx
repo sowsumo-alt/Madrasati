@@ -6,6 +6,7 @@ import { familyBalance, familyLabel } from "@/lib/family";
 import { getTranslations } from "@/lib/i18n/server";
 import { FamilyView } from "../family-view/family-view";
 import type { AttachCandidate, FamilyHistoryEntry, FamilyPageData } from "../family-view/types";
+import { familyReferentId } from "@/lib/family-sheet-data";
 
 /** « +22246523896 » et « 22246523896 » désignent le même numéro. */
 function phoneVariants(phone: string) {
@@ -97,20 +98,27 @@ export default async function FamilyPage({ params }: { params: Promise<{ parentI
       .filter((f) => f.remaining > 0),
   );
 
-  // Fiche de paiement familiale de l'année en cours, s'il y en a une.
-  const familyPlan = await prisma.tuitionPlan.findFirst({
-    where: { familyParentId: parent.id, academicYear: { isCurrent: true } },
-    select: { monthlyAmount: true, student: { select: { id: true, firstName: true, lastName: true } } },
-  });
+  // Fiche de paiement familiale de l'année en cours, s'il y en a une, et son
+  // référent — le même que sur le reçu (familyReferentId).
+  const referentId = await familyReferentId(prisma, parent.id);
+  const familyPlan = referentId
+    ? await prisma.tuitionPlan.findFirst({
+        where: { familyParentId: parent.id, academicYear: { isCurrent: true } },
+        select: { monthlyAmount: true },
+      })
+    : null;
+  const referent = referentId
+    ? await prisma.student.findUnique({ where: { id: referentId }, select: { id: true, firstName: true, lastName: true } })
+    : null;
   const familyEnrollment = await prisma.fee.findFirst({
     where: { familyParentId: parent.id, tuitionPlanId: null, label: { startsWith: "Frais d'inscription" } },
     select: { amount: true },
   });
-  const sheet = familyPlan
+  const sheet = referent
     ? {
-        referentId: familyPlan.student.id,
-        referentName: `${familyPlan.student.firstName} ${familyPlan.student.lastName}`.trim(),
-        monthly: familyPlan.monthlyAmount,
+        referentId: referent.id,
+        referentName: `${referent.firstName} ${referent.lastName}`.trim(),
+        monthly: familyPlan?.monthlyAmount ?? 0,
         enrollment: familyEnrollment?.amount ?? null,
       }
     : null;
