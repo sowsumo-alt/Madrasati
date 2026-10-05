@@ -34,6 +34,8 @@ export interface CompactReceiptProps {
   methodCode: string;
   method: string;
   remaining?: string | null;
+  /** Reçu annulé : tampon « ANNULÉ », date et motif ; l'argent n'est plus compté. */
+  cancelled?: { date: string; reason: string } | null;
   /** Libellés dans la langue de l'interface ; le français par défaut. */
   labels?: {
     paid?: string;
@@ -59,6 +61,7 @@ export function CompactReceipt({
   methodCode,
   method,
   remaining,
+  cancelled,
   labels = {},
 }: CompactReceiptProps) {
   const place = schoolPlaceLine(school);
@@ -157,16 +160,24 @@ export function CompactReceipt({
         <p className={styles.words} data-testid="amount-words">
           Arrêté le présent reçu à la somme de <b>{amountInWords(paidAmount)}</b>.
         </p>
+        {cancelled && (
+          <p className={styles.cancelNote} data-testid="receipt-cancelled">
+            Reçu annulé le {cancelled.date} — motif : {cancelled.reason}. Ce montant n&apos;est plus compté comme perçu.
+          </p>
+        )}
 
         <div className={styles.bottom}>
-          <div className={`${styles.stamp} ${remaining ? styles.stampPartial : styles.stampPaid}`} data-testid="receipt-stamp">
-            {remaining ? "Acompte" : "Payé"}
+          <div
+            className={`${styles.stamp} ${cancelled ? styles.stampCancelled : remaining ? styles.stampPartial : styles.stampPaid}`}
+            data-testid="receipt-stamp"
+          >
+            {cancelled ? "Annulé" : remaining ? "Acompte" : "Payé"}
           </div>
           <div className={styles.signature}>{labels.signature ?? "Signature et cachet de l'école"}</div>
           <div className={styles.totalBox}>
             <div className={styles.totalLabel}>{labels.paid ?? "Montant payé"}</div>
             <div className={styles.totalAmount}>{total}</div>
-            {remaining && <div className={styles.remaining}>{remaining}</div>}
+            {remaining && !cancelled && <div className={styles.remaining}>{remaining}</div>}
           </div>
         </div>
 

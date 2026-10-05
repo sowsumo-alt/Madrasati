@@ -63,7 +63,7 @@ export async function applyTuitionPlan(
       lastMonth,
     },
     update: { frequency, periodMonths, monthlyAmount, firstMonth, lastMonth },
-    select: { id: true },
+    select: { id: true, familyParentId: true },
   });
 
   const removed = await tx.fee.deleteMany({
@@ -95,6 +95,8 @@ export async function applyTuitionPlan(
         periodStart: i.periodStart,
         periodEnd: i.periodEnd,
         status: "PENDING",
+        // Formule d'une fiche familiale : les nouvelles échéances restent celles de la famille.
+        familyParentId: plan.familyParentId,
       })),
     });
   }

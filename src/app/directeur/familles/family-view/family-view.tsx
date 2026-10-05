@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ChevronRight,
   HandCoins,
@@ -16,6 +17,7 @@ import {
   CircleCheck,
   CircleAlert,
   Banknote,
+  Trash2,
 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { WhatsAppLink } from "@/components/ui/whatsapp-link";
@@ -28,6 +30,8 @@ import { cn } from "@/lib/utils";
 import { FamilyPaymentDialog } from "./family-payment-dialog";
 import { AttachStudentDialog, CandidateRow, useAttach } from "./attach-student-dialog";
 import { RenameFamilyDialog } from "./rename-family-dialog";
+import { RemovalDialog } from "../removal-dialog";
+import { TuitionPlanDialog } from "@/components/finance/tuition-plan-dialog";
 import type { FamilyPageData } from "./types";
 
 function displayPhone(phone: string) {
@@ -48,6 +52,9 @@ export function FamilyView({ data }: { data: FamilyPageData }) {
   const [payOpen, setPayOpen] = useState(false);
   const [attachOpen, setAttachOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
+  const [removeOpen, setRemoveOpen] = useState(false);
+  const [sheetEditFor, setSheetEditFor] = useState<string | null>(null);
+  const router = useRouter();
   const suggestions = useAttach(data.parentId);
 
   const kpis = [
@@ -115,6 +122,15 @@ export function FamilyView({ data }: { data: FamilyPageData }) {
         </div>
 
         <div className="flex flex-wrap gap-2">
+          <Button
+            variant="secondary"
+            className="text-red-700"
+            onClick={() => setRemoveOpen(true)}
+            data-testid="family-remove"
+          >
+            <Trash2 className="h-4 w-4" />
+            Supprimer / archiver
+          </Button>
           <Button variant="secondary" onClick={() => setAttachOpen(true)}>
             <Link2 className="h-4 w-4" />
             {t("family.attachStudent")}
@@ -148,6 +164,24 @@ export function FamilyView({ data }: { data: FamilyPageData }) {
           </div>
         ))}
       </div>
+      {data.sheet && (
+        <div
+          className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary-200 bg-primary-50/50 px-4 py-3 text-sm"
+          data-testid="family-sheet-card"
+        >
+          <p>
+            <span className="font-semibold text-primary-900">Fiche de paiement familiale</span>
+            <span className="text-foreground/70">
+              {" "}
+              · élève référent {data.sheet.referentName} · mensuel {formatMRU(data.sheet.monthly)}
+              {data.sheet.enrollment != null ? ` · inscription ${formatMRU(data.sheet.enrollment)}` : ""}
+            </span>
+          </p>
+          <Button variant="secondary" size="sm" onClick={() => setSheetEditFor(data.sheet!.referentId)} data-testid="family-sheet-edit">
+            Modifier la fiche
+          </Button>
+        </div>
+      )}
       {upcoming > 0 && (
         <p className="-mt-2 text-sm text-foreground/55" data-testid="family-upcoming">
           {t("family.upcoming").replace("{amount}", ltrIsolate(formatMRU(upcoming)))}
@@ -255,6 +289,11 @@ export function FamilyView({ data }: { data: FamilyPageData }) {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-foreground">
                       {h.kind === "family" ? t("family.familyReceipt") : h.childName}
+                      {h.cancelled && (
+                        <span className="ms-2 rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-bold uppercase text-red-700" data-testid="history-cancelled">
+                          Annulé
+                        </span>
+                      )}
                     </p>
                     <p className="truncate text-xs text-foreground/55">
                       {h.kind === "family"
@@ -270,7 +309,10 @@ export function FamilyView({ data }: { data: FamilyPageData }) {
                     </p>
                   </div>
                   <div className="shrink-0 text-end">
-                    <p className="font-bold text-foreground" style={{ fontVariantNumeric: "tabular-nums" }}>
+                    <p
+                      className={cn("font-bold", h.cancelled ? "text-foreground/40 line-through" : "text-foreground")}
+                      style={{ fontVariantNumeric: "tabular-nums" }}
+                    >
                       <span dir="ltr">{formatMRU(h.total)}</span>
                     </p>
                     <Link
@@ -297,6 +339,19 @@ export function FamilyView({ data }: { data: FamilyPageData }) {
         onOpenChange={setAttachOpen}
         parentId={data.parentId}
         candidates={data.candidates}
+      />
+      <TuitionPlanDialog
+        studentId={sheetEditFor}
+        onOpenChange={(open) => {
+          if (!open) setSheetEditFor(null);
+        }}
+      />
+      <RemovalDialog
+        kind="family"
+        id={data.parentId}
+        open={removeOpen}
+        onOpenChange={setRemoveOpen}
+        onDone={(mode) => (mode === "DELETE" ? router.push("/directeur/familles") : router.refresh())}
       />
       <RenameFamilyDialog
         open={renameOpen}

@@ -2,7 +2,10 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { CalendarClock, FileText, MessageCircle, Pencil, Phone } from "lucide-react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { CalendarClock, FileText, MessageCircle, Pencil, Phone, Trash2 } from "lucide-react";
+import { RemovalDialog } from "@/app/directeur/familles/removal-dialog";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -54,6 +57,8 @@ export function StudentProfileSheet({
   /** Ouvre la formule de paiement des frais de scolarité. */
   onTuition: (student: StudentRow) => void;
 }) {
+  const [removeOpen, setRemoveOpen] = useState(false);
+  const router = useRouter();
   const { t, locale } = useLanguage();
   const empty = <span className="font-normal text-foreground/35">{t("students.notProvided")}</span>;
   const longDate = (iso: string) =>
@@ -206,7 +211,27 @@ export function StudentProfileSheet({
                 <FileText className="h-4 w-4" />
                 {t("students.viewReportCard")}
               </Link>
+              <Button
+                variant="secondary"
+                className="text-red-700"
+                onClick={() => setRemoveOpen(true)}
+                aria-label="Supprimer ou archiver l'élève"
+                title="Supprimer ou archiver"
+                data-testid="student-remove"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
             </div>
+            <RemovalDialog
+              kind="student"
+              id={student.id}
+              open={removeOpen}
+              onOpenChange={setRemoveOpen}
+              onDone={() => {
+                onClose();
+                router.refresh();
+              }}
+            />
           </>
         )}
       </SheetContent>

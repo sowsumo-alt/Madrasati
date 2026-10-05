@@ -50,7 +50,10 @@ export default async function FamilyPage({ params }: { params: Promise<{ parentI
         },
       },
       familyPayments: {
-        include: { payments: { select: { student: { select: { firstName: true } } } } },
+        include: {
+          payments: { select: { student: { select: { firstName: true } } } },
+          cancelledParts: { select: { studentName: true } },
+        },
       },
     },
   });
@@ -94,8 +97,30 @@ export default async function FamilyPage({ params }: { params: Promise<{ parentI
       .filter((f) => f.remaining > 0),
   );
 
+  // Fiche de paiement familiale de l'année en cours, s'il y en a une.
+  const familyPlan = await prisma.tuitionPlan.findFirst({
+    where: { familyParentId: parent.id, academicYear: { isCurrent: true } },
+    select: { monthlyAmount: true, student: { select: { id: true, firstName: true, lastName: true } } },
+  });
+  const familyEnrollment = await prisma.fee.findFirst({
+    where: { familyParentId: parent.id, tuitionPlanId: null, label: { startsWith: "Frais d'inscription" } },
+    select: { amount: true },
+  });
+  const sheet = familyPlan
+    ? {
+        referentId: familyPlan.student.id,
+        referentName: `${familyPlan.student.firstName} ${familyPlan.student.lastName}`.trim(),
+        monthly: familyPlan.monthlyAmount,
+        enrollment: familyEnrollment?.amount ?? null,
+      }
+    : null;
+
+  const cancelledSingles = await prisma.cancelledPayment.findMany({
+    where: { schoolId: user.schoolId, studentId: { in: [...childIds] }, familyPaymentId: null },
+  });
+
   // Historique : chaque paiement familial une fois (avec ses enfants), puis
-  // les paiements faits pour un seul enfant.
+  // les paiements faits pour un seul enfant ; les reçus annulés y restent.
   const history: FamilyHistoryEntry[] = [
     ...parent.familyPayments.map((fp) => ({
       kind: "family" as const,
@@ -104,7 +129,22 @@ export default async function FamilyPage({ params }: { params: Promise<{ parentI
       paidAt: fp.paidAt.toISOString(),
       method: fp.method,
       total: fp.total,
-      childNames: fp.payments.map((p) => p.student.firstName),
+      childNames: fp.cancelledAt
+        ? [...new Set(fp.cancelledParts.map((c) => c.studentName.split(" ")[0]))]
+        : fp.payments.map((p) => p.student.firstName),
+      cancelled: Boolean(fp.cancelledAt),
+    })),
+    // Paiements d'un enfant annulés : la trace reste visible.
+    ...cancelledSingles.map((c) => ({
+      kind: "single" as const,
+      id: c.id,
+      receiptNumber: c.receiptNumber,
+      paidAt: c.paidAt.toISOString(),
+      method: c.method,
+      total: c.amount,
+      childName: c.studentName,
+      feeLabel: c.feeLabel,
+      cancelled: true,
     })),
     ...students.flatMap((s) =>
       s.fees.flatMap((f) =>
@@ -174,6 +214,7 @@ export default async function FamilyPage({ params }: { params: Promise<{ parentI
     children,
     openFees,
     history,
+    sheet,
     // Somme des restes dus de chaque enfant (eux-mêmes calculés frais par
     // frais) : un trop-perçu chez l'un ne comble pas la dette d'un autre.
     balance: children.reduce(

@@ -85,6 +85,7 @@ model School {
   fees                 Fee[]
   payments             Payment[]
   familyPayments       FamilyPayment[]
+  cancelledPayments    CancelledPayment[]
   attendance           AttendanceRecord[]
   templates            MessageTemplate[]
   holidays             Holiday[]
@@ -341,6 +342,7 @@ model Student {
   reportCardIssues    ReportCardIssue[]
   annualDecisions     AnnualDecision[]
   tuitionPlans        TuitionPlan[]
+  cancelledPayments   CancelledPayment[]
 
   @@index([schoolId])
   @@index([classId])
@@ -695,26 +697,70 @@ model Payment {
 // continuent donc de fonctionner à l'identique. Cette table ne porte que ce
 // qui est commun : le reçu unique, le total et le mode de paiement.
 model FamilyPayment {
-  id               String   @id @default(cuid())
-  schoolId         String
-  school           School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  parentId         String?
-  parent           Parent?  @relation(fields: [parentId], references: [id], onDelete: SetNull)
+  id                String    @id @default(cuid())
+  schoolId          String
+  school            School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  parentId          String?
+  parent            Parent?   @relation(fields: [parentId], references: [id], onDelete: SetNull)
   // Même numérotation que les reçus individuels (REC-2026-0012) ; ses parts
   // portent ce numéro suivi de leur rang (REC-2026-0012-1, -2…).
-  receiptNumber    String
-  total            Int // MRU, somme des parts
-  method           String
-  paidAt           DateTime @default(now())
-  recordedByUserId String?
-  note             String?
+  receiptNumber     String
+  total             Int // MRU, somme des parts
+  method            String
+  paidAt            DateTime  @default(now())
+  recordedByUserId  String?
+  note              String?
+  // Reçu familial annulé : il reste consultable, marqué « ANNULÉ », et ses
+  // parts passent dans CancelledPayment. Rien n'est effacé en silence.
+  cancelledAt       DateTime?
+  cancelledByUserId String?
+  cancelReason      String?
 
-  payments Payment[]
+  payments       Payment[]
+  cancelledParts CancelledPayment[]
 
   @@unique([schoolId, receiptNumber])
   @@index([schoolId])
   @@index([parentId])
   @@map("family_payments")
+}
+
+/**
+ * Paiement annulé : la trace de ce qui avait été encaissé, de qui l'a annulé,
+ * quand et pourquoi. Le paiement lui-même quitte la table payments — l'argent
+ * perçu baisse d'autant et l'échéance redevient à régler — mais son reçu
+ * reste lisible, marqué « ANNULÉ », sous le même identifiant. Son numéro de
+ * reçu n'est jamais redonné (voir generateReceiptNumber).
+ */
+model CancelledPayment {
+  // Identifiant du paiement annulé : le lien du reçu reste valable.
+  id                String         @id
+  schoolId          String
+  school            School         @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  studentId         String?
+  student           Student?       @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  // Photographie au moment de l'annulation : le reçu se relit tel qu'il était.
+  studentName       String
+  className         String?
+  feeId             String?
+  feeLabel          String
+  feeAmount         Int
+  receiptNumber     String
+  amount            Int // MRU
+  method            String
+  paidAt            DateTime
+  note              String?
+  recordedByUserId  String?
+  familyPaymentId   String?
+  familyPayment     FamilyPayment? @relation(fields: [familyPaymentId], references: [id], onDelete: SetNull)
+  cancelledAt       DateTime       @default(now())
+  cancelledByUserId String?
+  cancelReason      String
+
+  @@index([schoolId])
+  @@index([studentId])
+  @@index([familyPaymentId])
+  @@map("cancelled_payments")
 }
 
 // ---------------------------------------------------------------------------

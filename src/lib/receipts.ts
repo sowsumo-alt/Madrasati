@@ -47,11 +47,18 @@ export async function generateReceiptNumber(
   // aussi : elles portent le numéro du reçu familial, qui ne doit jamais être
   // redonné à un paiement ordinaire. Le reçu familial lui-même vit dans une
   // autre table, mais ses parts sont toujours ici, dans la même transaction.
+  //
+  // Les paiements annulés comptent aussi : un reçu « ANNULÉ » garde son
+  // numéro, qui ne doit jamais désigner un autre encaissement.
+  const pattern = `^${prefix}[0-9]+(-[0-9]+)?$`;
   const rows = await tx.$queryRaw<{ max: number | null }[]>`
-    SELECT MAX(CAST(split_part("receiptNumber", '-', 3) AS INTEGER)) AS max
-    FROM payments
-    WHERE "schoolId" = ${schoolId}
-      AND "receiptNumber" ~ ${`^${prefix}[0-9]+(-[0-9]+)?$`}
+    SELECT MAX(CAST(split_part(n, '-', 3) AS INTEGER)) AS max
+    FROM (
+      SELECT "receiptNumber" AS n FROM payments WHERE "schoolId" = ${schoolId}
+      UNION ALL
+      SELECT "receiptNumber" AS n FROM cancelled_payments WHERE "schoolId" = ${schoolId}
+    ) AS numbers
+    WHERE n ~ ${pattern}
   `;
 
   const lastNumber = rows[0]?.max ?? 0;

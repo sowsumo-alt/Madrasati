@@ -28,6 +28,8 @@ import {
   schoolSignatureAr,
 } from "@/lib/whatsapp";
 import { markReceiptsPrinted } from "../../actions";
+import { CancelReceiptButton } from "../cancel-receipt-button";
+import { CancelledReceiptView } from "../cancelled-receipt";
 
 const DEFAULT_CONFIRMATION =
   "Bonjour {parentName},\n\nNous confirmons la réception d'un paiement de {amount} MRU pour {studentName}, effectué le {date}. Merci pour votre règlement.\n\n{schoolName}";
@@ -128,7 +130,33 @@ export default async function ReceiptPage({
     include: { ...RECEIPT_INCLUDE, school: true },
   });
 
-  if (!payment) notFound();
+  if (!payment) {
+    // Paiement annulé : son reçu reste lisible, marqué « ANNULÉ ».
+    const cancelled = await prisma.cancelledPayment.findFirst({
+      where: { id: paymentId, schoolId: user.schoolId },
+      include: { school: true },
+    });
+    if (!cancelled) notFound();
+    if (cancelled.familyPaymentId) redirect(`/directeur/finance/recus/famille/${cancelled.familyPaymentId}`);
+    const { t } = await getTranslations();
+    return (
+      <CancelledReceiptView
+        school={toSchoolIdentity(cancelled.school)}
+        title={t("finance.receiptTitle")}
+        receiptNumber={cancelled.receiptNumber}
+        paidAt={cancelled.paidAt}
+        parties={[{ label: t("finance.student"), name: cancelled.studentName, sub: cancelled.className }]}
+        lines={[{ label: cancelled.feeLabel, detail: cancelled.note, amount: cancelled.amount }]}
+        total={cancelled.amount}
+        method={methodLabel(cancelled.method, t)}
+        methodCode={cancelled.method}
+        cancelledAt={cancelled.cancelledAt}
+        reason={cancelled.cancelReason}
+        backHref="/directeur/finance"
+        backLabel="Retour aux paiements"
+      />
+    );
+  }
   // Part d'un paiement familial : le parent a reçu un seul reçu pour tous ses
   // enfants, c'est celui-là qu'on montre.
   if (payment.familyPaymentId) redirect(`/directeur/finance/recus/famille/${payment.familyPaymentId}`);
@@ -234,6 +262,7 @@ export default async function ReceiptPage({
             label={partner ? "Imprimer les 2 reçus" : t("finance.printReceipt")}
             onUse={markReceiptsPrinted.bind(null, printedIds)}
           />
+          <CancelReceiptButton target={{ paymentId: payment.id }} amountLabel={formatMRU(payment.amount)} />
         </div>
       </div>
 

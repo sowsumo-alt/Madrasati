@@ -25,6 +25,8 @@ import { getTranslations } from "@/lib/i18n/server";
 import type { TranslationKey } from "@/lib/i18n/dictionaries";
 import { buildWhatsAppUrl, schoolSignatureAr, schoolSignatureFr, withArabic } from "@/lib/whatsapp";
 import { familyReceiptLines, studentReceiptLines } from "@/lib/receipt-lines";
+import { CancelReceiptButton } from "../../cancel-receipt-button";
+import { CancelledReceiptView } from "../../cancelled-receipt";
 
 /** « +22246523896 » ou « 22246523896 » -> « +222 46 52 38 96 ». */
 function displayPhone(phone: string) {
@@ -56,6 +58,7 @@ export default async function FamilyReceiptPage({
     include: {
       school: true,
       parent: { include: { _count: { select: { studentLinks: true } } } },
+      cancelledParts: { orderBy: { receiptNumber: "asc" } },
       payments: {
         include: {
           student: { select: { firstName: true, lastName: true, classRoom: { select: { name: true } } } },
@@ -77,6 +80,35 @@ export default async function FamilyReceiptPage({
 
   const { t, locale } = await getTranslations();
   const { school, parent } = familyPayment;
+
+  // Reçu annulé : ses lignes sont dans la trace des annulations.
+  if (familyPayment.cancelledAt) {
+    const cancelledName = parent ? familyLabel(parent, t("family.defaultName")) : t("family.receiptFamily");
+    return (
+      <CancelledReceiptView
+        school={toSchoolIdentity(school)}
+        title={t("family.receiptTitle")}
+        receiptNumber={familyPayment.receiptNumber}
+        paidAt={familyPayment.paidAt}
+        parties={[
+          { label: t("family.receiptFamily"), name: cancelledName },
+          ...(parent ? [{ label: t("finance.parentOrGuardian"), name: `${parent.firstName} ${parent.lastName}` }] : []),
+        ]}
+        lines={familyPayment.cancelledParts.map((c) => ({
+          label: c.studentName + (c.className ? ` — ${c.className}` : ""),
+          detail: c.feeLabel,
+          amount: c.amount,
+        }))}
+        total={familyPayment.total}
+        method={t(`finance.method.${familyPayment.method}` as TranslationKey)}
+        methodCode={familyPayment.method}
+        cancelledAt={familyPayment.cancelledAt}
+        reason={familyPayment.cancelReason ?? ""}
+        backHref={parent ? `/directeur/familles/${parent.id}` : "/directeur/finance"}
+        backLabel={parent ? t("family.backToFamily") : t("finance.backToStudents")}
+      />
+    );
+  }
   // Dans l'ordre des parts (REC-…-1, -2, …, -10), pas dans l'ordre alphabétique.
   const payments = [...familyPayment.payments].sort(
     (a, b) => partRank(a.receiptNumber) - partRank(b.receiptNumber),
@@ -184,6 +216,11 @@ export default async function FamilyReceiptPage({
             </a>
           )}
           <PrintButton label={t("finance.printReceipt")} />
+          <CancelReceiptButton
+            target={{ familyPaymentId: familyPayment.id }}
+            amountLabel={formatMRU(familyPayment.total)}
+            family={payments.length > 1}
+          />
         </div>
       </div>
 

@@ -250,6 +250,20 @@
 .stampPartial {
   color: #b45309;
 }
+.stampCancelled {
+  color: #b91c1c;
+  font-size: 13pt;
+}
+.cancelNote {
+  margin-top: 1.5mm;
+  padding: 1.2mm 2.4mm;
+  border: 0.3mm solid #fca5a5;
+  border-radius: 1.2mm;
+  background: #fef2f2;
+  color: #991b1b;
+  font-size: 8pt;
+  font-weight: 600;
+}
 .signature {
   padding-top: 1.4mm;
   border-top: 0.3mm solid #6b7280;

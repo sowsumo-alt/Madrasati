@@ -25,6 +25,7 @@ import {
   UserCog,
   CalendarRange,
   NotebookPen,
+  UsersRound,
 } from "lucide-react";
 
 export interface NavItem {
@@ -55,6 +56,7 @@ const directorNavGroups: NavGroup[] = [
     items: [
       { href: "/directeur/inscription", labelKey: "nav.enrollment", icon: ClipboardPlus },
       { href: "/directeur/eleves", labelKey: "nav.students", icon: Users },
+      { href: "/directeur/familles", labelKey: "nav.families", icon: UsersRound },
       { href: "/directeur/classes", labelKey: "nav.classes", icon: School },
       { href: "/directeur/reinscription", labelKey: "nav.reenrollment", icon: UserPlus },
     ],

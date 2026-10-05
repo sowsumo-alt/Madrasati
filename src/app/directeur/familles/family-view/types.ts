@@ -31,6 +31,8 @@ export type FamilyHistoryEntry =
       method: string;
       total: number;
       childNames: string[];
+      /** Reçu annulé : il reste dans l'historique, barré, sans compter. */
+      cancelled?: boolean;
     }
   | {
       kind: "single";
@@ -41,6 +43,7 @@ export type FamilyHistoryEntry =
       total: number;
       childName: string;
       feeLabel: string;
+      cancelled?: boolean;
     };
 
 /** Élève proposé au rattachement (même téléphone, ou recherche libre). */
@@ -65,6 +68,13 @@ export interface FamilyPageData {
   children: FamilyChildRow[];
   openFees: FamilyOpenFee[];
   history: FamilyHistoryEntry[];
+  /** Fiche de paiement familiale de l'année : son référent et ses montants saisis. */
+  sheet: {
+    referentId: string;
+    referentName: string;
+    monthly: number;
+    enrollment: number | null;
+  } | null;
   balance: { billed: number; paid: number; due: number; upcoming: number };
   /** Élèves dont le parent a le même numéro, pas encore dans la famille. */
   suggestions: AttachCandidate[];
