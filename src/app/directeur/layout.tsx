@@ -4,6 +4,7 @@ import { ROLES, ROLE_LABEL_KEYS } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { AppShell } from "@/components/layout/app-shell";
 import { effectivePlan } from "@/lib/plans";
+import { Eye } from "lucide-react";
 
 export default async function DirectorLayout({
   children,
@@ -32,7 +33,7 @@ export default async function DirectorLayout({
       navKey="director"
       schoolName={school?.name ?? "Madrasati"}
       userName={user.name ?? ""}
-      roleKey={ROLE_LABEL_KEYS.DIRECTOR}
+      roleKey={user.readOnly ? "role.readOnly" : ROLE_LABEL_KEYS.DIRECTOR}
       plan={school ? effectivePlan(school) : "standard"}
       searchHref="/directeur/eleves"
       alertCount={overdueFees}
@@ -43,6 +44,15 @@ export default async function DirectorLayout({
           : "Aucun frais en retard"
       }
     >
+      {user.readOnly && (
+        <p
+          className="mb-4 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900"
+          data-testid="read-only-banner"
+        >
+          <Eye className="h-4 w-4 shrink-0" />
+          Accès en lecture seule : vous pouvez tout consulter, mais pas modifier.
+        </p>
+      )}
       {children}
     </AppShell>
   );

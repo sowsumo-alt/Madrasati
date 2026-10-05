@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { basePrisma, prisma } from "@/lib/prisma";
 import type { Role } from "@/lib/roles";
 import { ROLES } from "@/lib/roles";
 import {
@@ -41,9 +41,15 @@ export async function requireRole(...roles: Role[]) {
     where: { id: user.id },
     select: {
       mustChangePassword: true,
+      isActive: true,
+      isOwner: true,
+      access: true,
       school: { select: { id: true, subscriptionStatus: true } },
     },
   });
+  // Accès retiré (un associé que le directeur principal a désactivé) : la
+  // session encore ouverte ne suffit plus, dès la page suivante.
+  if (account && !account.isActive) redirect("/acces-retire");
   if (account?.mustChangePassword) redirect("/mon-compte");
 
   // Validation manuelle coupée : une école restée « pending » (inscrite quand
@@ -51,7 +57,8 @@ export async function requireRole(...roles: Role[]) {
   // plutôt que de rester bloquée devant un écran d'attente.
   let status = account?.school?.subscriptionStatus;
   if (status === "pending" && !REQUIRE_MANUAL_ACTIVATION && account?.school) {
-    const started = await prisma.school.update({
+    // Écriture du système, pas de l'utilisateur : hors du contrôle de la lecture seule.
+    const started = await basePrisma.school.update({
       where: { id: account.school.id },
       data: initialSubscription(),
       select: { subscriptionStatus: true },
@@ -68,7 +75,13 @@ export async function requireRole(...roles: Role[]) {
     redirect(status === "pending" ? "/activation-en-attente" : "/compte-suspendu");
   }
 
-  return user;
+  return {
+    ...user,
+    /** Directeur principal de l'école : lui seul gère les autres directeurs. */
+    isOwner: account?.isOwner ?? false,
+    /** Directeur en lecture seule : consulte tout, ne modifie rien (lib/write-guard.ts). */
+    readOnly: user.role === ROLES.DIRECTOR && account?.access === "READ_ONLY",
+  };
 }
 
 /**

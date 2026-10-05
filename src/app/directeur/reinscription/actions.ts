@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { logPayment } from "@/lib/activity";
 import { prisma } from "@/lib/prisma";
 import { reattachFamilySheets } from "@/lib/family-sheet-data";
 import { requireRole } from "@/lib/session";
@@ -75,6 +76,14 @@ export async function reenrollStudent(
         receiptNumber,
         recordedByUserId: user.id,
       },
+    });
+    await logPayment(tx, {
+      schoolId: user.schoolId,
+      userId: user.id,
+      receiptNumber,
+      total: amount,
+      studentIds: [studentId],
+      href: `/directeur/finance/recus/${payment.id}`,
     });
     return payment.id;
   });

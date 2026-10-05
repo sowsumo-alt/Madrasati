@@ -15,6 +15,7 @@ import { studentSchema, type StudentFormValues } from "./schema";
 import { CURRENT_YEAR } from "@/lib/school-year";
 import { assertNnisAvailable, nniConflict } from "@/lib/nni-data";
 import { storedNni } from "@/lib/nni";
+import { ACTIVITY_ACTIONS, logActivity } from "@/lib/activity";
 
 /** Compare deux noms en ignorant casse, accents composés et espaces multiples. */
 function normalizeName(value: string) {
@@ -205,6 +206,13 @@ async function createStudentWithSheet(values: StudentFormValues, sheetInput?: Fa
         parentId: primaryParentId,
       });
     }
+    await logActivity(tx, {
+      schoolId: user.schoolId,
+      userId: user.id,
+      action: ACTIVITY_ACTIONS.ENROLL,
+      summary: `Inscription — ${student.firstName} ${student.lastName}`.trim(),
+      href: "/directeur/eleves",
+    });
     const last = receipts[receipts.length - 1];
     return { id: student.id, paymentId: last?.firstPaymentId ?? undefined, receiptCount: receipts.length };
   });

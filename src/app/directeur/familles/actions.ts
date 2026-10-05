@@ -12,6 +12,7 @@ import { ROLES } from "@/lib/roles";
 import { familyPartReceiptNumber, generateReceiptNumber, runWithReceipt } from "@/lib/receipts";
 import { DEFAULT_NATIONALITY, splitFullName } from "@/lib/student-form";
 import { checkFamilyParts } from "@/lib/family";
+import { ACTIVITY_ACTIONS, logActivity, logPayment } from "@/lib/activity";
 import {
   familyEnrollmentSchema,
   familyPaymentSchema,
@@ -257,6 +258,14 @@ export async function enrollFamily(values: FamilyEnrollmentValues): Promise<Fami
       }
     }
 
+    await logActivity(tx, {
+      schoolId: user.schoolId,
+      userId: user.id,
+      action: ACTIVITY_ACTIONS.ENROLL,
+      summary: `Inscription — ${data.familyName} : ${data.children.map((c) => `${c.firstName} ${c.lastName}`.trim()).join(", ")}`,
+      href: `/directeur/familles/${parent.id}`,
+    });
+
     return {
       parentId: parent.id,
       studentIds: children.map((c) => c.studentId),
@@ -342,6 +351,14 @@ export async function recordFamilyPayment(
       await refreshFeeStatus(tx, fee.id, fee.amount);
     }
 
+    await logPayment(tx, {
+      schoolId: user.schoolId,
+      userId: user.id,
+      receiptNumber,
+      total: familyPayment.total,
+      studentIds: fees.map((f) => f.studentId),
+      href: `/directeur/finance/recus/famille/${familyPayment.id}`,
+    });
     return familyPayment.id;
   });
 

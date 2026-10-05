@@ -11,6 +11,7 @@ import {
 } from "@/lib/account";
 import { generateTempPassword } from "@/lib/account-server";
 import { schoolHasFeature, FEATURES } from "@/lib/plans";
+import { teamRefusal } from "@/lib/team";
 
 export interface AccountResult {
   email: string;
@@ -154,12 +155,9 @@ export async function resetUserPassword(userId: string): Promise<AccountResult> 
   const target = await prisma.user.findFirst({
     where: { id: userId, schoolId: director.schoolId },
   });
-  if (!target) throw new Error("Compte introuvable.");
-  if (target.id === director.id) {
-    throw new Error(
-      "Pour votre propre mot de passe, utilisez la page « Mon compte ».",
-    );
-  }
+  // Un autre directeur ne se gère que par le directeur principal (lib/team.ts).
+  const refusal = teamRefusal(director, target);
+  if (refusal || !target) throw new Error(refusal ?? "Compte introuvable.");
 
   const tempPassword = generateTempPassword();
   await prisma.user.update({
@@ -187,10 +185,8 @@ export async function setAccountActive(userId: string, isActive: boolean) {
   const target = await prisma.user.findFirst({
     where: { id: userId, schoolId: director.schoolId },
   });
-  if (!target) throw new Error("Compte introuvable.");
-  if (target.id === director.id) {
-    throw new Error("Vous ne pouvez pas désactiver votre propre accès.");
-  }
+  const refusal = teamRefusal(director, target);
+  if (refusal || !target) throw new Error(refusal ?? "Compte introuvable.");
 
   await prisma.user.update({ where: { id: target.id }, data: { isActive } });
 

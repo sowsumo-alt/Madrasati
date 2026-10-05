@@ -86,6 +86,7 @@ model School {
   payments             Payment[]
   familyPayments       FamilyPayment[]
   cancelledPayments    CancelledPayment[]
+  activityLogs         ActivityLog[]
   attendance           AttendanceRecord[]
   templates            MessageTemplate[]
   holidays             Holiday[]
@@ -190,11 +191,18 @@ model User {
   // Vrai après création ou réinitialisation par le directeur : l'utilisateur
   // doit choisir son propre mot de passe avant d'accéder à l'application.
   mustChangePassword Boolean  @default(false)
+  // Directeur principal : celui qui a créé l'école. Lui seul invite, change
+  // le rôle ou retire l'accès des autres directeurs (les associés).
+  isOwner            Boolean  @default(false)
+  // Accès d'un directeur : "FULL" (tout faire) ou "READ_ONLY" (tout
+  // consulter, rien modifier — contrôlé côté serveur, lib/write-guard.ts).
+  access             String   @default("FULL")
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
   teacherProfile Teacher?
   parentProfile  Parent?
+  activityLogs   ActivityLog[]
 
   @@index([schoolId])
   @@map("users")
@@ -918,4 +926,29 @@ model AnnualDecision {
   @@unique([studentId, academicYearId])
   @@index([schoolId])
   @@map("annual_decisions")
+}
+
+// ---------------------------------------------------------------------------
+// Journal d'activité : qui a fait quoi (paiement, annulation, suppression…)
+// ---------------------------------------------------------------------------
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  // La personne connectée ; son nom est gardé tel qu'il était au moment de
+  // l'action, même si le compte est retiré ensuite.
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userName  String
+  // PAYMENT, CANCEL, DELETE, ARCHIVE, ENROLL, SHEET, USER
+  action    String
+  summary   String
+  amount    Int?
+  // Page où voir l'objet (reçu, famille…), quand il existe encore.
+  href      String?
+  createdAt DateTime @default(now())
+
+  @@index([schoolId, createdAt])
+  @@map("activity_logs")
 }

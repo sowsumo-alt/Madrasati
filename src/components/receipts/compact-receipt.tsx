@@ -35,7 +35,7 @@ export interface CompactReceiptProps {
   method: string;
   remaining?: string | null;
   /** Reçu annulé : tampon « ANNULÉ », date et motif ; l'argent n'est plus compté. */
-  cancelled?: { date: string; reason: string } | null;
+  cancelled?: { date: string; reason: string; by?: string | null } | null;
   /** Libellés dans la langue de l'interface ; le français par défaut. */
   labels?: {
     paid?: string;
@@ -162,7 +162,9 @@ export function CompactReceipt({
         </p>
         {cancelled && (
           <p className={styles.cancelNote} data-testid="receipt-cancelled">
-            Reçu annulé le {cancelled.date} — motif : {cancelled.reason}. Ce montant n&apos;est plus compté comme perçu.
+            Reçu annulé le {cancelled.date}
+            {cancelled.by ? ` par ${cancelled.by}` : ""} — motif : {cancelled.reason}. Ce montant n&apos;est plus compté
+            comme perçu.
           </p>
         )}
 

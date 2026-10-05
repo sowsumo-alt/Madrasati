@@ -104,6 +104,11 @@ export default async function FamilyReceiptPage({
         methodCode={familyPayment.method}
         cancelledAt={familyPayment.cancelledAt}
         reason={familyPayment.cancelReason ?? ""}
+        cancelledBy={
+          familyPayment.cancelledByUserId
+            ? (await prisma.user.findUnique({ where: { id: familyPayment.cancelledByUserId }, select: { name: true } }))?.name
+            : null
+        }
         backHref={parent ? `/directeur/familles/${parent.id}` : "/directeur/finance"}
         backLabel={parent ? t("family.backToFamily") : t("finance.backToStudents")}
       />

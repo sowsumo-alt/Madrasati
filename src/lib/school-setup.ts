@@ -282,6 +282,9 @@ export async function createSchoolWithDirector(input: {
         email: input.email,
         passwordHash: input.passwordHash,
         role: "DIRECTOR",
+        // Celui qui crée l'école en est le directeur principal : lui seul
+        // invite et gère les autres directeurs (lib/team.ts).
+        isOwner: true,
         name: input.directorName,
         phone: input.phone,
       },

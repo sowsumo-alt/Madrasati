@@ -152,6 +152,11 @@ export default async function ReceiptPage({
         methodCode={cancelled.method}
         cancelledAt={cancelled.cancelledAt}
         reason={cancelled.cancelReason}
+        cancelledBy={
+          cancelled.cancelledByUserId
+            ? (await prisma.user.findUnique({ where: { id: cancelled.cancelledByUserId }, select: { name: true } }))?.name
+            : null
+        }
         backHref="/directeur/finance"
         backLabel="Retour aux paiements"
       />

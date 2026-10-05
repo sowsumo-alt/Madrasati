@@ -4,7 +4,7 @@ import Link from "next/link";
 import { UserSearch, FileText } from "lucide-react";
 import { WhatsAppLink } from "@/components/ui/whatsapp-link";
 import { Badge } from "@/components/ui/badge";
-import { AT_RISK_CRITERIA } from "@/lib/at-risk";
+import { AT_RISK_CRITERIA } from "@/lib/at-risk-criteria";
 import { useLanguage } from "@/lib/i18n/language-provider";
 
 export interface AtRiskRow {

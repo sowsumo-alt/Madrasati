@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { UserError } from "@/lib/user-error";
+import { ACTIVITY_ACTIONS, logActivity } from "@/lib/activity";
 
 /**
  * Annulation d'un reçu — jamais un effacement silencieux.
@@ -107,5 +108,18 @@ export async function cancelReceipt(
       data: { cancelledAt, cancelledByUserId: input.userId, cancelReason: reason },
     });
   }
-  return { count: payments.length, total: payments.reduce((s, p) => s + p.amount, 0), familyPaymentId };
+  const total = payments.reduce((s, p) => s + p.amount, 0);
+  const number = familyPaymentId
+    ? ((await tx.familyPayment.findUnique({ where: { id: familyPaymentId }, select: { receiptNumber: true } }))?.receiptNumber ?? "")
+    : payments[0].receiptNumber;
+  const names = [...new Set(payments.map((p) => `${p.student.firstName} ${p.student.lastName}`.trim()))].join(", ");
+  await logActivity(tx, {
+    schoolId: input.schoolId,
+    userId: input.userId,
+    action: ACTIVITY_ACTIONS.CANCEL,
+    summary: `Reçu ${number} annulé — ${names} — motif : ${reason}`,
+    amount: total,
+    href: familyPaymentId ? `/directeur/finance/recus/famille/${familyPaymentId}` : `/directeur/finance/recus/${payments[0].id}`,
+  });
+  return { count: payments.length, total, familyPaymentId };
 }

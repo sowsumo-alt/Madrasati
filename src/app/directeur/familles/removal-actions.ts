@@ -8,6 +8,7 @@ import { ROLES } from "@/lib/roles";
 import { UserError, asResult } from "@/lib/user-error";
 import { familyLabel } from "@/lib/family";
 import { archiveStudents, deleteFamily, deleteStudents, sameName } from "@/lib/removal";
+import { ACTIVITY_ACTIONS, logActivity } from "@/lib/activity";
 
 export interface RemovalPreview {
   /** Le nom à recopier pour confirmer. */
@@ -74,14 +75,24 @@ export async function removeAction(input: z.infer<typeof removeSchema>) {
         if (data.kind === "student") {
           if (data.mode === "ARCHIVE") await archiveStudents(tx, user.schoolId, [data.id]);
           else await deleteStudents(tx, user.schoolId, [data.id]);
-          return;
-        }
-        if (data.mode === "DELETE") {
+        } else if (data.mode === "DELETE") {
           await deleteFamily(tx, user.schoolId, data.id);
-          return;
+        } else {
+          const links = await tx.studentParent.findMany({ where: { parentId: data.id }, select: { studentId: true } });
+          await archiveStudents(tx, user.schoolId, links.map((l) => l.studentId));
         }
-        const links = await tx.studentParent.findMany({ where: { parentId: data.id }, select: { studentId: true } });
-        await archiveStudents(tx, user.schoolId, links.map((l) => l.studentId));
+        // Qui a archivé ou supprimé : la trace reste, même quand les données partent.
+        const what = data.kind === "student" ? "Élève" : "Famille";
+        await logActivity(tx, {
+          schoolId: user.schoolId,
+          userId: user.id,
+          action: data.mode === "DELETE" ? ACTIVITY_ACTIONS.DELETE : ACTIVITY_ACTIONS.ARCHIVE,
+          summary:
+            data.mode === "DELETE"
+              ? `${what} supprimé(e) définitivement : ${preview.name}${preview.payments > 0 ? ` — ${preview.payments} paiement(s) effacé(s)` : ""}`
+              : `${what} archivé(e) : ${preview.name}`,
+          amount: data.mode === "DELETE" && preview.paidTotal > 0 ? preview.paidTotal : null,
+        });
       },
       { timeout: 60_000 },
     );

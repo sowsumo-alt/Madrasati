@@ -26,6 +26,7 @@ import {
   CalendarRange,
   NotebookPen,
   UsersRound,
+  Activity,
 } from "lucide-react";
 
 export interface NavItem {
@@ -105,7 +106,8 @@ const directorNavGroups: NavGroup[] = [
     items: [
       { href: "/directeur/enseignants", labelKey: "nav.teachers", icon: BookUser },
       { href: "/directeur/rh", labelKey: "nav.hr", icon: Briefcase, feature: "hrPayroll" },
-      { href: "/directeur/utilisateurs", labelKey: "nav.users", icon: UserCog, soon: true },
+      { href: "/directeur/utilisateurs", labelKey: "nav.users", icon: UserCog },
+      { href: "/directeur/activite", labelKey: "nav.activity", icon: Activity },
       {
         href: "/directeur/statistiques",
         labelKey: "nav.statistics",

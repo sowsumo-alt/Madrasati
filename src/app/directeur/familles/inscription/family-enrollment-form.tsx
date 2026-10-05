@@ -364,7 +364,7 @@ export function FamilyEnrollmentForm({
     setSubmitting(true);
     try {
       const outcome = await enrollFamilyChecked(
-        toEnrollmentValues(draft, children, "FAMILY", method, undefined, converted.map((c) => c.input)),
+        toEnrollmentValues(draft, children, "FAMILY", method, converted.map((c) => c.input)),
       );
       if (!outcome.ok) {
         // La fiche reste à l'écran, telle que saisie : on peut réessayer.

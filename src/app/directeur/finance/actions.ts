@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { ACTIVITY_ACTIONS, logActivity, logPayment } from "@/lib/activity";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
@@ -178,6 +179,14 @@ export async function recordPayment(feeId: string, values: PaymentFormValues) {
 
     await tx.fee.update({ where: { id: fee.id }, data: { status: nextStatus } });
 
+    await logPayment(tx, {
+      schoolId: user.schoolId,
+      userId: user.id,
+      receiptNumber,
+      total: data.amount,
+      studentIds: [fee.studentId],
+      href: `/directeur/finance/recus/${payment.id}`,
+    });
     return payment.id;
   });
 
@@ -202,7 +211,13 @@ export async function deleteFee(feeId: string) {
 
   const fee = await prisma.fee.findFirst({
     where: { id: feeId, schoolId: user.schoolId },
-    select: { id: true, _count: { select: { payments: true } } },
+    select: {
+      id: true,
+      label: true,
+      amount: true,
+      student: { select: { firstName: true, lastName: true } },
+      _count: { select: { payments: true } },
+    },
   });
   if (!fee) throw new Error("Frais introuvable.");
 
@@ -214,7 +229,16 @@ export async function deleteFee(feeId: string) {
     );
   }
 
-  await prisma.fee.delete({ where: { id: fee.id } });
+  await prisma.$transaction(async (tx) => {
+    await tx.fee.delete({ where: { id: fee.id } });
+    await logActivity(tx, {
+      schoolId: user.schoolId,
+      userId: user.id,
+      action: ACTIVITY_ACTIONS.DELETE,
+      summary: `Frais supprimé — ${fee.label} (${fee.student.firstName} ${fee.student.lastName})`,
+      amount: fee.amount,
+    });
+  });
 
   revalidatePath("/directeur/finance");
   revalidatePath("/directeur");
@@ -226,6 +250,8 @@ export async function deleteFee(feeId: string) {
  */
 export async function markReceiptsPrinted(paymentIds: string[]) {
   const user = await requireRole(ROLES.DIRECTOR);
+  // Un directeur en lecture seule imprime, sans rien modifier.
+  if (user.readOnly) return;
   await prisma.payment.updateMany({
     where: { id: { in: paymentIds.slice(0, 10) }, schoolId: user.schoolId, receiptPrintedAt: null },
     data: { receiptPrintedAt: new Date() },

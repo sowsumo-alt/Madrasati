@@ -21,6 +21,7 @@ export function CancelledReceiptView({
   methodCode,
   cancelledAt,
   reason,
+  cancelledBy,
   backHref,
   backLabel,
 }: {
@@ -35,6 +36,8 @@ export function CancelledReceiptView({
   methodCode: string;
   cancelledAt: Date;
   reason: string;
+  /** Qui a annulé (journal d'activité) ; absent pour un compte supprimé. */
+  cancelledBy?: string | null;
   backHref: string;
   backLabel: string;
 }) {
@@ -65,7 +68,7 @@ export function CancelledReceiptView({
             paidAmount={total}
             methodCode={methodCode}
             method={method}
-            cancelled={{ date: formatLongDate(cancelledAt), reason }}
+            cancelled={{ date: formatLongDate(cancelledAt), reason, by: cancelledBy }}
           />
         }
       />

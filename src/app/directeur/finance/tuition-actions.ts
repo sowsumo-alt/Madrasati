@@ -11,6 +11,7 @@ import { TUITION_FREQUENCIES, monthStart, monthsBetween } from "@/lib/tuition";
 import { applyTuitionPlan, prepaidParts, recordGroupedPayment } from "@/lib/tuition-plan";
 import { runWithReceipt } from "@/lib/receipts";
 import { PAYMENT_METHODS } from "@/lib/payment-methods";
+import { ACTIVITY_ACTIONS, logActivity } from "@/lib/activity";
 
 /** Données du formulaire « Formule de paiement » d'un élève. */
 export async function tuitionForm(studentId: string) {
@@ -68,6 +69,14 @@ export async function saveTuitionPlan(input: TuitionPlanInput) {
         customMonths: data.customMonths,
         monthlyAmount: data.monthlyAmount,
         firstMonth,
+      });
+      const named = await tx.student.findUnique({ where: { id: student.id }, select: { firstName: true, lastName: true } });
+      await logActivity(tx, {
+        schoolId: user.schoolId,
+        userId: user.id,
+        action: ACTIVITY_ACTIONS.SHEET,
+        summary: `Formule de paiement modifiée — ${named?.firstName ?? ""} ${named?.lastName ?? ""}`.trim(),
+        amount: data.monthlyAmount,
       });
       // Les mois que le parent avait déjà réglés : payés, pas « impayés »,
       // sur un seul reçu.

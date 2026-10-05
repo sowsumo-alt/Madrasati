@@ -1,9 +1,8 @@
 import type { Prisma } from "@prisma/client";
-import { z } from "zod";
 import { UserError } from "@/lib/user-error";
 import { familyPartReceiptNumber, generateReceiptNumber } from "@/lib/receipts";
+import { logPayment } from "@/lib/activity";
 import {
-  TUITION_FREQUENCIES,
   buildInstallments,
   coveredMonths,
   monthStart,
@@ -257,39 +256,14 @@ export async function recordGroupedPayment(
   // La première part : celle du premier numéro (« …-1 », ou le reçu seul).
   const first = groupId ? familyPartReceiptNumber(receiptNumber, 1) : receiptNumber;
   const firstPaymentId = created.find((p) => p.receiptNumber === first)?.id ?? created[0]?.id ?? null;
+  // Qui a encaissé : une ligne au journal d'activité, dans la même transaction.
+  await logPayment(tx, {
+    schoolId: input.schoolId,
+    userId: input.userId,
+    receiptNumber,
+    total: parts.reduce((sum, p) => sum + p.amount, 0),
+    studentIds: parts.map((p) => p.studentId),
+    href: groupId ? `/directeur/finance/recus/famille/${groupId}` : `/directeur/finance/recus/${firstPaymentId}`,
+  });
   return { firstPaymentId, groupId };
-}
-
-/**
- * Formule choisie à l'inscription (élève seul ou famille). « NONE », ou un
- * montant vide : rien n'est créé, la formule se choisira plus tard depuis la
- * fiche de l'élève.
- */
-export const enrollmentTuitionSchema = z
-  .object({
-    frequency: z.enum([...TUITION_FREQUENCIES, "NONE"]),
-    customMonths: z.coerce.number().int().min(1).max(12),
-    monthly: z.union([z.literal(""), z.coerce.number().int().nonnegative().max(10_000_000)]),
-    /** Mois payés dès l'inscription (ISO, premier jour du mois) : juin, ou les premiers mois. */
-    paidMonths: z.array(z.string().min(1)).max(24).default([]),
-  })
-  .optional();
-export type EnrollmentTuition = z.input<typeof enrollmentTuitionSchema>;
-
-/** La formule à appliquer, ou null quand il n'y a rien à créer. */
-export function enrollmentPlan(
-  tuition: z.infer<typeof enrollmentTuitionSchema>,
-): { frequency: TuitionFrequency; customMonths: number; monthlyAmount: number; paidMonths: Date[] } | null {
-  if (!tuition || tuition.frequency === "NONE") return null;
-  const monthly = typeof tuition.monthly === "number" ? tuition.monthly : 0;
-  if (monthly <= 0) return null;
-  return {
-    frequency: tuition.frequency,
-    customMonths: tuition.customMonths,
-    monthlyAmount: monthly,
-    paidMonths: (tuition.paidMonths ?? [])
-      .map((m) => new Date(m))
-      .filter((d) => !Number.isNaN(d.getTime()))
-      .map(monthStart),
-  };
 }

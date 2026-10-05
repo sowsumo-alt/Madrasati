@@ -10,6 +10,7 @@ import { PAYMENT_METHODS } from "@/lib/payment-methods";
 import { familySheetSchema } from "@/lib/family-sheet";
 import { recordFamilySheet, recordSheetPayments, type DatedPart } from "@/lib/family-sheet-data";
 import { UserError, asResult } from "@/lib/user-error";
+import { ACTIVITY_ACTIONS, logActivity } from "@/lib/activity";
 
 const saveSchema = z.object({
   /** La famille dont on saisit la fiche ; absent : un élève seul. */
@@ -79,6 +80,17 @@ export async function saveSheetAction(input: SaveSheetInput) {
           })),
         );
       }
+      const named = await tx.student.findMany({
+        where: { id: { in: data.sheets.map((s) => s.studentId) } },
+        select: { firstName: true, lastName: true },
+      });
+      await logActivity(tx, {
+        schoolId: user.schoolId,
+        userId: user.id,
+        action: ACTIVITY_ACTIONS.SHEET,
+        summary: `Fiche de paiement enregistrée — ${named.map((s) => `${s.firstName} ${s.lastName}`.trim()).join(", ")}`,
+        href: data.parentId ? `/directeur/familles/${data.parentId}` : `/directeur/fiche?eleve=${data.sheets[0].studentId}`,
+      });
       return recordSheetPayments(tx, {
         schoolId: user.schoolId,
         parts,
