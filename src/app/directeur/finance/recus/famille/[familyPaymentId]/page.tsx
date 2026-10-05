@@ -55,7 +55,7 @@ export default async function FamilyReceiptPage({
     where: { id: familyPaymentId, schoolId: user.schoolId },
     include: {
       school: true,
-      parent: true,
+      parent: { include: { _count: { select: { studentLinks: true } } } },
       payments: {
         include: {
           student: { select: { firstName: true, lastName: true, classRoom: { select: { name: true } } } },
@@ -65,6 +65,7 @@ export default async function FamilyReceiptPage({
               amount: true,
               periodStart: true,
               periodEnd: true,
+              familyParentId: true,
               payments: { select: { amount: true } },
             },
           },
@@ -106,6 +107,11 @@ export default async function FamilyReceiptPage({
     periodEnd: p.fee.periodEnd,
   }));
   const receiptLines = oneStudent ? studentReceiptLines(parts) : familyReceiptLines(parts);
+  // Fiche de paiement familiale : les montants sont ceux de la famille, portés
+  // par l'élève référent — comme la fiche papier, le reçu dit la famille, le
+  // nombre d'élèves inscrits et le référent.
+  const familySheet = Boolean(oneStudent && parent && payments.some((p) => p.fee.familyParentId));
+  const enrolledCount = parent?._count.studentLinks ?? 0;
 
   const bilingual = schoolHasFeature(school, FEATURES.BILINGUAL_MESSAGES);
   // Une famille : une ligne par enfant (inscription et juin additionnés),
@@ -122,8 +128,16 @@ export default async function FamilyReceiptPage({
   const linesAr = oneStudent
     ? receiptLines.map((l) => `- ${l.detail ?? l.label}: ${formatAmount(l.amount)} أوقية`)
     : [...perChild.values()].map((c) => `- ${c.firstName}: ${formatAmount(c.amount)} أوقية`);
-  const forWhom = oneStudent ? `${oneStudent.firstName} ${oneStudent.lastName}` : "vos enfants";
-  const forWhomAr = oneStudent ? `لـ ${oneStudent.firstName} ${oneStudent.lastName}` : "لأطفالكم";
+  const forWhom = familySheet
+    ? `votre famille (${enrolledCount} élèves inscrits)`
+    : oneStudent
+      ? `${oneStudent.firstName} ${oneStudent.lastName}`
+      : "vos enfants";
+  const forWhomAr = familySheet
+    ? "لأسرتكم"
+    : oneStudent
+      ? `لـ ${oneStudent.firstName} ${oneStudent.lastName}`
+      : "لأطفالكم";
   const confirmationMessage = parent
     ? withArabic(
         `Bonjour ${parentName},\n\nNous confirmons la réception d'un paiement de ${formatAmount(familyPayment.total)} MRU pour ${forWhom}, effectué le ${formatLongDate(familyPayment.paidAt)} :\n${lines.join("\n")}\n\nReçu n° ${familyPayment.receiptNumber}. Merci pour votre règlement.\n\n${schoolSignatureFr(school.name)}`,
@@ -181,10 +195,20 @@ export default async function FamilyReceiptPage({
           <CompactReceipt
             id="recu-card"
             school={toSchoolIdentity(school)}
-            title={oneStudent ? t("finance.receiptTitle") : t("family.receiptTitle")}
+            title={oneStudent && !familySheet ? t("finance.receiptTitle") : t("family.receiptTitle")}
             receiptNumber={familyPayment.receiptNumber}
             date={formatDateIn(locale, familyPayment.paidAt, { day: "numeric", month: "long", year: "numeric" })}
             parties={[
+              ...(familySheet && oneStudent
+                ? [
+                    { label: t("family.receiptFamily"), name, sub: `${enrolledCount} élèves inscrits` },
+                    {
+                      label: "Élève référent",
+                      name: `${oneStudent.firstName} ${oneStudent.lastName}`,
+                      sub: oneStudent.classRoom?.name ?? null,
+                    },
+                  ]
+                : [
               oneStudent
                 ? {
                     label: t("finance.student"),
@@ -192,6 +216,7 @@ export default async function FamilyReceiptPage({
                     sub: oneStudent.classRoom?.name ?? t("students.noClass"),
                   }
                 : { label: t("family.receiptFamily"), name, sub: t("family.childCount").replace("{count}", String(perChild.size)) },
+                  ]),
               { label: t("finance.parentOrGuardian"), name: parentName ?? "—", sub: parent ? displayPhone(parent.phone) : null },
             ]}
             lines={receiptLines.map((l) => ({ label: l.label, detail: l.detail, amount: formatMRU(l.amount) }))}

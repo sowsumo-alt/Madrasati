@@ -92,7 +92,9 @@ export async function runWithReceipt<T>(
     try {
       return await prisma.$transaction((tx) => fn(tx, attempt), {
         isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-        timeout: 20_000,
+        // Une inscription de famille (plusieurs enfants, plusieurs mois) fait
+        // plus de requêtes qu'un paiement : de la marge sur une connexion lente.
+        timeout: 40_000,
       });
     } catch (e) {
       lastError = e;

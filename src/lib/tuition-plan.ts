@@ -230,29 +230,31 @@ export async function recordGroupedPayment(
     ).id;
   }
 
-  let firstPaymentId: string | null = null;
-  for (const [index, part] of parts.entries()) {
-    const payment = await tx.payment.create({
-      data: {
-        schoolId: input.schoolId,
-        feeId: part.feeId,
-        studentId: part.studentId,
-        amount: part.amount,
-        method: input.method,
-        note: input.note || null,
-        receiptNumber: groupId ? familyPartReceiptNumber(receiptNumber, index + 1) : receiptNumber,
-        familyPaymentId: groupId,
-        paidAt,
-        recordedByUserId: input.userId,
-      },
-    });
-    firstPaymentId ??= payment.id;
-    const paid = part.paidBefore + part.amount;
-    await tx.fee.update({
-      where: { id: part.feeId },
-      data: { status: paid >= part.feeAmount ? "PAID" : "PARTIAL" },
-    });
-  }
+  // Toutes les parts d'un coup, et les statuts en deux requêtes : une
+  // inscription de famille (inscription + plusieurs mois) restait sinon
+  // plus de 20 s dans sa transaction sur une connexion lente.
+  const created = await tx.payment.createManyAndReturn({
+    data: parts.map((part, index) => ({
+      schoolId: input.schoolId,
+      feeId: part.feeId,
+      studentId: part.studentId,
+      amount: part.amount,
+      method: input.method,
+      note: input.note || null,
+      receiptNumber: groupId ? familyPartReceiptNumber(receiptNumber, index + 1) : receiptNumber,
+      familyPaymentId: groupId,
+      paidAt,
+      recordedByUserId: input.userId,
+    })),
+    select: { id: true, receiptNumber: true },
+  });
+  const settled = parts.filter((p) => p.paidBefore + p.amount >= p.feeAmount).map((p) => p.feeId);
+  const partial = parts.filter((p) => p.paidBefore + p.amount < p.feeAmount).map((p) => p.feeId);
+  if (settled.length > 0) await tx.fee.updateMany({ where: { id: { in: settled } }, data: { status: "PAID" } });
+  if (partial.length > 0) await tx.fee.updateMany({ where: { id: { in: partial } }, data: { status: "PARTIAL" } });
+  // La première part : celle du premier numéro (« …-1 », ou le reçu seul).
+  const first = groupId ? familyPartReceiptNumber(receiptNumber, 1) : receiptNumber;
+  const firstPaymentId = created.find((p) => p.receiptNumber === first)?.id ?? created[0]?.id ?? null;
   return { firstPaymentId, groupId };
 }
 

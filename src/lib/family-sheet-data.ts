@@ -74,12 +74,14 @@ export async function recordFamilySheet(
       await tx.tuitionPlan.update({ where: { id: applied.planId }, data: { familyParentId } });
       await tx.fee.updateMany({ where: { tuitionPlanId: applied.planId }, data: { familyParentId } });
     }
+    // Les échéances de la formule, lues une fois.
+    const planFees = await tx.fee.findMany({
+      where: { tuitionPlanId: applied.planId },
+      select: { id: true, amount: true, periodStart: true },
+    });
     for (const m of sheet.months.filter((x) => x.paid > 0)) {
       const month = monthStart(new Date(m.month));
-      const fee = await tx.fee.findFirst({
-        where: { tuitionPlanId: applied.planId, periodStart: month },
-        select: { id: true, amount: true },
-      });
+      const fee = planFees.find((f) => f.periodStart?.getTime() === month.getTime());
       if (!fee) throw new Error(`${monthLabel(month)} ne fait pas partie des mois facturés de cette fiche.`);
       parts.push({ feeId: fee.id, studentId, amount: m.paid, feeAmount: fee.amount, paidBefore: 0 });
     }

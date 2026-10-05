@@ -1,5 +1,6 @@
 import type { PaymentMethod } from "@/lib/payment-methods";
 import type { TuitionChoiceValue } from "@/components/finance/tuition-choice";
+import type { FamilySheetInput } from "@/lib/family-sheet";
 import { parseAmount } from "@/lib/family";
 import {
   familyChildSchema,
@@ -95,6 +96,8 @@ export function toEnrollmentValues(
   paymentMode: FamilyPaymentMode,
   method: PaymentMethod,
   tuition?: TuitionChoiceValue,
+  /** Famille de plusieurs enfants : la ou les fiches de paiement, en MRU. */
+  sheets?: FamilySheetInput[],
 ): FamilyEnrollmentValues {
   return {
     existingParentId: draft.existingParentId,
@@ -123,5 +126,6 @@ export function toEnrollmentValues(
           paidMonths: tuition.paidMonths ?? [],
         }
       : undefined,
+    sheets,
   };
 }
