@@ -77,7 +77,9 @@ export function FamilySheetStep({
         const lastMonth = months[months.length - 1];
         return (
           <FormSection
-            key={draft.referentKey + index}
+            // Clé stable : changer de référent ne doit pas reconstruire la fiche
+            // (la liste déroulante perdait le choix en cours).
+            key={index}
             icon={FileText}
             title={
               perChild

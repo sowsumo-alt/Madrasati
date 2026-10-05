@@ -12,7 +12,7 @@ import type { PaymentMethod } from "@/lib/payment-methods";
 import { splitFullName } from "@/lib/student-form";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { cn } from "@/lib/utils";
-import { enrollFamily, findFamiliesByPhone, type KnownFamily } from "../actions";
+import { enrollFamilyChecked, findFamiliesByPhone, type KnownFamily } from "../actions";
 import { checkStudentNnis } from "@/app/directeur/eleves/actions";
 import type { FamilyPaymentMode } from "../schema";
 import {
@@ -382,7 +382,7 @@ export function FamilyEnrollmentForm({
   async function submit() {
     setSubmitting(true);
     try {
-      const result = await enrollFamily(
+      const outcome = await enrollFamilyChecked(
         multi
           ? toEnrollmentValues(draft, children, "FAMILY", method, undefined, converted.map((c) => c.input))
           : toEnrollmentValues(draft, children, effectiveMode, method, {
@@ -390,6 +390,14 @@ export function FamilyEnrollmentForm({
               paidMonths: chosenPaidMonths(tuition, billedMonths),
             }),
       );
+      if (!outcome.ok) {
+        // La fiche reste à l'écran, telle que saisie : on peut réessayer.
+        toast.error(outcome.error);
+        setConfirmOpen(false);
+        setSubmitting(false);
+        return;
+      }
+      const result = outcome;
       // Inscription enregistrée : le brouillon n'a plus lieu d'être.
       autosave.finish();
       toast.success(t("family.enrolled").replace("{count}", String(result.studentIds.length)));

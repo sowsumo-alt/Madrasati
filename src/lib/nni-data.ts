@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { storedNni } from "@/lib/nni";
+import { UserError } from "@/lib/user-error";
 
 /**
  * Un NNI identifie une seule personne : deux élèves de la même école ne
@@ -14,7 +15,7 @@ export async function assertNnisAvailable(
 ) {
   const filled = nnis.map(storedNni).filter((n): n is string => n != null);
   const repeated = filled.find((nni, i) => filled.indexOf(nni) !== i);
-  if (repeated) throw new Error(`Le NNI ${repeated} est saisi pour deux enfants.`);
+  if (repeated) throw new UserError(`Le NNI ${repeated} est saisi pour deux enfants.`);
   if (filled.length === 0) return;
 
   const taken = await prisma.student.findFirst({
@@ -26,7 +27,7 @@ export async function assertNnisAvailable(
     select: { firstName: true, lastName: true, nni: true },
   });
   if (taken) {
-    throw new Error(
+    throw new UserError(
       `Le NNI ${taken.nni} est déjà celui de ${taken.firstName} ${taken.lastName}.`,
     );
   }

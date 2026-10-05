@@ -2,6 +2,7 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 import { monthLabel, monthStart } from "@/lib/tuition";
 import { applyTuitionPlan, type PaymentPart } from "@/lib/tuition-plan";
 import { sheetErrors, type FamilySheetInput } from "@/lib/family-sheet";
+import { UserError } from "@/lib/user-error";
 
 /**
  * Enregistrement d'une fiche de paiement familiale (voir lib/family-sheet.ts).
@@ -36,7 +37,7 @@ export async function recordFamilySheet(
 ): Promise<PaymentPart[]> {
   const { schoolId, year, familyParentId, referentStudentId: studentId, sheet, now } = input;
   const errors = sheetErrors(sheet);
-  if (errors.length > 0) throw new Error(errors[0]);
+  if (errors.length > 0) throw new UserError(errors[0]);
 
   const parts: PaymentPart[] = [];
 
@@ -82,7 +83,7 @@ export async function recordFamilySheet(
     for (const m of sheet.months.filter((x) => x.paid > 0)) {
       const month = monthStart(new Date(m.month));
       const fee = planFees.find((f) => f.periodStart?.getTime() === month.getTime());
-      if (!fee) throw new Error(`${monthLabel(month)} ne fait pas partie des mois facturés de cette fiche.`);
+      if (!fee) throw new UserError(`${monthLabel(month)} ne fait pas partie des mois facturés de cette fiche.`);
       parts.push({ feeId: fee.id, studentId, amount: m.paid, feeAmount: fee.amount, paidBefore: 0 });
     }
   }

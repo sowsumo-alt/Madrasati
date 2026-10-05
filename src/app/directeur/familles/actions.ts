@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { UserError, asResult, type ActionResult } from "@/lib/user-error";
 import { assertNnisAvailable } from "@/lib/nni-data";
 import { storedNni } from "@/lib/nni";
 import {
@@ -90,6 +91,27 @@ async function refreshFeeStatus(tx: Prisma.TransactionClient, feeId: string, amo
   await tx.fee.update({ where: { id: feeId }, data: { status } });
 }
 
+/**
+ * L'inscription d'une famille pour le formulaire : le résultat, ou une raison
+ * lisible. En production, Next.js masque le message des erreurs levées par
+ * une action — le directeur voyait « ça ne passe pas », sans savoir pourquoi.
+ * Une erreur prévue (UserError) garde son message ; une coupure vers la base
+ * ou un délai dépassé le dit, en rappelant que rien n'a été enregistré : tout
+ * se fait dans une seule transaction.
+ */
+export async function enrollFamilyChecked(values: FamilyEnrollmentValues): Promise<ActionResult<FamilyEnrollmentResult>> {
+  try {
+    return await asResult(() => enrollFamily(values));
+  } catch (e) {
+    console.error("Inscription de famille échouée", e);
+    return {
+      ok: false,
+      error:
+        "L'enregistrement n'a pas abouti (connexion à la base de données). Rien n'a été enregistré : vérifiez la connexion et réessayez.",
+    };
+  }
+}
+
 export interface FamilyEnrollmentResult {
   parentId: string;
   studentIds: string[];
@@ -120,13 +142,13 @@ export async function enrollFamily(values: FamilyEnrollmentValues): Promise<Fami
   const classCount = await prisma.classRoom.count({
     where: { id: { in: classIds }, schoolId: user.schoolId },
   });
-  if (classCount !== classIds.length) throw new Error("Classe introuvable.");
+  if (classCount !== classIds.length) throw new UserError("Classe introuvable.");
 
   const parentName = splitFullName(data.parentName);
   // Fiches de paiement (famille de plusieurs enfants) : elles portent seules
   // les montants. Sinon, le parcours d'origine, inchangé.
   const sheets = data.sheets && data.sheets.length > 0 ? data.sheets : null;
-  if (sheets?.some((s) => s.referentIndex >= data.children.length)) throw new Error("Élève référent introuvable.");
+  if (sheets?.some((s) => s.referentIndex >= data.children.length)) throw new UserError("Élève référent introuvable.");
   const withFee = sheets ? true : data.children.some((c) => c.amount > 0);
   const plan = sheets ? null : enrollmentPlan(data.tuition);
 
@@ -143,7 +165,7 @@ export async function enrollFamily(values: FamilyEnrollmentValues): Promise<Fami
             lastName: { equals: parentName.lastName, mode: "insensitive" },
           },
         });
-    if (data.existingParentId && !parent) throw new Error("Famille introuvable.");
+    if (data.existingParentId && !parent) throw new UserError("Famille introuvable.");
 
     if (parent) {
       parent = await tx.parent.update({
@@ -172,7 +194,7 @@ export async function enrollFamily(values: FamilyEnrollmentValues): Promise<Fami
     const year = withFee || plan
       ? await tx.academicYear.findFirst({ where: { schoolId: user.schoolId, isCurrent: true } })
       : null;
-    if ((withFee || plan) && !year) throw new Error("Aucune année scolaire active.");
+    if ((withFee || plan) && !year) throw new UserError("Aucune année scolaire active.");
 
     // — Les enfants, chacun avec son frais d'inscription s'il y en a un, et
     // les mois de scolarité réglés dès l'inscription (juin, ou les premiers).
