@@ -121,19 +121,31 @@ export interface TuitionSettings {
   prepayLastMonth: boolean;
   /** Mois de l'année scolaire en cours, ISO (premier jour du mois). */
   yearMonths: string[];
+  /** « 2026-2027 » ; null sans année en cours. */
+  yearLabel: string | null;
+  /** Unité dans laquelle l'école écrit ses montants (en base : toujours MRU). */
+  amountUnit: "MRU" | "MRO";
+  /** Famille de plusieurs enfants : une fiche pour la famille, ou une par enfant. */
+  familySheetMode: "FAMILY" | "PER_CHILD";
 }
 
 export async function loadTuitionSettings(schoolId: string): Promise<TuitionSettings> {
   const [school, year] = await Promise.all([
-    prisma.school.findUnique({ where: { id: schoolId }, select: { monthlyTuition: true, prepayLastMonth: true } }),
+    prisma.school.findUnique({
+      where: { id: schoolId },
+      select: { monthlyTuition: true, prepayLastMonth: true, amountUnit: true, familySheetMode: true },
+    }),
     prisma.academicYear.findFirst({
       where: { schoolId, isCurrent: true },
-      select: { startDate: true, endDate: true },
+      select: { label: true, startDate: true, endDate: true },
     }),
   ]);
   return {
     monthly: school?.monthlyTuition ?? null,
     prepayLastMonth: school?.prepayLastMonth ?? false,
     yearMonths: year ? monthsBetween(year.startDate, year.endDate).map((m) => m.toISOString()) : [],
+    yearLabel: year?.label ?? null,
+    amountUnit: school?.amountUnit === "MRO" ? "MRO" : "MRU",
+    familySheetMode: school?.familySheetMode === "PER_CHILD" ? "PER_CHILD" : "FAMILY",
   };
 }

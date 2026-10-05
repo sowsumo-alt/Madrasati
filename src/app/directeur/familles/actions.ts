@@ -12,6 +12,7 @@ import {
   recordGroupedPayment,
   type PaymentPart,
 } from "@/lib/tuition-plan";
+import { recordFamilySheet } from "@/lib/family-sheet-data";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { familyPartReceiptNumber, generateReceiptNumber, runWithReceipt } from "@/lib/receipts";
@@ -122,8 +123,12 @@ export async function enrollFamily(values: FamilyEnrollmentValues): Promise<Fami
   if (classCount !== classIds.length) throw new Error("Classe introuvable.");
 
   const parentName = splitFullName(data.parentName);
-  const withFee = data.children.some((c) => c.amount > 0);
-  const plan = enrollmentPlan(data.tuition);
+  // Fiches de paiement (famille de plusieurs enfants) : elles portent seules
+  // les montants. Sinon, le parcours d'origine, inchangé.
+  const sheets = data.sheets && data.sheets.length > 0 ? data.sheets : null;
+  if (sheets?.some((s) => s.referentIndex >= data.children.length)) throw new Error("Élève référent introuvable.");
+  const withFee = sheets ? true : data.children.some((c) => c.amount > 0);
+  const plan = sheets ? null : enrollmentPlan(data.tuition);
 
   const result = await runWithReceipt(async (tx, attempt) => {
     // — Le parent : celui choisi, ou le même nom avec le même téléphone
@@ -195,7 +200,7 @@ export async function enrollFamily(values: FamilyEnrollmentValues): Promise<Fami
       });
 
       const parts: PaymentPart[] = [];
-      if (child.amount > 0 && year) {
+      if (!sheets && child.amount > 0 && year) {
         const fee = await tx.fee.create({
           data: {
             schoolId: user.schoolId,
@@ -231,7 +236,31 @@ export async function enrollFamily(values: FamilyEnrollmentValues): Promise<Fami
     const paymentIds: string[] = [];
     const common = { schoolId: user.schoolId, method: data.method, paidAt: now, userId: user.id, attempt, parentId: parent.id };
 
-    if (data.paymentMode === "FAMILY") {
+    if (sheets && year) {
+      // Une fiche pour la famille : ses montants vont à l'élève référent et
+      // appartiennent à la famille. Une fiche par enfant : chacune à son
+      // enfant. Dans les deux cas, un seul reçu pour ce qui est versé aujourd'hui.
+      const familySheet = sheets.length === 1 && children.length > 1;
+      const all: PaymentPart[] = [];
+      for (const sheet of sheets) {
+        all.push(
+          ...(await recordFamilySheet(tx, {
+            schoolId: user.schoolId,
+            year,
+            familyParentId: familySheet ? parent.id : null,
+            referentStudentId: children[sheet.referentIndex].studentId,
+            sheet,
+            firstMonth: now,
+            now,
+          })),
+        );
+      }
+      if (all.length > 0) {
+        const paid = await recordGroupedPayment(tx, { ...common, parts: all, forceGroup: true });
+        familyPaymentId = paid.groupId;
+        if (paid.firstPaymentId) paymentIds.push(paid.firstPaymentId);
+      }
+    } else if (data.paymentMode === "FAMILY") {
       const all = children.flatMap((c) => c.parts);
       if (all.length > 0) {
         const paid = await recordGroupedPayment(tx, { ...common, parts: all, forceGroup: true });

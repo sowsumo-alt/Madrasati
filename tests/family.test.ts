@@ -43,7 +43,7 @@ test("le solde familial additionne les frais de tous les enfants", () => {
       { amount: 500, totalPaid: 200 },
       { amount: 700, totalPaid: 0 },
     ]),
-    { billed: 1600, paid: 600, due: 1000 },
+    { billed: 1600, paid: 600, due: 1000, upcoming: 0 },
   );
 });
 

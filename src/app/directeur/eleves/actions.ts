@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { runWithReceipt } from "@/lib/receipts";
+import { reattachFamilySheets } from "@/lib/family-sheet-data";
 import { splitFullName } from "@/lib/student-form";
 import { studentSchema, type StudentFormValues } from "./schema";
 import { CURRENT_YEAR } from "@/lib/school-year";
@@ -262,6 +263,9 @@ export async function updateStudent(studentId: string, values: StudentFormValues
       ...(data.enrollmentDate ? { enrollmentDate: new Date(data.enrollmentDate) } : {}),
     },
   });
+  // Élève référent d'une fiche familiale qui n'est plus actif : la fiche
+  // passe à un autre enfant de la famille.
+  await reattachFamilySheets(prisma, [studentId]);
 
   if (data.parentName && data.parentPhone) {
     const parentName = splitFullName(data.parentName);
@@ -294,6 +298,7 @@ export async function setStudentStatus(studentId: string, status: string) {
     where: { id: studentId, schoolId: user.schoolId },
     data: { status },
   });
+  await reattachFamilySheets(prisma, [studentId]);
   revalidatePath("/directeur/eleves");
   revalidatePath("/directeur");
 }
@@ -337,6 +342,7 @@ export async function setStudentsStatus(studentIds: string[], status: "ACTIVE" |
     where: { id: { in: ids }, schoolId: user.schoolId },
     data: { status: next },
   });
+  await reattachFamilySheets(prisma, ids);
 
   revalidatePath("/directeur/eleves");
   revalidatePath("/directeur");

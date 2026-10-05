@@ -38,6 +38,8 @@ const schoolSchema = z.object({
   receiptPrintMode: z.enum(["TWO_PER_PAGE", "HALF_SHEET"]).optional(),
   monthlyTuition: z.union([z.literal(""), z.coerce.number().int().positive().max(10_000_000)]).optional(),
   prepayLastMonth: z.boolean().optional(),
+  amountUnit: z.enum(["MRU", "MRO"]).optional(),
+  familySheetMode: z.enum(["FAMILY", "PER_CHILD"]).optional(),
   phone: z.string().trim().optional().or(z.literal("")),
   email: z.string().trim().optional().or(z.literal("")),
   logoUrl: z.string().nullable().optional(),
@@ -249,6 +251,39 @@ export function SettingsView({
                     </span>
                   </span>
                 </label>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="amountUnit">Les montants de l&apos;école s&apos;écrivent en</Label>
+                <select
+                  id="amountUnit"
+                  {...schoolForm.register("amountUnit")}
+                  className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-sm"
+                  data-testid="amount-unit"
+                >
+                  <option value="MRU">MRU (ouguiyas)</option>
+                  <option value="MRO">MRO (anciens ouguiyas — 10 MRO = 1 MRU)</option>
+                </select>
+                <p className="text-xs text-foreground/50">
+                  En MRO, les montants se saisissent comme sur la fiche papier ; l&apos;équivalent en MRU s&apos;affiche à
+                  côté. Madrasati enregistre toujours en MRU.
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="familySheetMode">Famille de plusieurs enfants</Label>
+                <select
+                  id="familySheetMode"
+                  {...schoolForm.register("familySheetMode")}
+                  className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-sm"
+                  data-testid="family-sheet-mode"
+                >
+                  <option value="FAMILY">Une fiche de paiement pour la famille</option>
+                  <option value="PER_CHILD">Une fiche de paiement par enfant</option>
+                </select>
+                <p className="text-xs text-foreground/50">
+                  Une fiche pour la famille : un montant mensuel et une inscription, saisis une fois. Une fiche par
+                  enfant : vous saisissez les montants de chaque enfant. Madrasati ne calcule jamais l&apos;un à partir
+                  de l&apos;autre.
+                </p>
               </div>
               <div className="space-y-1.5 sm:col-span-2">
                 <Label>Impression des reçus</Label>

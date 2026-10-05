@@ -1,3 +1,4 @@
+import { balanceOf, type Balance } from "@/lib/money";
 /**
  * Familles : un parent (ou tuteur) et les enfants qui lui sont rattachés.
  *
@@ -43,28 +44,24 @@ export function familySurname(familyName: string): string {
 export interface FamilyFeeAmounts {
   amount: number;
   totalPaid: number;
+  /** Échéance ; absente : considérée comme arrivée. */
+  dueDate?: Date | string;
 }
 
-export interface FamilyBalance {
-  /** Total facturé pour tous les enfants. */
-  billed: number;
-  /** Total déjà encaissé. */
-  paid: number;
-  /** Reste dû, frais par frais : un trop-perçu sur l'un ne comble pas l'autre. */
-  due: number;
-}
-
-/** Situation financière globale d'une famille, tous enfants confondus. */
-export function familyBalance(fees: FamilyFeeAmounts[]): FamilyBalance {
-  return fees.reduce<FamilyBalance>(
-    (acc, f) => ({
-      billed: acc.billed + f.amount,
-      paid: acc.paid + f.totalPaid,
-      due: acc.due + Math.max(f.amount - f.totalPaid, 0),
-    }),
-    { billed: 0, paid: 0, due: 0 },
+/**
+ * Situation financière d'une famille, tous enfants confondus — la règle
+ * commune de lib/money.ts : `due` ne compte que ce qui est arrivé à
+ * échéance (un mois payé d'avance ou pas encore arrivé n'est pas un impayé),
+ * `upcoming` ce qui reste à venir.
+ */
+export function familyBalance(fees: FamilyFeeAmounts[], now = new Date()): Balance {
+  return balanceOf(
+    fees.map((f) => ({ amount: f.amount, paid: f.totalPaid, dueDate: f.dueDate ?? new Date(0) })),
+    now,
   );
 }
+
+export type FamilyBalance = Balance;
 
 /**
  * Montant saisi dans un champ, en MRU entiers : vide, négatif ou illisible

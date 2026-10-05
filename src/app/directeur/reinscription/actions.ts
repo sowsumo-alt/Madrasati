@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { reattachFamilySheets } from "@/lib/family-sheet-data";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { generateReceiptNumber, runWithReceipt } from "@/lib/receipts";
@@ -106,6 +107,8 @@ export async function markNotReenrolled(studentId: string) {
     where: { id: studentId, schoolId: user.schoolId },
     data: { status: "INACTIVE" },
   });
+  // Élève référent d'une fiche familiale : la dette reste à la famille.
+  await reattachFamilySheets(prisma, [studentId]);
 
   revalidatePath("/directeur/reinscription");
   revalidatePath("/directeur/eleves");

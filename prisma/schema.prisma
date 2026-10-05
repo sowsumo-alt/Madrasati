@@ -49,6 +49,14 @@ model School {
   // l'usage de beaucoup d'écoles, qui craignent un dernier mois impayé. Le
   // mois est alors coché d'office dans le formulaire d'inscription.
   prepayLastMonth    Boolean   @default(false)
+  // Unité dans laquelle l'école écrit ses montants : "MRU" ou "MRO" (anciens
+  // ouguiyas, 10 MRO = 1 MRU). Saisie et affichage seulement : en base, les
+  // montants sont toujours en MRU entiers.
+  amountUnit         String    @default("MRU")
+  // Fiche de paiement d'une famille de plusieurs enfants : "FAMILY" (une
+  // fiche pour la famille, comme la fiche papier d'IBDAA 2) ou "PER_CHILD"
+  // (une fiche par enfant, chacune avec ses montants saisis).
+  familySheetMode    String    @default("FAMILY")
   // Impression des reçus : "TWO_PER_PAGE" (deux reçus par feuille A4, à
   // couper) ou "HALF_SHEET" (un reçu par demi-feuille A5 déjà coupée).
   receiptPrintMode   String    @default("TWO_PER_PAGE")
@@ -360,6 +368,9 @@ model Parent {
 
   studentLinks   StudentParent[]
   familyPayments FamilyPayment[]
+  // Fiche de paiement familiale : ses échéances et sa formule.
+  familyFees     Fee[]
+  familyPlans    TuitionPlan[]
 
   @@index([schoolId])
   @@map("parents")
@@ -590,6 +601,11 @@ model Fee {
   // un frais saisi à la main.
   tuitionPlanId  String?
   tuitionPlan    TuitionPlan? @relation(fields: [tuitionPlanId], references: [id], onDelete: SetNull)
+  // Frais de la fiche de paiement d'une famille : rattaché à l'élève
+  // référent, il appartient à la famille. Si le référent part, il passe à un
+  // autre enfant de la famille (voir lib/family-sheet-data.ts).
+  familyParentId String?
+  familyParent   Parent?      @relation(fields: [familyParentId], references: [id], onDelete: SetNull)
   periodStart    DateTime?
   periodEnd      DateTime?
 
@@ -598,6 +614,7 @@ model Fee {
   @@index([schoolId])
   @@index([studentId])
   @@index([tuitionPlanId])
+  @@index([familyParentId])
   @@map("fees")
 }
 
@@ -624,6 +641,9 @@ model TuitionPlan {
   // Premier et dernier mois facturés (premier jour du mois).
   firstMonth     DateTime
   lastMonth      DateTime
+  // Formule de la fiche familiale (voir Fee.familyParentId).
+  familyParentId String?
+  familyParent   Parent?      @relation(fields: [familyParentId], references: [id], onDelete: SetNull)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 

@@ -18,7 +18,7 @@ export default async function ParentsPage() {
             student: {
               include: {
                 classRoom: { select: { name: true } },
-                fees: { select: { amount: true, payments: { select: { amount: true } } } },
+                fees: { select: { amount: true, dueDate: true, payments: { select: { amount: true } } } },
               },
             },
           },
@@ -56,6 +56,7 @@ export default async function ParentsPage() {
         l.student.fees.map((f) => ({
           amount: f.amount,
           totalPaid: f.payments.reduce((sum, x) => sum + x.amount, 0),
+          dueDate: f.dueDate,
         })),
       ),
     ),

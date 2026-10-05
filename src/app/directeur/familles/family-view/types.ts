@@ -65,7 +65,7 @@ export interface FamilyPageData {
   children: FamilyChildRow[];
   openFees: FamilyOpenFee[];
   history: FamilyHistoryEntry[];
-  balance: { billed: number; paid: number; due: number };
+  balance: { billed: number; paid: number; due: number; upcoming: number };
   /** Élèves dont le parent a le même numéro, pas encore dans la famille. */
   suggestions: AttachCandidate[];
   /** Tous les élèves actifs hors de la famille, pour la recherche. */

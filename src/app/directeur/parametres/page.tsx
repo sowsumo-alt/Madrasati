@@ -51,6 +51,8 @@ export default async function SettingsPage() {
         receiptPrintMode: school.receiptPrintMode === "HALF_SHEET" ? "HALF_SHEET" : "TWO_PER_PAGE",
         monthlyTuition: school.monthlyTuition ?? "",
         prepayLastMonth: school.prepayLastMonth,
+        amountUnit: school.amountUnit === "MRO" ? "MRO" : "MRU",
+        familySheetMode: school.familySheetMode === "PER_CHILD" ? "PER_CHILD" : "FAMILY",
         phone: school.phone ?? "",
         email: school.email ?? "",
         logoUrl: school.logoUrl,

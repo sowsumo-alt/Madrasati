@@ -21,7 +21,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { WhatsAppLink } from "@/components/ui/whatsapp-link";
 import { StudentAvatar } from "@/components/students/student-avatar";
 import { PaymentMethodLabel } from "@/components/payments/payment-method-label";
-import { formatDateIn, formatMRU, formatPhone } from "@/lib/format";
+import { formatDateIn, formatMRU, formatPhone, ltrIsolate } from "@/lib/format";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import type { TranslationKey } from "@/lib/i18n/dictionaries";
 import { cn } from "@/lib/utils";
@@ -56,6 +56,8 @@ export function FamilyView({ data }: { data: FamilyPageData }) {
     { key: "paid", label: t("family.kpiPaid"), value: formatMRU(data.balance.paid), icon: CircleCheck, tone: "emerald" as const },
     { key: "due", label: t("family.kpiDue"), value: formatMRU(data.balance.due), icon: CircleAlert, tone: "amber" as const },
   ];
+  // Mois pas encore arrivés : ni payés ni impayés, simplement à venir.
+  const upcoming = data.balance.upcoming;
 
   return (
     <div className="space-y-5">
@@ -146,6 +148,11 @@ export function FamilyView({ data }: { data: FamilyPageData }) {
           </div>
         ))}
       </div>
+      {upcoming > 0 && (
+        <p className="-mt-2 text-sm text-foreground/55" data-testid="family-upcoming">
+          {t("family.upcoming").replace("{amount}", ltrIsolate(formatMRU(upcoming)))}
+        </p>
+      )}
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
         <section className="min-w-0 rounded-2xl border border-border/70 bg-surface/90 p-4 shadow-soft backdrop-blur-sm sm:p-5">

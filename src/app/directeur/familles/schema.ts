@@ -2,6 +2,7 @@ import { z } from "zod";
 import { phoneSchema } from "@/lib/phone";
 import { PAYMENT_METHODS } from "@/lib/payment-methods";
 import { enrollmentTuitionSchema } from "@/lib/tuition-plan";
+import { familySheetSchema } from "@/lib/family-sheet";
 import { optionalNniSchema } from "@/lib/nni";
 
 const optionalText = (max: number) => z.string().trim().max(max).optional().or(z.literal(""));
@@ -42,6 +43,13 @@ export const familyEnrollmentSchema = z.object({
   method: z.enum(PAYMENT_METHODS),
   /** Formule de paiement des frais de scolarité, la même pour chaque enfant. */
   tuition: enrollmentTuitionSchema,
+  /**
+   * Famille de plusieurs enfants : la ou les fiches de paiement (voir
+   * lib/family-sheet.ts) — une pour la famille, ou une par enfant selon le
+   * réglage de l'école. Présentes, elles remplacent `tuition` et les montants
+   * d'inscription par enfant : aucun montant n'est déduit d'un autre.
+   */
+  sheets: z.array(familySheetSchema).max(20).optional(),
 });
 
 export type FamilyEnrollmentValues = z.infer<typeof familyEnrollmentSchema>;

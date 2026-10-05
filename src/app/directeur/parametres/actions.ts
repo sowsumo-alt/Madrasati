@@ -22,6 +22,8 @@ const schoolSchema = z.object({
   receiptPrintMode: z.enum(["TWO_PER_PAGE", "HALF_SHEET"]).optional(),
   monthlyTuition: z.union([z.literal(""), z.coerce.number().int().positive().max(10_000_000)]).optional(),
   prepayLastMonth: z.boolean().optional(),
+  amountUnit: z.enum(["MRU", "MRO"]).optional(),
+  familySheetMode: z.enum(["FAMILY", "PER_CHILD"]).optional(),
   phone: z.string().trim().optional().or(z.literal("")),
   email: z.string().trim().optional().or(z.literal("")),
   logoUrl: z
@@ -46,6 +48,8 @@ export async function updateSchool(values: SchoolFormValues) {
       ...(data.receiptPrintMode ? { receiptPrintMode: data.receiptPrintMode } : {}),
       monthlyTuition: typeof data.monthlyTuition === "number" ? data.monthlyTuition : null,
       ...(data.prepayLastMonth !== undefined ? { prepayLastMonth: data.prepayLastMonth } : {}),
+      ...(data.amountUnit ? { amountUnit: data.amountUnit } : {}),
+      ...(data.familySheetMode ? { familySheetMode: data.familySheetMode } : {}),
       phone: data.phone || null,
       email: data.email || null,
       logoUrl: data.logoUrl || null,

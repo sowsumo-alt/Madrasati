@@ -64,7 +64,11 @@ export default async function FamilyPage({ params }: { params: Promise<{ parentI
 
   const children = students.map((s) => {
     const balance = familyBalance(
-      s.fees.map((f) => ({ amount: f.amount, totalPaid: f.payments.reduce((sum, p) => sum + p.amount, 0) })),
+      s.fees.map((f) => ({
+        amount: f.amount,
+        totalPaid: f.payments.reduce((sum, p) => sum + p.amount, 0),
+        dueDate: f.dueDate,
+      })),
     );
     return {
       id: s.id,
@@ -173,8 +177,13 @@ export default async function FamilyPage({ params }: { params: Promise<{ parentI
     // Somme des restes dus de chaque enfant (eux-mêmes calculés frais par
     // frais) : un trop-perçu chez l'un ne comble pas la dette d'un autre.
     balance: children.reduce(
-      (acc, c) => ({ billed: acc.billed + c.billed, paid: acc.paid + c.paid, due: acc.due + c.due }),
-      { billed: 0, paid: 0, due: 0 },
+      (acc, c) => ({
+        billed: acc.billed + c.billed,
+        paid: acc.paid + c.paid,
+        due: acc.due + c.due,
+        upcoming: acc.upcoming + c.upcoming,
+      }),
+      { billed: 0, paid: 0, due: 0, upcoming: 0 },
     ),
     suggestions: samePhone.map(toCandidate),
     candidates: others.map(toCandidate),
