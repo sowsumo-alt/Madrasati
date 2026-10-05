@@ -30,7 +30,7 @@ import { BulkActionsBar } from "./students-list/bulk-actions-bar";
 import { BulkMoveDialog } from "./students-list/bulk-move-dialog";
 import { StudentProfileSheet } from "./students-list/student-profile-sheet";
 import { TuitionPlanDialog } from "@/components/finance/tuition-plan-dialog";
-import type { TuitionSettings, TuitionSummary } from "@/lib/tuition-data";
+import type { TuitionSettings, StudentMoney, TuitionSummary } from "@/lib/tuition-data";
 
 export interface StudentRow {
   id: string;
@@ -49,6 +49,8 @@ export interface StudentRow {
   motherName: string | null;
   /** Formule de paiement des frais de scolarité ; null si aucune. */
   tuition: TuitionSummary | null;
+  /** Sa part : facturé, versé, dû à ce jour — ou « inclus dans la fiche familiale ». */
+  money: StudentMoney | null;
   enrollmentDate: string;
   parent: {
     id: string;

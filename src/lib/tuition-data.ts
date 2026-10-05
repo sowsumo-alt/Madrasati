@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { describePlan, isTuitionFrequency, monthsBetween, type TuitionFrequency } from "@/lib/tuition";
+import { balanceOf } from "@/lib/money";
 
 /**
  * Lecture des formules de paiement : ce qu'affichent la fiche d'un élève et
@@ -148,4 +149,45 @@ export async function loadTuitionSettings(schoolId: string): Promise<TuitionSett
     amountUnit: school?.amountUnit === "MRO" ? "MRO" : "MRU",
     familySheetMode: school?.familySheetMode === "PER_CHILD" ? "PER_CHILD" : "FAMILY",
   };
+}
+
+/** La part d'un élève : ce qui lui est facturé, versé et dû à ce jour (lib/money.ts). */
+export interface StudentMoney {
+  billed: number;
+  paid: number;
+  due: number;
+  /** Forfait famille : ses frais sont ceux de la fiche familiale, portés par cet élève référent. */
+  includedIn: string | null;
+}
+
+export async function studentMoneySummaries(schoolId: string): Promise<Map<string, StudentMoney>> {
+  const [students, familyPlans, year] = await Promise.all([
+    prisma.student.findMany({
+      where: { schoolId },
+      select: {
+        id: true,
+        fees: { select: { amount: true, dueDate: true, academicYearId: true, payments: { select: { amount: true } } } },
+        parentLinks: { select: { parentId: true } },
+      },
+    }),
+    prisma.tuitionPlan.findMany({
+      where: { schoolId, academicYear: { isCurrent: true }, familyParentId: { not: null } },
+      select: { studentId: true, familyParentId: true, student: { select: { firstName: true, lastName: true } } },
+    }),
+    prisma.academicYear.findFirst({ where: { schoolId, isCurrent: true }, select: { id: true } }),
+  ]);
+  const holderOf = new Map(familyPlans.map((p) => [p.familyParentId!, p]));
+  const result = new Map<string, StudentMoney>();
+  for (const s of students) {
+    const balance = balanceOf(
+      s.fees.map((f) => ({ amount: f.amount, paid: f.payments.reduce((sum, p) => sum + p.amount, 0), dueDate: f.dueDate })),
+    );
+    const plan = s.parentLinks.map((l) => holderOf.get(l.parentId)).find(Boolean);
+    const included =
+      plan && plan.studentId !== s.id && !s.fees.some((f) => f.academicYearId === year?.id)
+        ? `${plan.student.firstName} ${plan.student.lastName}`.trim()
+        : null;
+    result.set(s.id, { billed: balance.billed, paid: balance.paid, due: balance.due, includedIn: included });
+  }
+  return result;
 }

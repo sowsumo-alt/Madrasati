@@ -3,6 +3,7 @@ import { monthLabel, monthStart } from "@/lib/tuition";
 import { applyTuitionPlan, recordGroupedPayment, type PaymentPart } from "@/lib/tuition-plan";
 import { sheetErrors, todayIso, type FamilySheetInput, type SheetAlready } from "@/lib/family-sheet";
 import { UserError } from "@/lib/user-error";
+import { FICHE_MODE_LABELS, type FicheMode } from "@/lib/family-fiche";
 
 /**
  * Enregistrement d'une fiche de paiement (voir lib/family-sheet.ts) : à
@@ -254,8 +255,9 @@ export async function recordSheetPayments(
 
 /**
  * L'élève référent de la fiche familiale : celui qui porte la fiche de
- * l'année (ses mois), sinon celui qui porte l'inscription de la famille.
- * La seule définition, lue par la page famille, la fiche et le reçu.
+ * l'année en forfait (ses mois, sinon l'inscription de la famille), sinon
+ * celui que le directeur a choisi (mode par enfant). La seule définition, lue
+ * par la page famille, la fiche et le reçu.
  */
 export async function familyReferentId(db: Db, parentId: string): Promise<string | null> {
   const plan = await db.tuitionPlan.findFirst({
@@ -268,7 +270,123 @@ export async function familyReferentId(db: Db, parentId: string): Promise<string
     orderBy: { createdAt: "asc" },
     select: { studentId: true },
   });
-  return fee?.studentId ?? null;
+  if (fee) return fee.studentId;
+  const parent = await db.parent.findUnique({
+    where: { id: parentId },
+    select: { referentStudentId: true, studentLinks: { select: { studentId: true } } },
+  });
+  const chosen = parent?.referentStudentId;
+  return chosen && parent.studentLinks.some((l) => l.studentId === chosen) ? chosen : null;
+}
+
+/** Les montants d'une fiche : les échéances d'une formule et les frais d'inscription. */
+const SHEET_FEES = { OR: [{ tuitionPlanId: { not: null } }, { label: { startsWith: "Frais d'inscription" } }] };
+
+export interface FamilyFicheState {
+  /** Comment la famille est facturée cette année d'après ce qui est enregistré ; null : rien encore. */
+  mode: FicheMode | null;
+  /** Forfait : l'enfant qui porte la fiche. */
+  holderId: string | null;
+  /** Des paiements sont déjà enregistrés sur ces montants. */
+  hasPayments: boolean;
+}
+
+export async function familyFicheState(
+  db: Db,
+  input: { parentId: string; yearId: string; childIds: string[] },
+): Promise<FamilyFicheState> {
+  const familyFees = await db.fee.findMany({
+    where: { familyParentId: input.parentId, academicYearId: input.yearId },
+    select: { studentId: true, tuitionPlanId: true, _count: { select: { payments: true } } },
+  });
+  const familyPlan = await db.tuitionPlan.findFirst({
+    where: { familyParentId: input.parentId, academicYearId: input.yearId },
+    select: { studentId: true },
+  });
+  if (familyPlan || familyFees.length > 0) {
+    return {
+      mode: "FAMILY",
+      holderId: familyPlan?.studentId ?? familyFees[0].studentId,
+      hasPayments: familyFees.some((f) => f._count.payments > 0),
+    };
+  }
+  if (input.childIds.length < 2) return { mode: null, holderId: null, hasPayments: false };
+  const own = await db.fee.findMany({
+    where: { studentId: { in: input.childIds }, academicYearId: input.yearId, familyParentId: null, ...SHEET_FEES },
+    select: { _count: { select: { payments: true } } },
+  });
+  return {
+    mode: own.length > 0 ? "PER_CHILD" : null,
+    holderId: null,
+    hasPayments: own.some((f) => f._count.payments > 0),
+  };
+}
+
+/**
+ * Avant d'enregistrer la fiche d'une famille : la façon de facturer choisie
+ * et l'élève référent. Changer de façon de facturer est refusé dès que de
+ * l'argent a été encaissé sur l'autre (on ne déplace pas des paiements) ;
+ * sans paiement, les échéances de l'ancienne façon sont reprises ou retirées.
+ * En forfait, un nouveau référent reçoit la fiche (échéances, inscription et
+ * paiements, ensemble) — aucun montant ne change.
+ */
+export async function prepareFamilyFiche(
+  tx: Prisma.TransactionClient,
+  input: { parentId: string; yearId: string; childIds: string[]; mode: FicheMode; referentId: string },
+) {
+  const { parentId, yearId, childIds, mode, referentId } = input;
+  const state = await familyFicheState(tx, { parentId, yearId, childIds });
+  if (state.mode && state.mode !== mode && state.hasPayments) {
+    throw new UserError(
+      `Des paiements sont déjà enregistrés en « ${FICHE_MODE_LABELS[state.mode]} » : la façon de facturer ne peut plus changer. Annulez d'abord ces paiements.`,
+    );
+  }
+
+  if (mode === "PER_CHILD" && state.mode === "FAMILY") {
+    // Sans paiement : la fiche familiale devient celle de l'enfant qui la portait.
+    await tx.tuitionPlan.updateMany({ where: { familyParentId: parentId, academicYearId: yearId }, data: { familyParentId: null } });
+    await tx.fee.updateMany({ where: { familyParentId: parentId, academicYearId: yearId }, data: { familyParentId: null } });
+  }
+  if (mode === "FAMILY" && state.mode === "PER_CHILD") {
+    // Sans paiement : les échéances propres des autres enfants disparaissent ;
+    // celles du référent deviennent celles de la famille.
+    const others = childIds.filter((id) => id !== referentId);
+    await tx.fee.deleteMany({
+      where: { studentId: { in: others }, academicYearId: yearId, familyParentId: null, payments: { none: {} }, ...SHEET_FEES },
+    });
+    await tx.tuitionPlan.deleteMany({ where: { studentId: { in: others }, academicYearId: yearId, familyParentId: null, fees: { none: {} } } });
+  }
+  if (mode === "FAMILY" && state.mode === "FAMILY" && state.holderId && state.holderId !== referentId) {
+    await moveFamilyFiche(tx, { parentId, yearId, from: state.holderId, to: referentId });
+  }
+  await tx.parent.update({ where: { id: parentId }, data: { referentStudentId: referentId } });
+}
+
+/** La fiche familiale passe à un autre enfant : échéances, formule, inscription et paiements. */
+async function moveFamilyFiche(
+  tx: Prisma.TransactionClient,
+  input: { parentId: string; yearId: string; from: string; to: string },
+) {
+  const { parentId, yearId, from, to } = input;
+  // Ce que le nouveau référent avait à son nom pour l'année : sans paiement, retiré ; payé, on n'écrase rien.
+  const own = await tx.fee.findMany({
+    where: { studentId: to, academicYearId: yearId, familyParentId: null, ...SHEET_FEES },
+    select: { id: true, _count: { select: { payments: true } } },
+  });
+  if (own.some((f) => f._count.payments > 0)) {
+    const student = await tx.student.findUnique({ where: { id: to }, select: { firstName: true, lastName: true } });
+    throw new UserError(
+      `${student ? `${student.firstName} ${student.lastName}`.trim() : "Cet enfant"} a déjà ses propres paiements cette année : il ne peut pas devenir l'élève référent de la fiche familiale.`,
+    );
+  }
+  await tx.fee.deleteMany({ where: { id: { in: own.map((f) => f.id) } } });
+  await tx.tuitionPlan.deleteMany({ where: { studentId: to, academicYearId: yearId, familyParentId: null } });
+
+  await tx.tuitionPlan.updateMany({ where: { familyParentId: parentId, academicYearId: yearId, studentId: from }, data: { studentId: to } });
+  const fees = await tx.fee.findMany({ where: { familyParentId: parentId, academicYearId: yearId, studentId: from }, select: { id: true } });
+  const feeIds = fees.map((f) => f.id);
+  await tx.fee.updateMany({ where: { id: { in: feeIds } }, data: { studentId: to } });
+  await tx.payment.updateMany({ where: { feeId: { in: feeIds } }, data: { studentId: to } });
 }
 
 /**

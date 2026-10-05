@@ -6,7 +6,7 @@ import { familyBalance, familyLabel } from "@/lib/family";
 import { getTranslations } from "@/lib/i18n/server";
 import { FamilyView } from "../family-view/family-view";
 import type { AttachCandidate, FamilyHistoryEntry, FamilyPageData } from "../family-view/types";
-import { familyReferentId } from "@/lib/family-sheet-data";
+import { familyFicheState, familyReferentId } from "@/lib/family-sheet-data";
 
 /** « +22246523896 » et « 22246523896 » désignent le même numéro. */
 function phoneVariants(phone: string) {
@@ -82,6 +82,7 @@ export default async function FamilyPage({ params }: { params: Promise<{ parentI
       className: s.classRoom?.name ?? null,
       status: s.status,
       ...balance,
+      included: false,
     };
   });
 
@@ -98,30 +99,51 @@ export default async function FamilyPage({ params }: { params: Promise<{ parentI
       .filter((f) => f.remaining > 0),
   );
 
-  // Fiche de paiement familiale de l'année en cours, s'il y en a une, et son
-  // référent — le même que sur le reçu (familyReferentId).
+  // La fiche de paiement de l'année : forfait famille ou montant par enfant,
+  // et son référent — le même que sur le reçu (familyReferentId).
+  const year = await prisma.academicYear.findFirst({ where: { schoolId: user.schoolId, isCurrent: true }, select: { id: true } });
+  const activeIds = students.filter((s) => s.status === "ACTIVE").map((s) => s.id);
+  const state = year
+    ? await familyFicheState(prisma, { parentId: parent.id, yearId: year.id, childIds: activeIds })
+    : { mode: null, holderId: null, hasPayments: false };
   const referentId = await familyReferentId(prisma, parent.id);
-  const familyPlan = referentId
+  const referent = students.find((s) => s.id === referentId) ?? null;
+  const familyPlan = state.mode === "FAMILY"
     ? await prisma.tuitionPlan.findFirst({
         where: { familyParentId: parent.id, academicYear: { isCurrent: true } },
         select: { monthlyAmount: true },
       })
     : null;
-  const referent = referentId
-    ? await prisma.student.findUnique({ where: { id: referentId }, select: { id: true, firstName: true, lastName: true } })
+  const familyEnrollment = state.mode === "FAMILY"
+    ? await prisma.fee.findFirst({
+        where: { familyParentId: parent.id, tuitionPlanId: null, label: { startsWith: "Frais d'inscription" } },
+        select: { amount: true },
+      })
     : null;
-  const familyEnrollment = await prisma.fee.findFirst({
-    where: { familyParentId: parent.id, tuitionPlanId: null, label: { startsWith: "Frais d'inscription" } },
-    select: { amount: true },
-  });
-  const sheet = referent
+  const ownPlans = state.mode === "PER_CHILD" && year
+    ? await prisma.tuitionPlan.findMany({
+        where: { studentId: { in: activeIds }, academicYearId: year.id, familyParentId: null },
+        select: { studentId: true, monthlyAmount: true },
+      })
+    : [];
+  const sheet = state.mode && referent
     ? {
+        mode: state.mode,
         referentId: referent.id,
         referentName: `${referent.firstName} ${referent.lastName}`.trim(),
         monthly: familyPlan?.monthlyAmount ?? 0,
         enrollment: familyEnrollment?.amount ?? null,
+        perChild: students
+          .filter((s) => ownPlans.some((p) => p.studentId === s.id))
+          .map((s) => ({ name: s.firstName, monthly: ownPlans.find((p) => p.studentId === s.id)!.monthlyAmount })),
       }
     : null;
+  // Forfait famille : les autres enfants sont « inclus », sans montant à eux cette année.
+  for (const child of children) {
+    const s = students.find((x) => x.id === child.id)!;
+    child.included =
+      state.mode === "FAMILY" && child.id !== state.holderId && !s.fees.some((f) => f.academicYearId === year?.id);
+  }
 
   const cancelledSingles = await prisma.cancelledPayment.findMany({
     where: { schoolId: user.schoolId, studentId: { in: [...childIds] }, familyPaymentId: null },

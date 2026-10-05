@@ -162,7 +162,7 @@ export default async function FamilyReceiptPage({
     .map((l) => l.student)
     .filter((s) => s.status === "ACTIVE" || paidIds.has(s.id));
   const enrolledCount = children.length;
-  const referentId = parent && familySheet ? await familyReferentId(prisma, parent.id) : null;
+  const referentId = parent && familyReceipt ? await familyReferentId(prisma, parent.id) : null;
   const childrenLine = children
     .map((s) => {
       const detail = [s.classRoom?.name, s.id === referentId ? "référent" : null].filter(Boolean).join(", ");

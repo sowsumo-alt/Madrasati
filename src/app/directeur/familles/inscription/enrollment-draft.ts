@@ -1,5 +1,6 @@
 import type { PaymentMethod } from "@/lib/payment-methods";
 import type { FamilySheetInput } from "@/lib/family-sheet";
+import type { FicheMode } from "@/lib/family-fiche";
 import { parseAmount } from "@/lib/family";
 import {
   familyChildSchema,
@@ -94,8 +95,10 @@ export function toEnrollmentValues(
   children: ChildDraft[],
   paymentMode: FamilyPaymentMode,
   method: PaymentMethod,
-  /** La ou les fiches de paiement, en MRU. */
+  /** La ou les fiches de paiement, en MRU : une par enfant qui paie. */
   sheets?: FamilySheetInput[],
+  /** Forfait famille ou montant par enfant, et l'élève référent (rang dans la liste). */
+  fiche?: { mode: FicheMode; referentIndex: number },
 ): FamilyEnrollmentValues {
   return {
     existingParentId: draft.existingParentId,
@@ -117,5 +120,7 @@ export function toEnrollmentValues(
     paymentMode,
     method,
     sheets,
+    sheetMode: fiche?.mode,
+    referentIndex: fiche?.referentIndex,
   };
 }

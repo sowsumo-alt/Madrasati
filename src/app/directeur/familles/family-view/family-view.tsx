@@ -181,8 +181,11 @@ export function FamilyView({ data }: { data: FamilyPageData }) {
             <span className="font-semibold text-primary-900">Fiche de paiement familiale</span>
             <span className="text-foreground/70">
               {" "}
-              · élève référent {data.sheet.referentName} · mensuel {formatMRU(data.sheet.monthly)}
-              {data.sheet.enrollment != null ? ` · inscription ${formatMRU(data.sheet.enrollment)}` : ""}
+              · {data.sheet.mode === "FAMILY" ? "forfait famille" : "montant par enfant"} · élève référent{" "}
+              {data.sheet.referentName}
+              {data.sheet.mode === "FAMILY"
+                ? ` · mensuel ${formatMRU(data.sheet.monthly)}${data.sheet.enrollment != null ? ` · inscription ${formatMRU(data.sheet.enrollment)}` : ""}`
+                : data.sheet.perChild.map((c) => ` · ${c.name} ${formatMRU(c.monthly)} / mois`).join("")}
             </span>
           </p>
           <Link
@@ -235,6 +238,11 @@ export function FamilyView({ data }: { data: FamilyPageData }) {
                       )}
                     </p>
                   </div>
+                  {c.included ? (
+                    <p className="text-xs font-medium text-foreground/55" data-testid="family-child-included">
+                      Inclus dans la fiche familiale
+                    </p>
+                  ) : (
                   <div className="grid grid-cols-3 gap-4 text-end text-xs" style={{ fontVariantNumeric: "tabular-nums" }}>
                     <div>
                       <p className="text-foreground/50">{t("family.billed")}</p>
@@ -251,6 +259,7 @@ export function FamilyView({ data }: { data: FamilyPageData }) {
                       </p>
                     </div>
                   </div>
+                  )}
                 </li>
               ))}
             </ul>

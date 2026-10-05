@@ -38,9 +38,8 @@ import { studentSchema, type StudentFormValues } from "./schema";
 import { createStudent, updateStudent, findDuplicateStudents, type DuplicateStudent, checkStudentNnis } from "./actions";
 import { FormSection } from "@/components/forms/form-section";
 import { billedMonthsFrom } from "@/components/finance/tuition-choice";
-import { FamilySheetStep, SheetRecap, convertSheets, type SheetChild } from "@/app/directeur/familles/inscription/family-sheet-step";
-import { newSheetDraft, type SheetDraft } from "@/lib/family-sheet-draft";
-import { sheetLines, sheetTotals } from "@/lib/family-sheet";
+import { FamilySheetStep, SheetRecap, convertFiche, type SheetChild } from "@/app/directeur/familles/inscription/family-sheet-step";
+import { newFicheDraft, type FicheDraft } from "@/lib/family-fiche";
 import { formatMoney } from "@/lib/money";
 import type { PaymentMethod } from "@/lib/payment-methods";
 import { DialogFooter, DialogHeader } from "@/components/ui/dialog";
@@ -120,15 +119,17 @@ function newStudentValues(): StudentFormValues {
 /** Brouillon d'une inscription : la saisie et la fiche de paiement. */
 interface StudentDraft {
   values: StudentFormValues;
-  sheet?: SheetDraft;
+  fiche?: FicheDraft;
   method?: PaymentMethod;
 }
 
-/** Fiche de paiement d'un nouvel élève : le montant de l'école, juin coché s'il est payé d'avance. */
-function freshSheet(settings: TuitionSettings): SheetDraft {
+/** Fiche de paiement d'un nouvel élève (une fiche à un enfant) : le montant de l'école, juin coché s'il est payé d'avance. */
+function freshSheet(settings: TuitionSettings): FicheDraft {
   const last = settings.yearMonths[settings.yearMonths.length - 1];
-  return newSheetDraft({
+  return newFicheDraft({
+    mode: "FAMILY",
     referentKey: "solo",
+    keys: ["solo"],
     monthlyMru: settings.monthly,
     unit: settings.amountUnit,
     prepaid: settings.prepayLastMonth && last ? [last] : [],
@@ -183,7 +184,7 @@ export function StudentFormDialog({
   });
 
   // La fiche de paiement de l'élève : le même écran et le même calcul qu'une famille.
-  const [sheet, setSheet] = useState<SheetDraft>(() => freshSheet(tuitionSettings));
+  const [sheet, setSheet] = useState<FicheDraft>(() => freshSheet(tuitionSettings));
   const [method, setMethod] = useState<PaymentMethod>("CASH");
   // Valeurs en attente de la confirmation de l'encaissement.
   const [pending, setPending] = useState<StudentFormValues | null>(null);
@@ -208,7 +209,7 @@ export function StudentFormDialog({
       setDraftReady(!editTarget);
       if (saved) {
         reset({ ...newStudentValues(), ...saved.data.values });
-        setSheet(saved.data.sheet ?? freshSheet(tuitionSettings));
+        setSheet(saved.data.fiche ?? freshSheet(tuitionSettings));
         setMethod(saved.data.method ?? "CASH");
         return;
       }
@@ -244,7 +245,7 @@ export function StudentFormDialog({
   const allValues = watch();
   const autosave = useDraftAutosave<StudentDraft>(
     draftKey,
-    { values: allValues, sheet, method },
+    { values: allValues, fiche: sheet, method },
     { enabled: open && !isEdit && draftReady, isEmpty: isEmptyStudentDraft },
   );
 
@@ -303,7 +304,7 @@ export function StudentFormDialog({
   async function enroll(values: StudentFormValues) {
     setSaving(true);
     try {
-      const result = await createStudent(values, hasSheet ? converted[0].input : undefined, method);
+      const result = await createStudent(values, hasSheet ? converted.sheets[0].input : undefined, method);
       if (!result.ok) {
         toast.error(result.error);
         setPending(null);
@@ -357,12 +358,12 @@ export function StudentFormDialog({
     classId: classId ?? "",
     rimNumber: watch("rimNumber") ?? "",
   };
-  const converted = convertSheets([sheet], [soloChild], tuitionSettings.amountUnit, tuitionSettings.yearMonths, defaultFirstMonth);
-  const sheetErrorsList = converted[0].errors;
-  const recapLines = sheetLines(converted[0].input);
-  const recapTotals = sheetTotals(recapLines);
+  const converted = convertFiche(sheet, [soloChild], tuitionSettings.amountUnit, tuitionSettings.yearMonths, defaultFirstMonth);
+  const sheetErrorsList = converted.errors;
+  const recapLines = converted.lines;
+  const recapTotals = converted.totals;
   // Une fiche sans aucun montant : l'élève est inscrit, sa fiche se fera plus tard.
-  const hasSheet = converted[0].input.monthly > 0 || converted[0].input.enrollment.due > 0;
+  const hasSheet = Boolean(converted.sheets[0]) && (converted.sheets[0].input.monthly > 0 || converted.sheets[0].input.enrollment.due > 0);
   const selectedClass = classes.find((c) => c.id === classId);
 
   return (
@@ -624,8 +625,8 @@ export function StudentFormDialog({
                   settings={tuitionSettings}
                   yearMonths={tuitionSettings.yearMonths}
                   defaultFirstMonth={defaultFirstMonth}
-                  sheets={[sheet]}
-                  onSheetsChange={(next) => setSheet(next[0])}
+                  draft={sheet}
+                  onDraftChange={setSheet}
                   method={method}
                   onMethodChange={setMethod}
                 />

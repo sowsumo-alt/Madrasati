@@ -124,6 +124,25 @@ export function StudentProfileSheet({
               </Section>
 
               <Section title="Frais de scolarité">
+                {student.money?.includedIn ? (
+                  <Row label="Sa part">
+                    <span data-testid="student-included">
+                      Inclus dans la fiche familiale
+                      <span className="block text-xs font-normal text-foreground/55">
+                        Élève référent : {student.money.includedIn}
+                      </span>
+                    </span>
+                  </Row>
+                ) : student.money && student.money.billed > 0 ? (
+                  <Row label="Sa part">
+                    <span data-testid="student-money">
+                      Facturé {formatMRU(student.money.billed)} · versé {formatMRU(student.money.paid)}
+                      <span className={`block text-xs font-semibold ${student.money.due > 0 ? "text-amber-700" : "text-primary-700"}`}>
+                        {student.money.due > 0 ? `Reste dû à ce jour : ${formatMRU(student.money.due)}` : "À jour"}
+                      </span>
+                    </span>
+                  </Row>
+                ) : null}
                 <Row label="Formule">
                   {student.tuition ? student.tuition.description : empty}
                 </Row>

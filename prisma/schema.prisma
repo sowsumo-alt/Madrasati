@@ -374,6 +374,9 @@ model Parent {
   // est simplement ce parent et les enfants qui lui sont rattachés ; sans nom
   // saisi, elle s'affiche « Famille » + le nom du parent (voir src/lib/family.ts).
   familyName   String?
+  // Élève référent de la fiche de paiement (le nom porté sur la fiche papier),
+  // choisi par le directeur ; en forfait famille, c'est lui qui porte les montants.
+  referentStudentId String?
   createdAt    DateTime @default(now())
 
   studentLinks   StudentParent[]

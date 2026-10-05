@@ -228,7 +228,14 @@ export async function enrollFamily(values: FamilyEnrollmentValues): Promise<Fami
       // appartiennent à la famille. Une fiche par enfant : chacune à son
       // enfant. Un seul enfant : sa fiche, comme un élève inscrit seul. Un
       // reçu par date de versement (aujourd'hui, ou les dates recopiées).
-      const familySheet = sheets.length === 1 && children.length > 1;
+      // Forfait famille : une fiche, portée par le référent. Montant par enfant :
+      // une fiche par enfant qui paie. (Sans mode envoyé : une fiche = forfait.)
+      const familySheet = (data.sheetMode ? data.sheetMode === "FAMILY" : sheets.length === 1) && children.length > 1;
+      // L'élève référent choisi : le nom porté sur la fiche papier, gardé sur la famille.
+      const referent = children[data.referentIndex ?? sheets[0]?.referentIndex ?? 0] ?? children[0];
+      if (children.length > 1 && referent) {
+        await tx.parent.update({ where: { id: parent.id }, data: { referentStudentId: referent.studentId } });
+      }
       const all: DatedPart[] = [];
       for (const sheet of sheets) {
         all.push(

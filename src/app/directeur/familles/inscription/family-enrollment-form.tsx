@@ -6,8 +6,8 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowLeft, ArrowRight, Check, ChevronRight, Loader2, Phone, UsersRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { familySurname, parseAmount } from "@/lib/family";
-import { formatMRU, formatPhone } from "@/lib/format";
+import { familySurname } from "@/lib/family";
+import { formatPhone } from "@/lib/format";
 import type { PaymentMethod } from "@/lib/payment-methods";
 import { splitFullName } from "@/lib/student-form";
 import { useLanguage } from "@/lib/i18n/language-provider";
@@ -26,9 +26,8 @@ import {
 } from "./enrollment-draft";
 import { FamilyStep } from "./family-step";
 import { ChildrenStep, type EnrollmentClassOption } from "./children-step";
-import { FamilySheetStep, SheetRecap, convertSheets } from "./family-sheet-step";
-import { newSheetDraft, type SheetDraft } from "@/lib/family-sheet-draft";
-import { sheetLines, sheetTotals } from "@/lib/family-sheet";
+import { FamilySheetStep, FicheAmountsSummary, SheetRecap, convertFiche } from "./family-sheet-step";
+import { childStatus, emptyAmounts, newFicheDraft, type FicheDraft } from "@/lib/family-fiche";
 import { formatMoney } from "@/lib/money";
 import {
   Dialog,
@@ -100,8 +99,8 @@ interface FamilyEnrollmentDraft {
   mode: FamilyPaymentMode;
   method: PaymentMethod;
   familyNameTouched: boolean;
-  /** Fiche(s) de paiement : une pour la famille, une par enfant, ou celle de l'enfant seul. */
-  sheets?: SheetDraft[];
+  /** La fiche de paiement : tous les enfants, forfait famille ou montant par enfant. */
+  fiche?: FicheDraft | null;
 }
 
 /**
@@ -152,9 +151,11 @@ export function FamilyEnrollmentForm({
   // Inscription du jour : premier mois facturé, ce mois-ci (modifiable sur la fiche).
   const [defaultFirstMonth] = useState(() => billedMonthsFrom(tuitionSettings.yearMonths, new Date())[0]);
   const [submitting, setSubmitting] = useState(false);
-  // La fiche de paiement : une pour la famille, une par enfant selon le
-  // réglage de l'école, ou celle de l'enfant inscrit seul — le même écran.
-  const [sheets, setSheets] = useState<SheetDraft[]>([]);
+  // La fiche de paiement de la famille : tous les enfants, forfait famille ou
+  // montant par enfant (réglage de l'école par défaut) — le même écran qu'un élève seul.
+  const [fiche, setFiche] = useState<FicheDraft | null>(null);
+  // Une famille déjà inscrite : ses montants se saisissent sur sa fiche, après l'inscription.
+  const existingFamily = Boolean(draft.existingParentId);
   const [confirmOpen, setConfirmOpen] = useState(false);
   // Le nom de la famille se déduit du parent tant que le directeur ne l'a pas
   // saisi lui-même : « Moussa BA » donne « Famille BA ».
@@ -177,7 +178,7 @@ export function FamilyEnrollmentForm({
       setMode(d.mode);
       setMethod(d.method);
       familyNameTouched.current = d.familyNameTouched;
-      if (d.sheets) setSheets(d.sheets);
+      if (d.fiche) setFiche(d.fiche);
       setDraftSavedAt(saved.savedAt);
     }
     setDraftReady(true);
@@ -196,7 +197,7 @@ export function FamilyEnrollmentForm({
   );
   const autosave = useDraftAutosave<FamilyEnrollmentDraft>(
     storageKey,
-    { step, draft, usingKnown, children, mode, method, familyNameTouched: familyNameTouched.current, sheets },
+    { step, draft, usingKnown, children, mode, method, familyNameTouched: familyNameTouched.current, fiche },
     { enabled: draftReady, isEmpty: isEmptyDraft },
   );
 
@@ -212,32 +213,37 @@ export function FamilyEnrollmentForm({
     setChildErrors({});
     setMode("FAMILY");
     setMethod("CASH");
-    setSheets([]);
+    setFiche(null);
     familyNameTouched.current = Boolean(initialFamily);
   }
 
   /**
-   * Fiches à jour avec les enfants saisis : une fiche familiale (référent : le
-   * premier enfant, modifiable), ou une par enfant. Ce qui est déjà tapé est
-   * gardé ; juin est coché d'office si l'école le fait payer à l'inscription.
+   * La fiche à jour avec les enfants saisis : tous y figurent (référent : le
+   * premier, modifiable). Ce qui est déjà tapé est gardé ; un enfant ajouté
+   * arrive « à saisir » ; juin est coché d'office si l'école le fait payer à
+   * l'inscription.
    */
-  function syncSheets(list: ChildDraft[]) {
+  function syncFiche(list: ChildDraft[]) {
+    const keys = list.map((c) => c.key);
     const last = tuitionSettings.yearMonths[tuitionSettings.yearMonths.length - 1];
-    const fresh = (referentKey: string) =>
-      newSheetDraft({
-        referentKey,
-        monthlyMru: tuitionSettings.monthly,
-        unit: tuitionSettings.amountUnit,
-        prepaid: tuitionSettings.prepayLastMonth && last ? [last] : [],
-        firstMonth: defaultFirstMonth,
-      });
-    setSheets((current) => {
-      if (tuitionSettings.familySheetMode === "PER_CHILD") {
-        return list.map((c) => current.find((s) => s.referentKey === c.key) ?? fresh(c.key));
+    setFiche((current) => {
+      if (!current) {
+        return newFicheDraft({
+          mode: tuitionSettings.familySheetMode,
+          referentKey: keys[0],
+          keys,
+          unit: tuitionSettings.amountUnit,
+          monthlyMru: tuitionSettings.monthly,
+          prepaid: tuitionSettings.prepayLastMonth && last ? [last] : [],
+          firstMonth: defaultFirstMonth,
+        });
       }
-      const kept = current[0];
-      if (!kept) return [fresh(list[0].key)];
-      return [list.some((c) => c.key === kept.referentKey) ? kept : { ...kept, referentKey: list[0].key }];
+      const referentKey = keys.includes(current.referentKey) ? current.referentKey : keys[0];
+      return {
+        ...current,
+        referentKey,
+        amounts: Object.fromEntries(keys.map((k) => [k, current.amounts[k] ?? emptyAmounts()])),
+      };
     });
   }
 
@@ -340,31 +346,41 @@ export function FamilyEnrollmentForm({
         return;
       }
     }
-    syncSheets(children);
+    if (!existingFamily) syncFiche(children);
     setStep(3);
   }
 
   // Brouillon repris à l'étape 3 sans fiche : on la crée.
   useEffect(() => {
-    if (step === 3 && sheets.length === 0) syncSheets(children);
+    if (step === 3 && !fiche && !existingFamily) syncFiche(children);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, sheets.length]);
+  }, [step, fiche, existingFamily]);
 
   // Fiches converties en MRU : récapitulatif, confirmation et enregistrement
   // lisent les mêmes lignes.
-  const converted = convertSheets(sheets, children, tuitionSettings.amountUnit, tuitionSettings.yearMonths, defaultFirstMonth);
-  const sheetErrorsList = converted.flatMap((c) => c.errors);
-  const recapLines = converted.flatMap((c) =>
-    sheetLines(c.input).map((l) => ({ ...l, owner: converted.length > 1 ? c.referent?.firstName ?? "" : "" })),
-  );
-  const recapTotals = sheetTotals(recapLines);
+  const converted =
+    fiche && !existingFamily
+      ? convertFiche(fiche, children, tuitionSettings.amountUnit, tuitionSettings.yearMonths, defaultFirstMonth)
+      : null;
+  const sheetErrorsList = converted?.errors ?? [];
+  const recapLines = converted?.lines ?? [];
+  const recapTotals = converted?.totals ?? { paid: 0, balance: 0 };
   const shownTotal = recapTotals.paid;
 
   async function submit() {
     setSubmitting(true);
     try {
       const outcome = await enrollFamilyChecked(
-        toEnrollmentValues(draft, children, "FAMILY", method, converted.map((c) => c.input)),
+        toEnrollmentValues(
+          draft,
+          children,
+          "FAMILY",
+          method,
+          converted?.sheets.map((s) => s.input),
+          fiche && converted
+            ? { mode: fiche.mode, referentIndex: Math.max(0, children.findIndex((c) => c.key === fiche.referentKey)) }
+            : undefined,
+        ),
       );
       if (!outcome.ok) {
         // La fiche reste à l'écran, telle que saisie : on peut réessayer.
@@ -377,6 +393,11 @@ export function FamilyEnrollmentForm({
       // Inscription enregistrée : le brouillon n'a plus lieu d'être.
       autosave.finish();
       toast.success(t("family.enrolled").replace("{count}", String(result.studentIds.length)));
+      // Une famille déjà inscrite : sa fiche, où les nouveaux enfants attendent leurs montants.
+      if (existingFamily) {
+        router.push(`/directeur/fiche?famille=${result.parentId}`);
+        return;
+      }
       // Un reçu : on l'ouvre. Plusieurs (une date par reçu) : la famille, avec tout son historique.
       router.push(
         (result.receiptCount ?? 0) > 1
@@ -454,19 +475,24 @@ export function FamilyEnrollmentForm({
               onAdd={() => setChildren((list) => [...list, newChild(familySurname(draft.familyName))])}
               onRemove={(key) => setChildren((list) => list.filter((c) => c.key !== key))}
             />
-          ) : (
+          ) : existingFamily ? (
+            <p className="rounded-xl bg-primary-50/70 px-4 py-3 text-sm text-primary-900" data-testid="fiche-existing-family">
+              Cette famille a déjà sa fiche de paiement. Les enfants ajoutés y apparaîtront avec leurs champs à remplir :
+              elle s&apos;ouvre juste après l&apos;inscription, sans rien changer aux montants déjà saisis.
+            </p>
+          ) : fiche ? (
             <FamilySheetStep
               entries={children}
               classes={classes}
               settings={tuitionSettings}
               yearMonths={tuitionSettings.yearMonths}
               defaultFirstMonth={defaultFirstMonth}
-              sheets={sheets}
-              onSheetsChange={setSheets}
+              draft={fiche}
+              onDraftChange={setFiche}
               method={method}
               onMethodChange={setMethod}
             />
-          )}
+          ) : null}
 
           <div className="flex flex-col-reverse gap-2 border-t border-border/70 pt-4 sm:flex-row sm:justify-between">
             {step > 1 ? (
@@ -536,10 +562,8 @@ export function FamilyEnrollmentForm({
                           {classes.find((cl) => cl.id === c.classId)?.name}
                         </span>
                       )}
-                      {parseAmount(c.amount) > 0 && (
-                        <span dir="ltr" className="text-xs font-medium text-foreground/60" style={{ fontVariantNumeric: "tabular-nums" }}>
-                          {formatMRU(parseAmount(c.amount))}
-                        </span>
+                      {step === 3 && fiche && (
+                        <AsideChildAmounts fiche={fiche} childKey={c.key} entries={children} unit={tuitionSettings.amountUnit} />
                       )}
                     </span>
                   </li>
@@ -565,6 +589,9 @@ export function FamilyEnrollmentForm({
               {draft.familyName} · {children.length} élève(s) inscrit(s)
             </DialogDescription>
           </DialogHeader>
+          {fiche && children.length > 1 && !existingFamily && (
+            <FicheAmountsSummary draft={fiche} entries={children} unit={tuitionSettings.amountUnit} />
+          )}
           {recapLines.length > 0 ? (
             <SheetRecap lines={recapLines} totals={recapTotals} unit={tuitionSettings.amountUnit} />
           ) : (
@@ -584,5 +611,30 @@ export function FamilyEnrollmentForm({
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+/** Dans le récapitulatif de droite : ce qui est saisi pour cet enfant, gardé quand on passe au suivant. */
+function AsideChildAmounts({
+  fiche,
+  childKey,
+  entries,
+  unit,
+}: {
+  fiche: FicheDraft;
+  childKey: string;
+  entries: ChildDraft[];
+  unit: "MRU" | "MRO";
+}) {
+  const status = childStatus(fiche, entries, childKey);
+  const a = fiche.amounts[childKey];
+  return (
+    <span
+      className={cn("text-xs font-medium", status === "TODO" ? "text-amber-700" : status === "DONE" ? "text-emerald-700" : "text-foreground/50")}
+      data-testid="aside-child-status"
+      dir="auto"
+    >
+      {status === "INCLUDED" ? "Inclus" : status === "TODO" ? "à saisir" : `✓ ${a?.monthly || "0"} ${unit}`}
+    </span>
   );
 }

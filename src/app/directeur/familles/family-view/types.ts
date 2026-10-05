@@ -10,6 +10,8 @@ export interface FamilyChildRow {
   billed: number;
   paid: number;
   due: number;
+  /** Forfait famille : ses frais sont ceux de la fiche familiale, portés par l'élève référent. */
+  included: boolean;
 }
 
 /** Frais encore à régler, proposé dans le paiement familial. */
@@ -68,12 +70,16 @@ export interface FamilyPageData {
   children: FamilyChildRow[];
   openFees: FamilyOpenFee[];
   history: FamilyHistoryEntry[];
-  /** Fiche de paiement familiale de l'année : son référent et ses montants saisis. */
+  /** Fiche de paiement de l'année : la façon de facturer, le référent et les montants saisis. */
   sheet: {
+    mode: "FAMILY" | "PER_CHILD";
     referentId: string;
     referentName: string;
+    /** Forfait : le mensuel et l'inscription de la famille. */
     monthly: number;
     enrollment: number | null;
+    /** Par enfant : le mensuel de chacun. */
+    perChild: { name: string; monthly: number }[];
   } | null;
   balance: { billed: number; paid: number; due: number; upcoming: number };
   /** Élèves dont le parent a le même numéro, pas encore dans la famille. */

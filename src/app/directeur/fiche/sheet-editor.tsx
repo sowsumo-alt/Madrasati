@@ -16,13 +16,13 @@ import {
 } from "@/components/ui/dialog";
 import {
   FamilySheetStep,
+  FicheAmountsSummary,
   SheetRecap,
-  convertSheets,
+  convertFiche,
   type SheetChild,
   type SheetExisting,
 } from "@/app/directeur/familles/inscription/family-sheet-step";
-import type { SheetDraft } from "@/lib/family-sheet-draft";
-import { sheetLines, sheetTotals } from "@/lib/family-sheet";
+import type { FicheDraft } from "@/lib/family-fiche";
 import { formatMoney } from "@/lib/money";
 import type { PaymentMethod } from "@/lib/payment-methods";
 import type { TuitionSettings } from "@/lib/tuition-data";
@@ -31,7 +31,7 @@ import { DraftBanner } from "@/components/forms/draft-banner";
 import { saveSheetAction } from "./actions";
 
 interface SheetEditorDraft {
-  sheets: SheetDraft[];
+  fiche: FicheDraft;
   method: PaymentMethod;
 }
 
@@ -48,9 +48,10 @@ export function SheetEditor({
   classes,
   settings,
   studentCount,
-  initialSheets,
-  existing,
-  lockReferent,
+  initialDraft,
+  familyExisting,
+  childExisting,
+  modeLock,
   draftKey,
 }: {
   title: string;
@@ -60,13 +61,16 @@ export function SheetEditor({
   classes: { id: string; name: string }[];
   settings: TuitionSettings;
   studentCount: number;
-  initialSheets: SheetDraft[];
-  existing: SheetExisting[];
-  lockReferent: boolean;
+  initialDraft: FicheDraft;
+  /** Ce que la fiche familiale (forfait) a déjà reçu ; elle suit l'élève référent choisi. */
+  familyExisting: SheetExisting | null;
+  /** Ce que chaque enfant a déjà reçu sur sa propre fiche (montant par enfant). */
+  childExisting: Record<string, SheetExisting>;
+  modeLock: string | null;
   draftKey: string;
 }) {
   const router = useRouter();
-  const [sheets, setSheets] = useState<SheetDraft[]>(initialSheets);
+  const [fiche, setFiche] = useState<FicheDraft>(initialDraft);
   const [method, setMethod] = useState<PaymentMethod>("CASH");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -76,8 +80,8 @@ export function SheetEditor({
   const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
   useEffect(() => {
     const saved = loadDraft<SheetEditorDraft>(draftKey);
-    if (saved && saved.data.sheets.length === initialSheets.length) {
-      setSheets(saved.data.sheets);
+    if (saved?.data.fiche && Object.keys(saved.data.fiche.amounts).length === entries.length) {
+      setFiche(saved.data.fiche);
       setMethod(saved.data.method);
       setDraftSavedAt(saved.savedAt);
     }
@@ -86,17 +90,27 @@ export function SheetEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftKey]);
   const isEmpty = useCallback(
-    (d: SheetEditorDraft) => JSON.stringify(d.sheets) === JSON.stringify(initialSheets),
-    [initialSheets],
+    (d: SheetEditorDraft) => JSON.stringify(d.fiche) === JSON.stringify(initialDraft),
+    [initialDraft],
   );
-  const autosave = useDraftAutosave<SheetEditorDraft>(draftKey, { sheets, method }, { enabled: draftReady, isEmpty });
+  const autosave = useDraftAutosave<SheetEditorDraft>(draftKey, { fiche, method }, { enabled: draftReady, isEmpty });
 
-  const converted = convertSheets(sheets, entries, settings.amountUnit, settings.yearMonths, settings.yearMonths[0], existing);
-  const errors = converted.flatMap((c) => c.errors);
-  const lines = converted.flatMap((c) =>
-    sheetLines(c.input).map((l) => ({ ...l, owner: converted.length > 1 ? c.referent?.firstName ?? "" : "" })),
-  );
-  const totals = sheetTotals(lines);
+  // Ce qui est déjà reçu : en forfait, la fiche de la famille, portée par le
+  // référent choisi ; par enfant, la fiche de chacun.
+  const existing: Record<string, SheetExisting> =
+    fiche.mode === "FAMILY" && entries.length > 1
+      ? familyExisting
+        ? { [fiche.referentKey]: familyExisting }
+        : {}
+      : entries.length === 1
+        ? (childExisting[entries[0].key] ?? familyExisting)
+          ? { [entries[0].key]: (childExisting[entries[0].key] ?? familyExisting)! }
+          : {}
+        : childExisting;
+  const converted = convertFiche(fiche, entries, settings.amountUnit, settings.yearMonths, settings.yearMonths[0], existing);
+  const errors = converted.errors;
+  const lines = converted.lines;
+  const totals = converted.totals;
 
   async function save() {
     setSaving(true);
@@ -104,7 +118,9 @@ export function SheetEditor({
       const result = await saveSheetAction({
         parentId: parentId ?? undefined,
         method,
-        sheets: converted.map((c) => ({ studentId: c.draft.referentKey, sheet: c.input })),
+        mode: fiche.mode,
+        referentStudentId: fiche.referentKey,
+        sheets: converted.sheets.map((s) => ({ studentId: s.key, sheet: s.input })),
       });
       if (!result.ok) {
         toast.error(result.error);
@@ -141,7 +157,7 @@ export function SheetEditor({
           onDiscard={() => {
             clearDraft(draftKey);
             setDraftSavedAt(null);
-            setSheets(initialSheets);
+            setFiche(initialDraft);
             setMethod("CASH");
           }}
         />
@@ -168,12 +184,12 @@ export function SheetEditor({
         settings={settings}
         yearMonths={settings.yearMonths}
         defaultFirstMonth={settings.yearMonths[0]}
-        sheets={sheets}
-        onSheetsChange={setSheets}
+        draft={fiche}
+        onDraftChange={setFiche}
         method={method}
         onMethodChange={setMethod}
         existing={existing}
-        lockReferent={lockReferent}
+        modeLock={modeLock}
         studentCount={studentCount}
       />
 
@@ -201,6 +217,7 @@ export function SheetEditor({
               {title} · {studentCount} élève(s) inscrit(s)
             </DialogDescription>
           </DialogHeader>
+          {entries.length > 1 && <FicheAmountsSummary draft={fiche} entries={entries} unit={settings.amountUnit} />}
           <SheetRecap lines={lines} totals={totals} unit={settings.amountUnit} />
           <DialogFooter>
             <Button type="button" variant="secondary" onClick={() => setConfirmOpen(false)} disabled={saving} data-testid="sheet-cancel">

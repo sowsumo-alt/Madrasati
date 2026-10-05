@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { sheetErrors, sheetLines, sheetTotals, type FamilySheetInput } from "../src/lib/family-sheet";
 import { balanceOf, formatMoney, fromMru, toMru } from "../src/lib/money";
-import { newSheetDraft, sheetDraftToInput } from "../src/lib/family-sheet-draft";
+import { childStatus, ficheToSheets, newFicheDraft, type FicheMode } from "../src/lib/family-fiche";
 
 const m = (year: number, month: number) => new Date(Date.UTC(year, month - 1, 1)).toISOString();
 const sheet = (monthly: number, enrollment: number, months: string[], paidOf?: (month: string) => number): FamilySheetInput => ({
@@ -94,14 +94,33 @@ test("reste dû à ce jour : un mois payé d'avance ne compte pas, un mois à ve
 
 // —— Saisie de la fiche (écran), en MRU ou en MRO ——
 
+const one = [{ key: "a", firstName: "Awa" }];
+const sall = [
+  { key: "h", firstName: "Hadrami" },
+  { key: "t", firstName: "Tahra" },
+];
+function fiche(options: { unit?: "MRU" | "MRO"; mode?: FicheMode; keys?: string[]; monthlyMru?: number | null; prepaid?: string[] } = {}) {
+  const keys = options.keys ?? ["a"];
+  return newFicheDraft({
+    mode: options.mode ?? "FAMILY",
+    referentKey: keys[0],
+    keys,
+    unit: options.unit ?? "MRU",
+    monthlyMru: options.monthlyMru ?? null,
+    prepaid: options.prepaid ?? [],
+  });
+}
+const allLines = (sheets: { input: FamilySheetInput }[]) => sheets.flatMap((s) => sheetLines(s.input));
+
 test("saisie en MRO comme sur la fiche papier : 13 000 / 4 000 → 1 300 / 400 MRU", () => {
   const months = [m(2026, 10), m(2026, 11), m(2027, 6)];
-  const draft = newSheetDraft({ referentKey: "a", monthlyMru: null, unit: "MRO", prepaid: [m(2027, 6)] });
-  draft.monthly = "13000";
-  draft.enrollmentDue = "4000";
+  const draft = fiche({ unit: "MRO", prepaid: [m(2027, 6)] });
+  draft.amounts.a.monthly = "13000";
+  draft.amounts.a.enrollmentDue = "4000";
   draft.months[m(2026, 10)] = { checked: true, paid: "" };
-  const { input, errors } = sheetDraftToInput(draft, { unit: "MRO", referentIndex: 0, months, today: "2026-10-05" });
+  const { sheets, errors } = ficheToSheets(draft, { unit: "MRO", children: one, months, today: "2026-10-05" });
   assert.deepEqual(errors, []);
+  const input = sheets[0].input;
   assert.equal(input.monthly, 1300);
   assert.deepEqual(input.enrollment, { due: 400, paid: 400, date: "2026-10-05" });
   assert.deepEqual(input.months.map((x) => x.paid), [1300, 1300]); // octobre et juin, au montant mensuel
@@ -109,9 +128,9 @@ test("saisie en MRO comme sur la fiche papier : 13 000 / 4 000 → 1 300 / 400 M
 });
 
 test("saisie MRO invalide (13 005) : la fiche ne peut pas être enregistrée", () => {
-  const draft = newSheetDraft({ referentKey: "a", monthlyMru: null, unit: "MRO", prepaid: [] });
-  draft.monthly = "13005";
-  const { errors } = sheetDraftToInput(draft, { unit: "MRO", referentIndex: 0, months: [] });
+  const draft = fiche({ unit: "MRO" });
+  draft.amounts.a.monthly = "13005";
+  const { errors } = ficheToSheets(draft, { unit: "MRO", children: one, months: [] });
   assert.equal(errors.length, 1);
   assert.match(errors[0], /Montant mensuel : 13.005 MRO/);
 });
@@ -119,12 +138,12 @@ test("saisie MRO invalide (13 005) : la fiche ne peut pas être enregistrée", (
 // Test 4 — inscription solo : la même fiche, à un seul élève, le même calcul.
 test("inscription solo : 3 × 1 300 + inscription 200 = 4 100 MRU", () => {
   const months = [m(2026, 10), m(2026, 11), m(2026, 12), m(2027, 1)];
-  const draft = newSheetDraft({ referentKey: "solo", monthlyMru: 1300, unit: "MRU", prepaid: [] });
-  draft.enrollmentDue = "200";
+  const draft = fiche({ monthlyMru: 1300 });
+  draft.amounts.a.enrollmentDue = "200";
   for (const month of months.slice(0, 3)) draft.months[month] = { checked: true, paid: "" };
-  const { input, errors } = sheetDraftToInput(draft, { unit: "MRU", referentIndex: 0, months, today: "2026-10-05" });
+  const { sheets, errors } = ficheToSheets(draft, { unit: "MRU", children: one, months, today: "2026-10-05" });
   assert.deepEqual(errors, []);
-  const lines = sheetLines(input);
+  const lines = allLines(sheets);
   assert.deepEqual(lines.map((l) => [l.label, l.paid]), [
     ["Octobre 2026", 1300],
     ["Novembre 2026", 1300],
@@ -137,14 +156,15 @@ test("inscription solo : 3 × 1 300 + inscription 200 = 4 100 MRU", () => {
 // Test 15 — reprise de la fiche 028 : chaque mois à la date recopiée (30/09/2026).
 test("reprise fiche 028 : dates passées gardées, 9 500 MRU, avril et mai restent dus", () => {
   const months = [10, 11, 12, 1, 2, 3, 4, 5, 6].map((n) => m(n >= 10 ? 2026 : 2027, n));
-  const draft = newSheetDraft({ referentKey: "a", monthlyMru: null, unit: "MRO", prepaid: [] });
-  draft.monthly = "13000";
-  draft.enrollmentDue = "4000";
-  draft.enrollmentDate = "2026-09-30";
+  const draft = fiche({ unit: "MRO", mode: "FAMILY", keys: ["h", "t"] });
+  draft.amounts.h.monthly = "13000";
+  draft.amounts.h.enrollmentDue = "4000";
+  draft.amounts.h.enrollmentDate = "2026-09-30";
   for (const month of [...months.slice(0, 6), months[8]]) draft.months[month] = { checked: true, paid: "", date: "2026-09-30" };
-  const { input, errors } = sheetDraftToInput(draft, { unit: "MRO", referentIndex: 0, months, today: "2026-10-05" });
+  const { sheets, errors } = ficheToSheets(draft, { unit: "MRO", children: sall, months, today: "2026-10-05" });
   assert.deepEqual(errors, []);
-  const lines = sheetLines(input);
+  assert.equal(sheets.length, 1); // forfait famille : une seule fiche, celle du référent
+  const lines = allLines(sheets);
   assert.equal(sheetTotals(lines).paid, 9500);
   assert.ok(lines.every((l) => l.date === "2026-09-30"));
   assert.ok(!lines.some((l) => l.month === m(2027, 4) || l.month === m(2027, 5)));
@@ -153,14 +173,14 @@ test("reprise fiche 028 : dates passées gardées, 9 500 MRU, avril et mai reste
 // Test 16 — fiche 031, juin payé le 05/10/2026.
 test("fiche 031 avec juin au 05/10/2026 : 2 800 MRU à cette date", () => {
   const months = [m(2026, 10), m(2027, 6)];
-  const draft = newSheetDraft({ referentKey: "a", monthlyMru: null, unit: "MRO", prepaid: [] });
-  draft.monthly = "24000";
-  draft.enrollmentDue = "4000";
-  draft.enrollmentDate = "2026-10-05";
+  const draft = fiche({ unit: "MRO" });
+  draft.amounts.a.monthly = "24000";
+  draft.amounts.a.enrollmentDue = "4000";
+  draft.amounts.a.enrollmentDate = "2026-10-05";
   draft.months[m(2027, 6)] = { checked: true, paid: "", date: "2026-10-05" };
-  const { input, errors } = sheetDraftToInput(draft, { unit: "MRO", referentIndex: 0, months, today: "2026-10-07" });
+  const { sheets, errors } = ficheToSheets(draft, { unit: "MRO", children: one, months, today: "2026-10-07" });
   assert.deepEqual(errors, []);
-  const lines = sheetLines(input);
+  const lines = allLines(sheets);
   assert.equal(sheetTotals(lines).paid, 2800);
   assert.deepEqual([...new Set(lines.map((l) => l.date))], ["2026-10-05"]);
 });
@@ -174,16 +194,69 @@ test("une date à venir est refusée ; une date passée est acceptée", () => {
 });
 
 test("fiche déjà saisie : le reste dû d'un mois en partie payé, l'inscription jamais refacturée", () => {
-  const already = { months: { [m(2026, 10)]: { due: 1300, paid: 800 } }, enrollment: { due: 400, paid: 400 } };
+  const already = { a: { months: { [m(2026, 10)]: { due: 1300, paid: 800 } }, enrollment: { due: 400, paid: 400 } } };
   const months = [m(2026, 10), m(2026, 11)];
-  const draft = newSheetDraft({ referentKey: "a", monthlyMru: 1300, unit: "MRU", prepaid: [], enrollmentDueMru: 400 });
+  const draft = fiche({ monthlyMru: 1300 });
+  draft.amounts.a.enrollmentDue = "400";
   draft.months[m(2026, 10)] = { checked: true, paid: "" };
-  const { input, errors } = sheetDraftToInput(draft, { unit: "MRU", referentIndex: 0, months, already, today: "2026-10-05" });
+  const { sheets, errors } = ficheToSheets(draft, { unit: "MRU", children: one, months, already, today: "2026-10-05" });
   assert.deepEqual(errors, []);
-  const lines = sheetLines(input);
   // Octobre : le reste (500), et rien pour l'inscription déjà réglée.
-  assert.deepEqual(lines.map((l) => [l.label, l.before, l.paid, l.balance]), [["Octobre 2026", 800, 500, 0]]);
+  assert.deepEqual(allLines(sheets).map((l) => [l.label, l.before, l.paid, l.balance]), [["Octobre 2026", 800, 500, 0]]);
   // Verser 600 sur ce reste de 500 : refusé.
   draft.months[m(2026, 10)] = { checked: true, paid: "600" };
-  assert.equal(sheetDraftToInput(draft, { unit: "MRU", referentIndex: 0, months, already, today: "2026-10-05" }).errors.length, 1);
+  assert.equal(ficheToSheets(draft, { unit: "MRU", children: one, months, already, today: "2026-10-05" }).errors.length, 1);
+});
+
+// —— Tous les enfants sur la fiche (§5 bis) ——
+
+// Test 18 — montant par enfant : Hadrami 1 600 + 400, Tahra 1 400 + 300, juin payé.
+test("montant par enfant : juin 3 000, inscriptions 700, total 3 700 MRU, deux fiches", () => {
+  const months = [m(2026, 10), m(2027, 6)];
+  const draft = fiche({ mode: "PER_CHILD", keys: ["h", "t"], prepaid: [m(2027, 6)] });
+  Object.assign(draft.amounts.h, { monthly: "1600", enrollmentDue: "400" });
+  Object.assign(draft.amounts.t, { monthly: "1400", enrollmentDue: "300" });
+  const { sheets, rows, errors } = ficheToSheets(draft, { unit: "MRU", children: sall, months, today: "2026-10-05" });
+  assert.deepEqual(errors, []);
+  assert.deepEqual(sheets.map((s) => s.key), ["h", "t"]);
+  assert.equal(rows[m(2027, 6)].due, 3000); // dû du mois : la somme des mensuels saisis
+  const lines = allLines(sheets);
+  assert.equal(lines.filter((l) => l.kind === "ENROLLMENT").reduce((s, l) => s + l.paid, 0), 700);
+  assert.equal(sheetTotals(lines).paid, 3700);
+});
+
+// Test 19 — forfait famille : 1 600 + 400 pour 2 enfants.
+test("forfait famille : 2 000 MRU, une seule fiche ; l'autre enfant est « inclus »", () => {
+  const months = [m(2026, 10), m(2027, 6)];
+  const draft = fiche({ mode: "FAMILY", keys: ["h", "t"], prepaid: [m(2027, 6)] });
+  Object.assign(draft.amounts.h, { monthly: "1600", enrollmentDue: "400" });
+  const { sheets, errors } = ficheToSheets(draft, { unit: "MRU", children: sall, months, today: "2026-10-05" });
+  assert.deepEqual(errors, []);
+  assert.equal(sheets.length, 1);
+  assert.equal(sheetTotals(allLines(sheets)).paid, 2000);
+  assert.equal(childStatus(draft, sall, "h"), "DONE");
+  assert.equal(childStatus(draft, sall, "t"), "INCLUDED");
+  // Passer en mode par enfant : Tahra devient « à saisir », rien n'est copié.
+  draft.mode = "PER_CHILD";
+  assert.equal(childStatus(draft, sall, "t"), "TODO");
+  assert.equal(draft.amounts.t.monthly, "");
+});
+
+test("paiement partiel par enfant : réparti dans l'ordre de la liste, répartition modifiable", () => {
+  const months = [m(2026, 10)];
+  const draft = fiche({ mode: "PER_CHILD", keys: ["h", "t"] });
+  Object.assign(draft.amounts.h, { monthly: "1600" });
+  Object.assign(draft.amounts.t, { monthly: "1400" });
+  draft.months[m(2026, 10)] = { checked: true, paid: "2000" };
+  let result = ficheToSheets(draft, { unit: "MRU", children: sall, months, today: "2026-10-05" });
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.rows[m(2026, 10)].split.map((p) => [p.key, p.paid]), [["h", 1600], ["t", 400]]);
+  // Le directeur répartit autrement : 1 000 chacun.
+  draft.months[m(2026, 10)].split = { h: "1000", t: "1000" };
+  result = ficheToSheets(draft, { unit: "MRU", children: sall, months, today: "2026-10-05" });
+  assert.deepEqual(result.rows[m(2026, 10)].split.map((p) => [p.key, p.paid]), [["h", 1000], ["t", 1000]]);
+  assert.equal(result.rows[m(2026, 10)].paid, 2000);
+  // Plus que le dû du mois : refusé.
+  draft.months[m(2026, 10)] = { checked: true, paid: "3500" };
+  assert.equal(ficheToSheets(draft, { unit: "MRU", children: sall, months, today: "2026-10-05" }).errors.length, 1);
 });

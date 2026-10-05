@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { StudentsView, type StudentRow } from "./students-view";
 import { CURRENT_YEAR } from "@/lib/school-year";
 import { buildCatalog, classOptions } from "@/lib/class-catalog";
-import { loadTuitionSettings, tuitionSummaries } from "@/lib/tuition-data";
+import { loadTuitionSettings, studentMoneySummaries, tuitionSummaries } from "@/lib/tuition-data";
 
 export default async function StudentsPage({
   searchParams,
@@ -14,7 +14,7 @@ export default async function StudentsPage({
   const user = await requireRole(ROLES.DIRECTOR);
   const { q, new: openNew, classe, famille } = await searchParams;
 
-  const [students, classes, school, currentYear, allLevels, tuition, tuitionSettings] = await Promise.all([
+  const [students, classes, school, currentYear, allLevels, tuition, tuitionSettings, money] = await Promise.all([
     prisma.student.findMany({
       where: { schoolId: user.schoolId },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
@@ -50,6 +50,7 @@ export default async function StudentsPage({
     }),
     tuitionSummaries(user.schoolId),
     loadTuitionSettings(user.schoolId),
+    studentMoneySummaries(user.schoolId),
   ]);
 
   const rows: StudentRow[] = students.map((s) => {
@@ -70,6 +71,7 @@ export default async function StudentsPage({
       rimNumber: s.rimNumber,
       motherName: s.motherName,
       tuition: tuition.get(s.id) ?? null,
+      money: money.get(s.id) ?? null,
       enrollmentDate: s.enrollmentDate.toISOString(),
       parent: parent
         ? {

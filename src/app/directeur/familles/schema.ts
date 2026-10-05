@@ -2,6 +2,7 @@ import { z } from "zod";
 import { phoneSchema } from "@/lib/phone";
 import { PAYMENT_METHODS } from "@/lib/payment-methods";
 import { familySheetSchema } from "@/lib/family-sheet";
+import { FICHE_MODES } from "@/lib/family-fiche";
 import { optionalNniSchema } from "@/lib/nni";
 
 const optionalText = (max: number) => z.string().trim().max(max).optional().or(z.literal(""));
@@ -47,6 +48,10 @@ export const familyEnrollmentSchema = z.object({
    * d'inscription par enfant : aucun montant n'est déduit d'un autre.
    */
   sheets: z.array(familySheetSchema).max(20).optional(),
+  /** Forfait famille (une fiche, portée par le référent) ou montant par enfant (une fiche par enfant). */
+  sheetMode: z.enum(FICHE_MODES).optional(),
+  /** L'élève référent : son rang parmi les enfants saisis. */
+  referentIndex: z.number().int().min(0).max(19).optional(),
 });
 
 export type FamilyEnrollmentValues = z.infer<typeof familyEnrollmentSchema>;
