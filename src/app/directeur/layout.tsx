@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { AppShell } from "@/components/layout/app-shell";
 import { effectivePlan } from "@/lib/plans";
 import { Eye } from "lucide-react";
+import { ReadOnlyToasts } from "@/components/layout/read-only-toasts";
+import { READ_ONLY_MESSAGE } from "@/lib/write-guard";
 
 export default async function DirectorLayout({
   children,
@@ -53,6 +55,7 @@ export default async function DirectorLayout({
           Accès en lecture seule : vous pouvez tout consulter, mais pas modifier.
         </p>
       )}
+      {user.readOnly && <ReadOnlyToasts message={READ_ONLY_MESSAGE} />}
       {children}
     </AppShell>
   );
