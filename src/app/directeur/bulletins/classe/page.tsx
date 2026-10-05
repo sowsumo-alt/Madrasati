@@ -108,7 +108,7 @@ export default async function ClassReportCardsPage({
   const bilingual = schoolHasFeature(school, FEATURES.BILINGUAL_MESSAGES);
   const schoolInfo = toSchoolIdentity(school);
 
-  const bulk: BulkStudent[] = cards.map((card, index) => {
+  const bulk: BulkStudent[] = cards.map((card) => {
     const studentName = `${card.student.firstName} ${card.student.lastName}`;
     const info = students.find((s) => s.id === card.student.id);
     const parent = info?.parentLinks[0]?.parent ?? null;
@@ -143,7 +143,6 @@ export default async function ClassReportCardsPage({
           school={schoolInfo}
           official={official}
           yearLabel={classRoom.academicYear.label}
-          studentNumber={index + 1}
           termRecap={(pastAverages.get(card.student.id) ?? []).map((p) => ({
             term: p.term,
             average: p.average,
@@ -164,7 +163,6 @@ export default async function ClassReportCardsPage({
           school={schoolInfo}
           official={official}
           yearLabel={classRoom.academicYear.label}
-          studentNumber={index + 1}
           suspensions={suspensions.find((s) => s.studentId === card.student.id)?._count._all ?? 0}
           comment={comment ? { body: comment.body, bodyAr: comment.bodyAr } : null}
           issuedAt={new Date()}

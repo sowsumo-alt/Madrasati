@@ -56,7 +56,7 @@
 /* INFORMATIONS DE L'ÉLÈVE */
 .studentInfo {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr;
+  grid-template-columns: 2fr 1fr 1fr;
   font-size: 12px;
   margin-bottom: 16px;
   border: 1px solid #9ca3af;

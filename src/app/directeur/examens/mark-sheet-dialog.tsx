@@ -135,7 +135,7 @@ export function MarkSheetDialog({
             <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Ordre des élèves">
               {(
                 [
-                  ["NUMBER", "Par N°", "Celui du bulletin et de la saisie des notes"],
+                  ["NUMBER", "Par nom de famille", "Le même ordre que la saisie des notes"],
                   ["FIRST_NAME", "Par prénom", "Ordre alphabétique des prénoms"],
                 ] as const
               ).map(([value, label, hint]) => (

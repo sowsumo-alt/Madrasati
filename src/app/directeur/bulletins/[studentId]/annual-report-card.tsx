@@ -32,7 +32,6 @@ export interface AnnualReportCardProps {
   school: SchoolIdentity;
   official: OfficialHeaderText;
   yearLabel: string | null;
-  studentNumber: number;
   termRecap: TermRecap[];
   /**
    * Titre du document : « Bulletin Annuel » par défaut ; « Bulletin du 3e
@@ -103,7 +102,6 @@ export function AnnualReportCard({
   school,
   official,
   yearLabel,
-  studentNumber,
   termRecap,
   title,
   honors,
@@ -142,10 +140,6 @@ export function AnnualReportCard({
           <strong>
             {card.student.firstName} {card.student.lastName}
           </strong>
-        </div>
-        <div>
-          <span>N°</span>
-          <strong>{String(studentNumber).padStart(2, "0")}</strong>
         </div>
         <div>
           <span>Classe</span>

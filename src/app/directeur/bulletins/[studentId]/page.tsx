@@ -298,7 +298,6 @@ export default async function ReportCardPage({
               school={schoolIdentity}
               official={official}
               yearLabel={academicYear?.label ?? null}
-              studentNumber={cards.indexOf(card) + 1}
               termRecap={annualData.termRecap}
               title={term === ANNUAL_TERM ? undefined : "Bulletin du 3e trimestre"}
               honors={annualData.honors}
@@ -314,7 +313,6 @@ export default async function ReportCardPage({
               school={schoolIdentity}
               official={official}
               yearLabel={academicYear?.label ?? null}
-              studentNumber={cards.indexOf(card) + 1}
               suspensions={suspensions}
               comment={comment ? { body: comment.body, bodyAr: comment.bodyAr } : null}
               issuedAt={new Date()}

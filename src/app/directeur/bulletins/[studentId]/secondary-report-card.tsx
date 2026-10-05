@@ -31,8 +31,6 @@ export interface SecondaryReportCardProps {
   /** Bloc de l'État, commun à toutes les écoles (voir loadOfficialHeader). */
   official: OfficialHeaderText;
   yearLabel: string | null;
-  /** Place de l'élève dans la liste alphabétique de la classe. */
-  studentNumber: number;
   /** Renvois (exclusions temporaires) du trimestre. */
   suspensions: number;
   comment: { body: string; bodyAr: string | null } | null;
@@ -116,7 +114,6 @@ export function SecondaryReportCard({
   school,
   official,
   yearLabel,
-  studentNumber,
   suspensions,
   comment,
   issuedAt,
@@ -147,10 +144,6 @@ export function SecondaryReportCard({
           <strong>
             {card.student.firstName} {card.student.lastName}
           </strong>
-        </div>
-        <div>
-          <span>N°</span>
-          <strong>{String(studentNumber).padStart(2, "0")}</strong>
         </div>
         <div>
           <span>Classe</span>
