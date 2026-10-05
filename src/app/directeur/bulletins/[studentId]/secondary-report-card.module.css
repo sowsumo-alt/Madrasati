@@ -507,15 +507,6 @@
   margin-top: 8px;
 }
 
-/* Détail d'un calcul, sous la valeur d'une case du bulletin annuel. */
-.calcDetail {
-  display: block;
-  margin-top: 1px;
-  font-size: 8.5px;
-  font-weight: 400;
-  color: #9ca3af;
-  white-space: nowrap;
-}
 .directorNote {
   display: flex;
   align-items: flex-end;
