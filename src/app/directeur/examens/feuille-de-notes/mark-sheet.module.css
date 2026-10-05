@@ -1,0 +1,191 @@
+/*
+ * Feuille de notes papier, A4 portrait. Les tailles sont en millimètres :
+ * la page est découpée à l'avance (lib/mark-sheet.ts, paginateRows) d'après
+ * ces hauteurs — 8,5 mm par ligne, assez pour écrire une note à la main.
+ */
+
+.page {
+  width: 190mm;
+  margin: 0 auto 8mm;
+  padding: 0;
+  background: #fff;
+  color: #111827;
+  font-size: 9.5pt;
+  line-height: 1.25;
+}
+
+@media screen {
+  .page {
+    box-sizing: content-box;
+    padding: 10mm;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    min-height: 277mm;
+  }
+}
+
+@media print {
+  .page {
+    margin: 0;
+  }
+  .page + .page {
+    break-before: page;
+    padding-top: 10mm;
+  }
+}
+
+/* En-tête de l'école */
+.school {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4mm;
+  height: 20mm;
+  padding-bottom: 2mm;
+  border-bottom: 0.4mm solid #0b5e38;
+}
+.banner {
+  display: block;
+  width: auto;
+  height: auto;
+  max-height: 18mm;
+  max-width: 100%;
+  object-fit: contain;
+}
+.logo {
+  display: block;
+  width: auto;
+  height: auto;
+  max-height: 15mm;
+  max-width: 30mm;
+  object-fit: contain;
+}
+.schoolName {
+  font-size: 14pt;
+  font-weight: 800;
+  color: #0b5e38;
+}
+.schoolMeta {
+  font-size: 8.5pt;
+  color: #4b5563;
+}
+
+/* Titre et page */
+.titleRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-top: 3mm;
+}
+.title {
+  font-size: 13pt;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.pageNumber {
+  font-size: 8.5pt;
+  color: #6b7280;
+}
+
+/* Classe, matière, trimestre, enseignant */
+.info {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr 1fr;
+  gap: 1.5mm 4mm;
+  margin: 2.5mm 0 3mm;
+  padding: 2mm 3mm;
+  border: 0.3mm solid #d1d5db;
+  border-radius: 1.5mm;
+}
+.infoLabel {
+  font-size: 7pt;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+.infoValue {
+  font-size: 10pt;
+  font-weight: 700;
+  min-height: 4.5mm;
+}
+.arabic {
+  font-weight: 600;
+}
+.blank {
+  display: inline-block;
+  width: 45mm;
+  border-bottom: 0.3mm dotted #9ca3af;
+}
+
+/* Tableau des notes */
+.table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+.table th,
+.table td {
+  border: 0.3mm solid #6b7280;
+  padding: 0 1.5mm;
+}
+.table th {
+  height: 10mm;
+  background: #e8f1ec;
+  color: #0b5e38;
+  font-size: 8pt;
+  font-weight: 800;
+  text-align: center;
+  line-height: 1.15;
+}
+.table td {
+  height: 8.5mm;
+}
+.table tbody tr:nth-child(even) td {
+  background: #f7f8f7;
+}
+.number {
+  text-align: center;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rim {
+  display: block;
+  font-size: 6.5pt;
+  font-weight: 400;
+  color: #6b7280;
+}
+.cell {
+  text-align: center;
+  font-size: 10.5pt;
+  font-weight: 600;
+  color: #1d4ed8;
+}
+
+/* Signature, dernière page */
+.footer {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8mm;
+  margin-top: 6mm;
+  font-size: 9.5pt;
+}
+.signature {
+  height: 16mm;
+  margin-top: 1.5mm;
+  border: 0.3mm dashed #9ca3af;
+  border-radius: 1.5mm;
+}
+.hint {
+  margin-top: 2mm;
+  font-size: 7.5pt;
+  color: #6b7280;
+}

@@ -43,6 +43,12 @@ export interface FormulaPart {
   /** Nom donné aux examens créés depuis la grille : « Devoir 3 ». */
   examTitle?: string;
   /**
+   * Cases de ce bloc sur la feuille de notes papier (lib/mark-sheet.ts) :
+   * 2 pour une école à deux devoirs. Absent : 1 pour un bloc qui ne garde
+   * que la dernière note (la composition), 3 pour les autres.
+   */
+  sheetCount?: number;
+  /**
    * Bulletin annuel seulement : le trimestre dont les notes nourrissent ce
    * bloc (« Composition du Trimestre 2 »). Absent : toute l'année — c'est
    * ainsi que le meilleur devoir est cherché parmi les trois trimestres.
@@ -224,6 +230,7 @@ const partSchema = z.object({
   columnLabel: z.string().trim().max(60).optional(),
   columnLabelAr: z.string().trim().max(60).optional(),
   examTitle: z.string().trim().max(60).optional(),
+  sheetCount: z.number().int().min(1).max(10).optional(),
   term: z.string().trim().max(40).optional(),
 });
 

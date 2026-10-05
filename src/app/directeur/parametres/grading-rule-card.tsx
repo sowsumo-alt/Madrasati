@@ -33,6 +33,7 @@ import {
   type MultiRule,
 } from "@/lib/grading-config";
 import { saveGradingRule } from "./actions";
+import { sheetCountOf } from "@/lib/mark-sheet";
 
 /**
  * Réglage de la façon dont l'école calcule ses moyennes.
@@ -424,6 +425,26 @@ export function GradingRuleCard({
                   />
                   {t("grading.required")}
                 </label>
+                {/* La feuille de notes papier ne concerne que les trimestres. */}
+                {period === "TERM" && (
+                  <label
+                    className="flex items-center gap-2 text-sm text-foreground/70"
+                    title={t("grading.sheetCountHint")}
+                  >
+                    {t("grading.sheetCount")}
+                    <Input
+                      type="number"
+                      min={1}
+                      max={10}
+                      value={sheetCountOf(part)}
+                      onChange={(e) =>
+                        updatePart(index, { sheetCount: Math.max(1, Math.min(10, Number(e.target.value) || 1)) })
+                      }
+                      className="h-8 w-16"
+                      data-testid={`sheet-count-${index}`}
+                    />
+                  </label>
+                )}
                 {formula.parts.length > 1 && (
                   <Button variant="secondary" size="sm" onClick={() => removePart(index)}>
                     <Trash2 className="h-4 w-4 text-red-600" />

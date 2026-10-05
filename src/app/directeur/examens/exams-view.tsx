@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ChevronRight, Plus } from "lucide-react";
+import { ChevronRight, FileSpreadsheet, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ListPagination } from "@/components/ui/list-pagination";
@@ -16,6 +16,7 @@ import {
   type ExamEditTarget,
 } from "./exam-form-dialog";
 import { ScopeChoice } from "./scope-choice";
+import { MarkSheetDialog } from "./mark-sheet-dialog";
 import { GradesDialog, type GradesDialogStudent } from "./grades-dialog";
 import { deleteExam } from "./actions";
 import type { ExamScope } from "./schema";
@@ -77,6 +78,7 @@ export function ExamsView({
   const [subjectFilter, setSubjectFilter] = useState("ALL");
   const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
+  const [markSheetOpen, setMarkSheetOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<ExamEditTarget | null>(null);
   const [gradesExamId, setGradesExamId] = useState<string | null>(initialExamId);
   const [detailKey, setDetailKey] = useState<string | null>(null);
@@ -223,11 +225,24 @@ export function ExamsView({
           </p>
         </div>
         {canManageExams && (
-          <Button className="h-11 px-5 shadow-sm" onClick={() => setFormOpen(true)}>
-            <Plus className="h-4 w-4" />
-            {t("exams.newExam")}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {/* Feuille papier pour les enseignants qui n'utilisent pas l'application. */}
+            <Button
+              variant="secondary"
+              className="h-11 px-4"
+              onClick={() => setMarkSheetOpen(true)}
+              data-testid="open-mark-sheet"
+            >
+              <FileSpreadsheet className="h-4 w-4" />
+              Imprimer la feuille de notes
+            </Button>
+            <Button className="h-11 px-5 shadow-sm" onClick={() => setFormOpen(true)}>
+              <Plus className="h-4 w-4" />
+              {t("exams.newExam")}
+            </Button>
+          </div>
         )}
+        <MarkSheetDialog open={markSheetOpen} onOpenChange={setMarkSheetOpen} classes={classes} />
       </div>
 
       <ExamsToolbar
