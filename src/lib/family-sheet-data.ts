@@ -1,14 +1,16 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { monthLabel, monthStart } from "@/lib/tuition";
-import { applyTuitionPlan, type PaymentPart } from "@/lib/tuition-plan";
-import { sheetErrors, type FamilySheetInput } from "@/lib/family-sheet";
+import { applyTuitionPlan, recordGroupedPayment, type PaymentPart } from "@/lib/tuition-plan";
+import { sheetErrors, todayIso, type FamilySheetInput, type SheetAlready } from "@/lib/family-sheet";
 import { UserError } from "@/lib/user-error";
 
 /**
- * Enregistrement d'une fiche de paiement familiale (voir lib/family-sheet.ts).
+ * Enregistrement d'une fiche de paiement (voir lib/family-sheet.ts) : à
+ * l'inscription d'une famille ou d'un élève seul, ou plus tard, depuis la
+ * page de la famille ou de l'élève (reprise des fiches papier).
  *
- * Les montants de la fiche sont rattachés à UN élève, le référent — comme la
- * fiche papier, qui porte le nom d'un seul enfant — et marqués comme
+ * Les montants d'une fiche familiale sont rattachés à UN élève, le référent —
+ * comme la fiche papier, qui porte le nom d'un seul enfant — et marqués comme
  * appartenant à la famille (familyParentId). Rien n'est créé pour les autres
  * enfants : aucun montant n'est dupliqué, et la famille compte une seule
  * fois au tableau de bord, dans les impayés et dans l'argent perçu.
@@ -16,34 +18,135 @@ import { UserError } from "@/lib/user-error";
 
 type Db = Prisma.TransactionClient | PrismaClient;
 
+/** Une part à encaisser, avec la date de son versement (null : aujourd'hui). */
+export type DatedPart = PaymentPart & { date: string | null };
+
+const studentName = (s: { firstName: string; lastName: string }) => `${s.firstName} ${s.lastName}`.trim();
+
 /**
- * Crée l'inscription et les échéances mensuelles de la fiche, et renvoie les
- * parts à encaisser aujourd'hui (un mois versé = une part, l'inscription =
- * une part). Le règlement lui-même — un seul reçu — est fait par l'appelant.
+ * Crée (ou met à jour) l'inscription et les échéances mensuelles de la
+ * fiche, et renvoie les parts à encaisser, chacune à sa date. Le règlement
+ * lui-même est fait par recordSheetPayments.
+ *
+ * Fiche déjà saisie : ce que chaque ligne a déjà reçu est relu ici, en base ;
+ * l'inscription existante est reprise, jamais créée une seconde fois ; les
+ * mois déjà réglés restent tels quels avec leurs reçus (applyTuitionPlan).
  */
 export async function recordFamilySheet(
   tx: Prisma.TransactionClient,
   input: {
     schoolId: string;
     year: { id: string; label: string; startDate: Date; endDate: Date };
-    /** La famille, pour une fiche familiale ; null pour une fiche d'un seul enfant. */
+    /** La famille, pour une fiche familiale ; null pour la fiche d'un seul enfant. */
     familyParentId: string | null;
     referentStudentId: string;
     sheet: FamilySheetInput;
-    /** Premier mois facturé (le mois de l'inscription). */
+    /** Premier mois facturé, quand la fiche n'en précise pas (le mois de l'inscription). */
     firstMonth: Date;
     now: Date;
   },
-): Promise<PaymentPart[]> {
+): Promise<DatedPart[]> {
   const { schoolId, year, familyParentId, referentStudentId: studentId, sheet, now } = input;
-  const errors = sheetErrors(sheet);
+  const today = todayIso(now);
+  const hasAmounts = sheet.monthly > 0 || sheet.enrollment.due > 0;
+
+  // — Une seule fiche par famille et par année : pas de seconde fiche sur un
+  // autre enfant, ni d'échéances qu'un enfant aurait déjà de son côté.
+  if (familyParentId && hasAmounts) {
+    const other = await tx.tuitionPlan.findFirst({
+      where: { familyParentId, academicYearId: year.id, studentId: { not: studentId } },
+      select: { student: { select: { firstName: true, lastName: true } } },
+    });
+    if (other) {
+      throw new UserError(
+        `Cette famille a déjà sa fiche de paiement (élève référent : ${studentName(other.student)}). Modifiez-la depuis la page de la famille.`,
+      );
+    }
+    const own = await tx.tuitionPlan.findFirst({
+      where: {
+        academicYearId: year.id,
+        familyParentId: null,
+        studentId: { not: studentId },
+        student: { status: "ACTIVE", parentLinks: { some: { parentId: familyParentId } } },
+        fees: { some: {} },
+      },
+      select: { student: { select: { firstName: true, lastName: true } } },
+    });
+    if (own) {
+      throw new UserError(
+        `${studentName(own.student)} a déjà ses propres échéances cette année : la fiche familiale les compterait deux fois. Choisissez cet enfant comme élève référent, ou retirez d'abord ses échéances.`,
+      );
+    }
+  }
+
+  // — L'inscription : un montant unique pour la fiche, jamais répété ni
+  // multiplié. Déjà enregistrée : reprise, son montant suit la fiche.
+  const enrollmentFee = await tx.fee.findFirst({
+    where: {
+      schoolId,
+      academicYearId: year.id,
+      tuitionPlanId: null,
+      label: { startsWith: "Frais d'inscription" },
+      ...(familyParentId ? { OR: [{ familyParentId }, { studentId, familyParentId: null }] } : { studentId }),
+    },
+    orderBy: { createdAt: "asc" },
+    select: { id: true, amount: true, studentId: true, payments: { select: { amount: true } } },
+  });
+  const enrollmentBefore = enrollmentFee?.payments.reduce((sum, p) => sum + p.amount, 0) ?? 0;
+
+  // — Les mois : une échéance par mois, au montant mensuel saisi.
+  let planId: string | null = null;
+  if (sheet.monthly > 0) {
+    const applied = await applyTuitionPlan(tx, {
+      schoolId,
+      studentId,
+      year,
+      frequency: "MONTHLY",
+      customMonths: 1,
+      monthlyAmount: sheet.monthly,
+      firstMonth: sheet.firstMonth ? new Date(sheet.firstMonth) : input.firstMonth,
+    });
+    planId = applied.planId;
+  } else if (sheet.months.some((m) => m.paid > 0)) {
+    planId =
+      (
+        await tx.tuitionPlan.findUnique({
+          where: { studentId_academicYearId: { studentId, academicYearId: year.id } },
+          select: { id: true },
+        })
+      )?.id ?? null;
+  }
+  if (planId && familyParentId) {
+    await tx.tuitionPlan.update({ where: { id: planId }, data: { familyParentId } });
+    await tx.fee.updateMany({ where: { tuitionPlanId: planId }, data: { familyParentId } });
+  }
+  // Les échéances de la formule et ce qu'elles ont reçu, lues une fois.
+  const planFees = planId
+    ? await tx.fee.findMany({
+        where: { tuitionPlanId: planId },
+        select: { id: true, amount: true, periodStart: true, periodEnd: true, payments: { select: { amount: true } } },
+      })
+    : [];
+  const paidOf = (fee: { payments: { amount: number }[] }) => fee.payments.reduce((sum, p) => sum + p.amount, 0);
+
+  // Ce que la fiche a déjà reçu, relu en base : le contrôle porte sur le vrai reste dû.
+  const already: SheetAlready = {
+    months: Object.fromEntries(
+      planFees
+        .filter((f) => f.periodStart && f.payments.length > 0)
+        .map((f) => [f.periodStart!.toISOString(), { due: f.amount, paid: paidOf(f) }]),
+    ),
+    enrollment: enrollmentFee ? { due: enrollmentFee.amount, paid: enrollmentBefore } : null,
+  };
+  const errors = sheetErrors({ ...sheet, already }, today);
   if (errors.length > 0) throw new UserError(errors[0]);
 
-  const parts: PaymentPart[] = [];
+  const parts: DatedPart[] = [];
+  const dateOf = (date: string | undefined) => (date && date !== today ? date : null);
 
-  // L'inscription : un montant unique pour la fiche, jamais répété ni multiplié.
-  if (sheet.enrollment.due > 0) {
-    const fee = await tx.fee.create({
+  let fee = enrollmentFee;
+  if (!fee && sheet.enrollment.due > 0) {
+    fee = await tx.fee.create({
       data: {
         schoolId,
         studentId,
@@ -54,41 +157,92 @@ export async function recordFamilySheet(
         status: "PENDING",
         familyParentId,
       },
+      select: { id: true, amount: true, studentId: true, payments: { select: { amount: true } } },
     });
-    if (sheet.enrollment.paid > 0) {
-      parts.push({ feeId: fee.id, studentId, amount: sheet.enrollment.paid, feeAmount: fee.amount, paidBefore: 0 });
-    }
+  } else if (fee && sheet.enrollment.due > 0 && sheet.enrollment.due !== fee.amount) {
+    // Montant corrigé (erreur de recopie) : le statut suit le nouveau montant.
+    const due = sheet.enrollment.due;
+    await tx.fee.update({
+      where: { id: fee.id },
+      data: { amount: due, status: enrollmentBefore >= due ? "PAID" : enrollmentBefore > 0 ? "PARTIAL" : "PENDING" },
+    });
+    fee = { ...fee, amount: due };
+  }
+  if (fee && sheet.enrollment.paid > 0) {
+    parts.push({
+      feeId: fee.id,
+      studentId: fee.studentId,
+      amount: sheet.enrollment.paid,
+      feeAmount: fee.amount,
+      paidBefore: enrollmentBefore,
+      date: dateOf(sheet.enrollment.date),
+    });
   }
 
-  // Les mois : une échéance par mois, au montant mensuel saisi.
-  if (sheet.monthly > 0) {
-    const applied = await applyTuitionPlan(tx, {
-      schoolId,
+  for (const m of sheet.months.filter((x) => x.paid > 0)) {
+    const month = monthStart(new Date(m.month));
+    const monthFee = planFees.find((f) => f.periodStart?.getTime() === month.getTime());
+    if (!monthFee) throw new UserError(`${monthLabel(month)} ne fait pas partie des mois facturés de cette fiche.`);
+    if (monthFee.periodEnd && monthStart(monthFee.periodEnd).getTime() !== month.getTime()) {
+      throw new UserError(`${monthLabel(month)} fait partie d'une échéance de plusieurs mois : encaissez-la depuis Finance.`);
+    }
+    parts.push({
+      feeId: monthFee.id,
       studentId,
-      year,
-      frequency: "MONTHLY",
-      customMonths: 1,
-      monthlyAmount: sheet.monthly,
-      firstMonth: input.firstMonth,
+      amount: m.paid,
+      feeAmount: monthFee.amount,
+      paidBefore: paidOf(monthFee),
+      date: dateOf(m.date),
     });
-    if (familyParentId) {
-      await tx.tuitionPlan.update({ where: { id: applied.planId }, data: { familyParentId } });
-      await tx.fee.updateMany({ where: { tuitionPlanId: applied.planId }, data: { familyParentId } });
-    }
-    // Les échéances de la formule, lues une fois.
-    const planFees = await tx.fee.findMany({
-      where: { tuitionPlanId: applied.planId },
-      select: { id: true, amount: true, periodStart: true },
-    });
-    for (const m of sheet.months.filter((x) => x.paid > 0)) {
-      const month = monthStart(new Date(m.month));
-      const fee = planFees.find((f) => f.periodStart?.getTime() === month.getTime());
-      if (!fee) throw new UserError(`${monthLabel(month)} ne fait pas partie des mois facturés de cette fiche.`);
-      parts.push({ feeId: fee.id, studentId, amount: m.paid, feeAmount: fee.amount, paidBefore: 0 });
-    }
   }
 
   return parts;
+}
+
+/**
+ * Le règlement d'une ou plusieurs fiches : un reçu par date de versement —
+ * comme les lignes signées de la fiche papier. Ce qui est versé aujourd'hui
+ * prend l'heure de l'encaissement ; une date passée (reprise de l'existant)
+ * est gardée telle quelle et compte dans l'argent perçu à cette date.
+ */
+export async function recordSheetPayments(
+  tx: Prisma.TransactionClient,
+  input: {
+    schoolId: string;
+    parts: DatedPart[];
+    method: string;
+    userId: string;
+    attempt: number;
+    now: Date;
+    parentId?: string | null;
+    /** Reçu « famille », même pour une seule ligne. */
+    forceGroup?: boolean;
+    note?: string | null;
+  },
+): Promise<{ groupId: string | null; firstPaymentId: string | null; date: string | null }[]> {
+  const byDate = new Map<string, DatedPart[]>();
+  for (const part of input.parts.filter((p) => p.amount > 0)) {
+    const key = part.date ?? "";
+    byDate.set(key, [...(byDate.get(key) ?? []), part]);
+  }
+  // Les dates passées d'abord, aujourd'hui en dernier : les numéros suivent le temps.
+  const keys = [...byDate.keys()].sort((a, b) => (a === "" ? 1 : b === "" ? -1 : a.localeCompare(b)));
+  const receipts: { groupId: string | null; firstPaymentId: string | null; date: string | null }[] = [];
+  for (const key of keys) {
+    const paid = await recordGroupedPayment(tx, {
+      schoolId: input.schoolId,
+      parts: byDate.get(key)!,
+      method: input.method,
+      userId: input.userId,
+      attempt: input.attempt,
+      paidAt: key ? new Date(`${key}T12:00:00Z`) : input.now,
+      note: input.note,
+      parentId: input.parentId,
+      forceGroup: input.forceGroup,
+    });
+    receipts.push({ ...paid, date: key || null });
+  }
+  return receipts;
 }
 
 /**

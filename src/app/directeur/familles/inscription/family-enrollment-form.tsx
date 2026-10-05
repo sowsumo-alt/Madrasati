@@ -6,8 +6,8 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowLeft, ArrowRight, Check, ChevronRight, Loader2, Phone, UsersRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { familySurname, familyTotal, parseAmount } from "@/lib/family";
-import { formatMRU, formatPhone, ltrIsolate } from "@/lib/format";
+import { familySurname, parseAmount } from "@/lib/family";
+import { formatMRU, formatPhone } from "@/lib/format";
 import type { PaymentMethod } from "@/lib/payment-methods";
 import { splitFullName } from "@/lib/student-form";
 import { useLanguage } from "@/lib/i18n/language-provider";
@@ -26,7 +26,6 @@ import {
 } from "./enrollment-draft";
 import { FamilyStep } from "./family-step";
 import { ChildrenStep, type EnrollmentClassOption } from "./children-step";
-import { PaymentStep } from "./payment-step";
 import { FamilySheetStep, SheetRecap, convertSheets } from "./family-sheet-step";
 import { newSheetDraft, type SheetDraft } from "@/lib/family-sheet-draft";
 import { sheetLines, sheetTotals } from "@/lib/family-sheet";
@@ -39,12 +38,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  billedMonthsFrom,
-  chosenPaidMonths,
-  defaultTuitionChoice,
-  type TuitionChoiceValue,
-} from "@/components/finance/tuition-choice";
+import { billedMonthsFrom } from "@/components/finance/tuition-choice";
 import type { TuitionSettings } from "@/lib/tuition-data";
 import { clearDraft, loadDraft, useDraftAutosave } from "@/lib/form-draft";
 import { DraftBanner } from "@/components/forms/draft-banner";
@@ -105,9 +99,8 @@ interface FamilyEnrollmentDraft {
   children: ChildDraft[];
   mode: FamilyPaymentMode;
   method: PaymentMethod;
-  tuition: TuitionChoiceValue;
   familyNameTouched: boolean;
-  /** Fiche(s) de paiement d'une famille de plusieurs enfants. */
+  /** Fiche(s) de paiement : une pour la famille, une par enfant, ou celle de l'enfant seul. */
   sheets?: SheetDraft[];
 }
 
@@ -156,16 +149,13 @@ export function FamilyEnrollmentForm({
   const [childErrors, setChildErrors] = useState<Record<string, FieldErrors>>({});
   const [mode, setMode] = useState<FamilyPaymentMode>("FAMILY");
   const [method, setMethod] = useState<PaymentMethod>("CASH");
-  // Une formule pour toute la famille : mensuelle au montant de l'école par défaut.
-  const [tuition, setTuition] = useState<TuitionChoiceValue>(() => defaultTuitionChoice(tuitionSettings));
-  // Inscription du jour : mois facturés de ce mois-ci à la fin de l'année.
-  const [billedMonths] = useState(() => billedMonthsFrom(tuitionSettings.yearMonths, new Date()));
+  // Inscription du jour : premier mois facturé, ce mois-ci (modifiable sur la fiche).
+  const [defaultFirstMonth] = useState(() => billedMonthsFrom(tuitionSettings.yearMonths, new Date())[0]);
   const [submitting, setSubmitting] = useState(false);
-  // Famille de plusieurs enfants : la fiche de paiement (une pour la famille,
-  // ou une par enfant selon le réglage de l'école).
+  // La fiche de paiement : une pour la famille, une par enfant selon le
+  // réglage de l'école, ou celle de l'enfant inscrit seul — le même écran.
   const [sheets, setSheets] = useState<SheetDraft[]>([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const multi = children.length >= 2;
   // Le nom de la famille se déduit du parent tant que le directeur ne l'a pas
   // saisi lui-même : « Moussa BA » donne « Famille BA ».
   const familyNameTouched = useRef(Boolean(initialFamily));
@@ -186,14 +176,12 @@ export function FamilyEnrollmentForm({
       if (d.children.length > 0) setChildren(d.children);
       setMode(d.mode);
       setMethod(d.method);
-      setTuition({ ...defaultTuitionChoice(tuitionSettings), ...d.tuition });
       familyNameTouched.current = d.familyNameTouched;
       if (d.sheets) setSheets(d.sheets);
       setDraftSavedAt(saved.savedAt);
     }
     setDraftReady(true);
     // Relu une seule fois, à l'ouverture de la page.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storageKey]);
 
   // Rien de tapé (une famille connue préremplie ne compte pas) : pas de brouillon.
@@ -208,7 +196,7 @@ export function FamilyEnrollmentForm({
   );
   const autosave = useDraftAutosave<FamilyEnrollmentDraft>(
     storageKey,
-    { step, draft, usingKnown, children, mode, method, tuition, familyNameTouched: familyNameTouched.current, sheets },
+    { step, draft, usingKnown, children, mode, method, familyNameTouched: familyNameTouched.current, sheets },
     { enabled: draftReady, isEmpty: isEmptyDraft },
   );
 
@@ -224,7 +212,6 @@ export function FamilyEnrollmentForm({
     setChildErrors({});
     setMode("FAMILY");
     setMethod("CASH");
-    setTuition(defaultTuitionChoice(tuitionSettings));
     setSheets([]);
     familyNameTouched.current = Boolean(initialFamily);
   }
@@ -235,13 +222,14 @@ export function FamilyEnrollmentForm({
    * gardé ; juin est coché d'office si l'école le fait payer à l'inscription.
    */
   function syncSheets(list: ChildDraft[]) {
-    const last = billedMonths[billedMonths.length - 1];
+    const last = tuitionSettings.yearMonths[tuitionSettings.yearMonths.length - 1];
     const fresh = (referentKey: string) =>
       newSheetDraft({
         referentKey,
         monthlyMru: tuitionSettings.monthly,
         unit: tuitionSettings.amountUnit,
         prepaid: tuitionSettings.prepayLastMonth && last ? [last] : [],
+        firstMonth: defaultFirstMonth,
       });
     setSheets((current) => {
       if (tuitionSettings.familySheetMode === "PER_CHILD") {
@@ -352,43 +340,31 @@ export function FamilyEnrollmentForm({
         return;
       }
     }
-    if (children.length >= 2) syncSheets(children);
+    syncSheets(children);
     setStep(3);
   }
 
-  const total = familyTotal(children.map((c) => c.amount));
-  // Des mois de scolarité payés aujourd'hui : chaque enfant paie quelque chose.
-  const monthsPaid = chosenPaidMonths(tuition, billedMonths).length > 0 && Number(tuition.monthly) > 0;
-  const payingChildren = monthsPaid ? children.length : children.filter((c) => parseAmount(c.amount) > 0).length;
-  // Avec un seul enfant qui paie, un reçu « familial » n'apporterait rien.
-  const effectiveMode: FamilyPaymentMode = payingChildren > 1 ? mode : "SEPARATE";
-
   // Brouillon repris à l'étape 3 sans fiche : on la crée.
   useEffect(() => {
-    if (step === 3 && multi && sheets.length === 0) syncSheets(children);
+    if (step === 3 && sheets.length === 0) syncSheets(children);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, multi, sheets.length]);
+  }, [step, sheets.length]);
 
   // Fiches converties en MRU : récapitulatif, confirmation et enregistrement
   // lisent les mêmes lignes.
-  const converted = multi ? convertSheets(sheets, children, tuitionSettings.amountUnit, billedMonths) : [];
+  const converted = convertSheets(sheets, children, tuitionSettings.amountUnit, tuitionSettings.yearMonths, defaultFirstMonth);
   const sheetErrorsList = converted.flatMap((c) => c.errors);
   const recapLines = converted.flatMap((c) =>
     sheetLines(c.input).map((l) => ({ ...l, owner: converted.length > 1 ? c.referent?.firstName ?? "" : "" })),
   );
   const recapTotals = sheetTotals(recapLines);
-  const shownTotal = multi ? recapTotals.paid : total;
+  const shownTotal = recapTotals.paid;
 
   async function submit() {
     setSubmitting(true);
     try {
       const outcome = await enrollFamilyChecked(
-        multi
-          ? toEnrollmentValues(draft, children, "FAMILY", method, undefined, converted.map((c) => c.input))
-          : toEnrollmentValues(draft, children, effectiveMode, method, {
-              ...tuition,
-              paidMonths: chosenPaidMonths(tuition, billedMonths),
-            }),
+        toEnrollmentValues(draft, children, "FAMILY", method, undefined, converted.map((c) => c.input)),
       );
       if (!outcome.ok) {
         // La fiche reste à l'écran, telle que saisie : on peut réessayer.
@@ -401,10 +377,15 @@ export function FamilyEnrollmentForm({
       // Inscription enregistrée : le brouillon n'a plus lieu d'être.
       autosave.finish();
       toast.success(t("family.enrolled").replace("{count}", String(result.studentIds.length)));
+      // Un reçu : on l'ouvre. Plusieurs (une date par reçu) : la famille, avec tout son historique.
       router.push(
-        result.familyPaymentId
-          ? `/directeur/finance/recus/famille/${result.familyPaymentId}`
-          : `/directeur/familles/${result.parentId}`,
+        (result.receiptCount ?? 0) > 1
+          ? `/directeur/familles/${result.parentId}`
+          : result.familyPaymentId
+            ? `/directeur/finance/recus/famille/${result.familyPaymentId}`
+            : result.paymentIds[0]
+              ? `/directeur/finance/recus/${result.paymentIds[0]}`
+              : `/directeur/familles/${result.parentId}`,
       );
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t("common.error"));
@@ -473,29 +454,17 @@ export function FamilyEnrollmentForm({
               onAdd={() => setChildren((list) => [...list, newChild(familySurname(draft.familyName))])}
               onRemove={(key) => setChildren((list) => list.filter((c) => c.key !== key))}
             />
-          ) : multi ? (
+          ) : (
             <FamilySheetStep
               entries={children}
               classes={classes}
               settings={tuitionSettings}
-              months={billedMonths}
+              yearMonths={tuitionSettings.yearMonths}
+              defaultFirstMonth={defaultFirstMonth}
               sheets={sheets}
               onSheetsChange={setSheets}
               method={method}
               onMethodChange={setMethod}
-            />
-          ) : (
-            <PaymentStep
-              entries={children}
-              classes={classes}
-              onAmountChange={(key, amount) => patchChild(key, { amount })}
-              mode={mode}
-              onModeChange={setMode}
-              method={method}
-              onMethodChange={setMethod}
-              tuition={tuition}
-              onTuitionChange={setTuition}
-              months={billedMonths}
             />
           )}
 
@@ -520,8 +489,8 @@ export function FamilyEnrollmentForm({
                 <ArrowRight className="h-4 w-4 rtl:rotate-180" />
               </Button>
             )}
-            {step === 3 && multi && (
-              // Plusieurs enfants : rien n'est enregistré avant la confirmation.
+            {step === 3 && (
+              // Rien n'est enregistré avant la confirmation.
               <Button
                 type="button"
                 onClick={() => setConfirmOpen(true)}
@@ -532,14 +501,6 @@ export function FamilyEnrollmentForm({
                 <Check className="h-4 w-4" />
                 {recapTotals.paid > 0
                   ? `Vérifier et encaisser ${formatMoney(recapTotals.paid, tuitionSettings.amountUnit)}`
-                  : t("family.submit").replace("{count}", String(children.length))}
-              </Button>
-            )}
-            {step === 3 && !multi && (
-              <Button type="button" onClick={submit} disabled={submitting} className="sm:min-w-56">
-                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                {total > 0
-                  ? t("family.submitPay").replace("{amount}", ltrIsolate(formatMRU(total)))
                   : t("family.submit").replace("{count}", String(children.length))}
               </Button>
             )}
@@ -589,7 +550,7 @@ export function FamilyEnrollmentForm({
           <div className="flex items-center justify-between border-t border-border/70 pt-3">
             <span className="text-sm font-semibold text-foreground/70">{t("family.total")}</span>
             <span dir="ltr" className="text-xl font-bold text-primary-800" style={{ fontVariantNumeric: "tabular-nums" }}>
-              {multi ? formatMoney(shownTotal, tuitionSettings.amountUnit) : formatMRU(total)}
+              {formatMoney(shownTotal, tuitionSettings.amountUnit)}
             </span>
           </div>
         </aside>
@@ -601,7 +562,7 @@ export function FamilyEnrollmentForm({
           <DialogHeader>
             <DialogTitle>Confirmer la fiche de paiement</DialogTitle>
             <DialogDescription>
-              {draft.familyName} · {children.length} élèves inscrits
+              {draft.familyName} · {children.length} élève(s) inscrit(s)
             </DialogDescription>
           </DialogHeader>
           {recapLines.length > 0 ? (

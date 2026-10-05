@@ -18,6 +18,7 @@ import {
   CircleAlert,
   Banknote,
   Trash2,
+  FileText,
 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { WhatsAppLink } from "@/components/ui/whatsapp-link";
@@ -31,7 +32,6 @@ import { FamilyPaymentDialog } from "./family-payment-dialog";
 import { AttachStudentDialog, CandidateRow, useAttach } from "./attach-student-dialog";
 import { RenameFamilyDialog } from "./rename-family-dialog";
 import { RemovalDialog } from "../removal-dialog";
-import { TuitionPlanDialog } from "@/components/finance/tuition-plan-dialog";
 import type { FamilyPageData } from "./types";
 
 function displayPhone(phone: string) {
@@ -53,7 +53,6 @@ export function FamilyView({ data }: { data: FamilyPageData }) {
   const [attachOpen, setAttachOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
   const [removeOpen, setRemoveOpen] = useState(false);
-  const [sheetEditFor, setSheetEditFor] = useState<string | null>(null);
   const router = useRouter();
   const suggestions = useAttach(data.parentId);
 
@@ -135,6 +134,15 @@ export function FamilyView({ data }: { data: FamilyPageData }) {
             <Link2 className="h-4 w-4" />
             {t("family.attachStudent")}
           </Button>
+          {/* La fiche papier recopiée ligne par ligne, pour des élèves déjà inscrits. */}
+          <Link
+            href={`/directeur/fiche?famille=${data.parentId}`}
+            className={buttonVariants({ variant: "secondary" })}
+            data-testid="family-sheet-open"
+          >
+            <FileText className="h-4 w-4" />
+            Fiche de paiement
+          </Link>
           <Link
             href={`/directeur/familles/inscription?famille=${data.parentId}`}
             className={buttonVariants({ variant: "secondary" })}
@@ -177,9 +185,13 @@ export function FamilyView({ data }: { data: FamilyPageData }) {
               {data.sheet.enrollment != null ? ` · inscription ${formatMRU(data.sheet.enrollment)}` : ""}
             </span>
           </p>
-          <Button variant="secondary" size="sm" onClick={() => setSheetEditFor(data.sheet!.referentId)} data-testid="family-sheet-edit">
+          <Link
+            href={`/directeur/fiche?famille=${data.parentId}`}
+            className={buttonVariants({ variant: "secondary", size: "sm" })}
+            data-testid="family-sheet-edit"
+          >
             Modifier la fiche
-          </Button>
+          </Link>
         </div>
       )}
       {upcoming > 0 && (
@@ -339,12 +351,6 @@ export function FamilyView({ data }: { data: FamilyPageData }) {
         onOpenChange={setAttachOpen}
         parentId={data.parentId}
         candidates={data.candidates}
-      />
-      <TuitionPlanDialog
-        studentId={sheetEditFor}
-        onOpenChange={(open) => {
-          if (!open) setSheetEditFor(null);
-        }}
       />
       <RemovalDialog
         kind="family"

@@ -7,7 +7,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import {
   AlertTriangle,
-  CalendarClock,
   CalendarRange,
   Check,
   CircleCheck,
@@ -20,7 +19,6 @@ import {
   School,
   UserRound,
   Users,
-  Wallet,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -33,21 +31,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { PaymentMethodLogo } from "@/components/ui/payment-method-logo";
-import { PAYMENT_METHOD_LABELS } from "@/lib/payment-methods";
 import { DEFAULT_NATIONALITY, NATIONALITY_SUGGESTIONS } from "@/lib/student-form";
 import { ClassSelectItems } from "@/components/classes/class-select-items";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { studentSchema, type StudentFormValues } from "./schema";
 import { createStudent, updateStudent, findDuplicateStudents, type DuplicateStudent, checkStudentNnis } from "./actions";
 import { FormSection } from "@/components/forms/form-section";
-import {
-  TuitionChoice,
-  billedMonthsFrom,
-  chosenPaidMonths,
-  defaultTuitionChoice,
-  type TuitionChoiceValue,
-} from "@/components/finance/tuition-choice";
+import { billedMonthsFrom } from "@/components/finance/tuition-choice";
+import { FamilySheetStep, SheetRecap, convertSheets, type SheetChild } from "@/app/directeur/familles/inscription/family-sheet-step";
+import { newSheetDraft, type SheetDraft } from "@/lib/family-sheet-draft";
+import { sheetLines, sheetTotals } from "@/lib/family-sheet";
+import { formatMoney } from "@/lib/money";
+import type { PaymentMethod } from "@/lib/payment-methods";
+import { DialogFooter, DialogHeader } from "@/components/ui/dialog";
 import type { TuitionSettings } from "@/lib/tuition-data";
 import { clearDraft, loadDraft, useDraftAutosave } from "@/lib/form-draft";
 import { DraftBanner } from "@/components/forms/draft-banner";
@@ -121,10 +117,22 @@ function newStudentValues(): StudentFormValues {
   };
 }
 
-/** Brouillon d'une inscription : la saisie et la formule de paiement. */
+/** Brouillon d'une inscription : la saisie et la fiche de paiement. */
 interface StudentDraft {
   values: StudentFormValues;
-  tuition: TuitionChoiceValue;
+  sheet?: SheetDraft;
+  method?: PaymentMethod;
+}
+
+/** Fiche de paiement d'un nouvel élève : le montant de l'école, juin coché s'il est payé d'avance. */
+function freshSheet(settings: TuitionSettings): SheetDraft {
+  const last = settings.yearMonths[settings.yearMonths.length - 1];
+  return newSheetDraft({
+    referentKey: "solo",
+    monthlyMru: settings.monthly,
+    unit: settings.amountUnit,
+    prepaid: settings.prepayLastMonth && last ? [last] : [],
+  });
 }
 
 /** Rien de tapé : pas de brouillon à garder. */
@@ -174,7 +182,12 @@ export function StudentFormDialog({
     defaultValues: newStudentValues(),
   });
 
-  const [tuition, setTuition] = useState<TuitionChoiceValue>(() => defaultTuitionChoice(tuitionSettings));
+  // La fiche de paiement de l'élève : le même écran et le même calcul qu'une famille.
+  const [sheet, setSheet] = useState<SheetDraft>(() => freshSheet(tuitionSettings));
+  const [method, setMethod] = useState<PaymentMethod>("CASH");
+  // Valeurs en attente de la confirmation de l'encaissement.
+  const [pending, setPending] = useState<StudentFormValues | null>(null);
+  const [saving, setSaving] = useState(false);
   const [duplicates, setDuplicates] = useState<DuplicateStudent[]>([]);
   const [duplicateAck, setDuplicateAck] = useState(false);
   // Brouillon : relu à l'ouverture, gardé à chaque frappe tant que
@@ -195,10 +208,12 @@ export function StudentFormDialog({
       setDraftReady(!editTarget);
       if (saved) {
         reset({ ...newStudentValues(), ...saved.data.values });
-        setTuition({ ...defaultTuitionChoice(tuitionSettings), ...saved.data.tuition });
+        setSheet(saved.data.sheet ?? freshSheet(tuitionSettings));
+        setMethod(saved.data.method ?? "CASH");
         return;
       }
-      setTuition(defaultTuitionChoice(tuitionSettings));
+      setSheet(freshSheet(tuitionSettings));
+      setMethod("CASH");
       reset(
         editTarget
           ? {
@@ -229,14 +244,15 @@ export function StudentFormDialog({
   const allValues = watch();
   const autosave = useDraftAutosave<StudentDraft>(
     draftKey,
-    { values: allValues, tuition },
+    { values: allValues, sheet, method },
     { enabled: open && !isEdit && draftReady, isEmpty: isEmptyStudentDraft },
   );
 
   function discardDraft() {
     clearDraft(draftKey);
     setDraftSavedAt(null);
-    setTuition(defaultTuitionChoice(tuitionSettings));
+    setSheet(freshSheet(tuitionSettings));
+    setMethod("CASH");
     reset(newStudentValues());
   }
 
@@ -264,27 +280,17 @@ export function StudentFormDialog({
         await updateStudent(editTarget.id, values);
         toast.success(t("students.updatedSuccess"));
       } else {
-        const result = await createStudent(values, {
-          frequency: tuition.frequency,
-          customMonths: tuition.customMonths,
-          monthly: tuition.monthly === "" ? "" : Number(tuition.monthly) || 0,
-          paidMonths: chosenPaidMonths(tuition, billedMonths),
-        });
-        // Inscription enregistrée : le brouillon n'a plus lieu d'être.
-        autosave.finish();
-        setDraftSavedAt(null);
-        if (result.paymentId) {
-          // Navigation dans le même onglet, et non window.open : le geste de
-          // l'utilisateur a expiré pendant l'attente du serveur, si bien que
-          // le navigateur bloquait l'ouverture en arrière-plan sans rien
-          // dire. Le directeur ne voyait jamais le reçu et devait aller le
-          // chercher dans Finance.
-          toast.success(t("students.enrolledWithReceipt"));
-          onOpenChange(false);
-          router.push(`/directeur/finance/recus/${result.paymentId}`);
+        if (sheetErrorsList.length > 0) {
+          toast.error(sheetErrorsList[0]);
           return;
         }
-        toast.success(t("students.createdSuccess"));
+        // De l'argent versé : le récapitulatif d'abord, comme pour une famille.
+        if (recapTotals.paid > 0) {
+          setPending(values);
+          return;
+        }
+        await enroll(values);
+        return;
       }
       onOpenChange(false);
       router.refresh();
@@ -293,19 +299,70 @@ export function StudentFormDialog({
     }
   }
 
+  /** Enregistre l'élève et sa fiche ; « Annuler » sur la confirmation n'enregistre rien. */
+  async function enroll(values: StudentFormValues) {
+    setSaving(true);
+    try {
+      const result = await createStudent(values, hasSheet ? converted[0].input : undefined, method);
+      if (!result.ok) {
+        toast.error(result.error);
+        setPending(null);
+        return;
+      }
+      // Inscription enregistrée : le brouillon n'a plus lieu d'être.
+      autosave.finish();
+      setDraftSavedAt(null);
+      setPending(null);
+      if (result.receiptCount > 1) {
+        toast.success(t("students.enrolledWithReceipt"));
+        onOpenChange(false);
+        router.refresh();
+        return;
+      }
+      if (result.paymentId) {
+        // Navigation dans le même onglet, et non window.open : le geste de
+        // l'utilisateur a expiré pendant l'attente du serveur, si bien que
+        // le navigateur bloquait l'ouverture en arrière-plan sans rien
+        // dire. Le directeur ne voyait jamais le reçu et devait aller le
+        // chercher dans Finance.
+        toast.success(t("students.enrolledWithReceipt"));
+        onOpenChange(false);
+        router.push(`/directeur/finance/recus/${result.paymentId}`);
+        return;
+      }
+      toast.success(t("students.createdSuccess"));
+      onOpenChange(false);
+      router.refresh();
+    } catch {
+      toast.error(t("common.error"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   const classId = watch("classId");
   const gender = watch("gender");
   const status = watch("status");
   const photoUrl = watch("photoUrl") ?? null;
-  const enrollmentAmount = watch("enrollmentAmount");
-  const enrollmentMethod = watch("enrollmentMethod");
   const enrollmentDate = watch("enrollmentDate");
-  // Mois facturés : du mois d'inscription à la fin de l'année.
-  const billedMonths = billedMonthsFrom(
+  // Premier mois facturé proposé : le mois de la date d'inscription.
+  const defaultFirstMonth = billedMonthsFrom(
     tuitionSettings.yearMonths,
     enrollmentDate ? new Date(enrollmentDate) : new Date(),
-  );
-  const paysMonths = chosenPaidMonths(tuition, billedMonths).length > 0;
+  )[0];
+  const soloChild: SheetChild = {
+    key: "solo",
+    firstName: watch("firstName") ?? "",
+    lastName: watch("lastName") ?? "",
+    classId: classId ?? "",
+    rimNumber: watch("rimNumber") ?? "",
+  };
+  const converted = convertSheets([sheet], [soloChild], tuitionSettings.amountUnit, tuitionSettings.yearMonths, defaultFirstMonth);
+  const sheetErrorsList = converted[0].errors;
+  const recapLines = sheetLines(converted[0].input);
+  const recapTotals = sheetTotals(recapLines);
+  // Une fiche sans aucun montant : l'élève est inscrit, sa fiche se fera plus tard.
+  const hasSheet = converted[0].input.monthly > 0 || converted[0].input.enrollment.due > 0;
   const selectedClass = classes.find((c) => c.id === classId);
 
   return (
@@ -560,64 +617,19 @@ export function StudentFormDialog({
             </FormSection>
 
             {!isEdit && (
-              <FormSection
-                icon={Wallet}
-                title={t("students.enrollmentFeeSection")}
-                hint={t("common.optional")}
-              >
-                <FormField
-                  label={t("students.enrollmentAmount")}
-                  htmlFor="enrollmentAmount"
-                  error={errors.enrollmentAmount?.message}
-                >
-                  <Input
-                    id="enrollmentAmount"
-                    type="number"
-                    min={0}
-                    placeholder="0"
-                    {...register("enrollmentAmount")}
-                  />
-                </FormField>
-                <FormField
-                  label={t("students.enrollmentMethod")}
-                  htmlFor="student-enrollment-method-select"
-                >
-                  <Select
-                    value={enrollmentMethod || undefined}
-                    onValueChange={(v) =>
-                      setValue("enrollmentMethod", v as StudentFormValues["enrollmentMethod"])
-                    }
-                    disabled={!enrollmentAmount && !paysMonths}
-                  >
-                    <SelectTrigger id="student-enrollment-method-select">
-                      <SelectValue placeholder={t("students.selectPlaceholder")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => (
-                        <SelectItem key={value} value={value}>
-                          <span className="flex items-center gap-2">
-                            <PaymentMethodLogo method={value} />
-                            {label}
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FormField>
-              </FormSection>
-            )}
-
-            {!isEdit && (
-              <FormSection icon={CalendarClock} title="Frais de scolarité">
-                <div className="sm:col-span-2">
-                  <TuitionChoice
-                    value={tuition}
-                    onChange={setTuition}
-                    months={billedMonths}
-                    hint="Les échéances sont créées automatiquement à partir du mois de la date d'inscription. « Plus tard » : à choisir depuis la fiche de l'élève."
-                  />
-                </div>
-              </FormSection>
+              <div className="sm:col-span-2">
+                <FamilySheetStep
+                  entries={[soloChild]}
+                  classes={classes}
+                  settings={tuitionSettings}
+                  yearMonths={tuitionSettings.yearMonths}
+                  defaultFirstMonth={defaultFirstMonth}
+                  sheets={[sheet]}
+                  onSheetsChange={(next) => setSheet(next[0])}
+                  method={method}
+                  onMethodChange={setMethod}
+                />
+              </div>
             )}
 
             {duplicates.length > 0 && !duplicateAck && (
@@ -655,8 +667,8 @@ export function StudentFormDialog({
             >
               {t("common.cancel")}
             </Button>
-            <Button type="submit" disabled={isSubmitting} className="sm:min-w-36">
-              {isSubmitting ? (
+            <Button type="submit" disabled={isSubmitting || saving} className="sm:min-w-36">
+              {isSubmitting || saving ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <Check className="h-4 w-4" />
@@ -666,6 +678,28 @@ export function StudentFormDialog({
           </div>
         </form>
       </DialogContent>
+
+      {/* Confirmation : le récapitulatif, puis l'encaissement — « Annuler » n'enregistre rien. */}
+      <Dialog open={pending !== null} onOpenChange={(o) => !saving && !o && setPending(null)}>
+        <DialogContent className="max-w-lg" data-testid="sheet-confirm">
+          <DialogHeader>
+            <DialogTitle>Confirmer la fiche de paiement</DialogTitle>
+            <DialogDescription>
+              {soloChild.firstName} {soloChild.lastName} · 1 élève inscrit
+            </DialogDescription>
+          </DialogHeader>
+          <SheetRecap lines={recapLines} totals={recapTotals} unit={tuitionSettings.amountUnit} />
+          <DialogFooter>
+            <Button type="button" variant="secondary" onClick={() => setPending(null)} disabled={saving} data-testid="sheet-cancel">
+              Annuler
+            </Button>
+            <Button type="button" onClick={() => pending && enroll(pending)} disabled={saving} data-testid="sheet-confirm-button">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+              Confirmer l&apos;encaissement de {formatMoney(recapTotals.paid, tuitionSettings.amountUnit)}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }

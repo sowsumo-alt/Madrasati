@@ -100,10 +100,10 @@ test("saisie en MRO comme sur la fiche papier : 13 000 / 4 000 → 1 300 / 400 M
   draft.monthly = "13000";
   draft.enrollmentDue = "4000";
   draft.months[m(2026, 10)] = { checked: true, paid: "" };
-  const { input, errors } = sheetDraftToInput(draft, { unit: "MRO", referentIndex: 0, months });
+  const { input, errors } = sheetDraftToInput(draft, { unit: "MRO", referentIndex: 0, months, today: "2026-10-05" });
   assert.deepEqual(errors, []);
   assert.equal(input.monthly, 1300);
-  assert.deepEqual(input.enrollment, { due: 400, paid: 400 });
+  assert.deepEqual(input.enrollment, { due: 400, paid: 400, date: "2026-10-05" });
   assert.deepEqual(input.months.map((x) => x.paid), [1300, 1300]); // octobre et juin, au montant mensuel
   assert.equal(sheetTotals(sheetLines(input)).paid, 3000);
 });
@@ -114,4 +114,76 @@ test("saisie MRO invalide (13 005) : la fiche ne peut pas être enregistrée", (
   const { errors } = sheetDraftToInput(draft, { unit: "MRO", referentIndex: 0, months: [] });
   assert.equal(errors.length, 1);
   assert.match(errors[0], /Montant mensuel : 13.005 MRO/);
+});
+
+// Test 4 — inscription solo : la même fiche, à un seul élève, le même calcul.
+test("inscription solo : 3 × 1 300 + inscription 200 = 4 100 MRU", () => {
+  const months = [m(2026, 10), m(2026, 11), m(2026, 12), m(2027, 1)];
+  const draft = newSheetDraft({ referentKey: "solo", monthlyMru: 1300, unit: "MRU", prepaid: [] });
+  draft.enrollmentDue = "200";
+  for (const month of months.slice(0, 3)) draft.months[month] = { checked: true, paid: "" };
+  const { input, errors } = sheetDraftToInput(draft, { unit: "MRU", referentIndex: 0, months, today: "2026-10-05" });
+  assert.deepEqual(errors, []);
+  const lines = sheetLines(input);
+  assert.deepEqual(lines.map((l) => [l.label, l.paid]), [
+    ["Octobre 2026", 1300],
+    ["Novembre 2026", 1300],
+    ["Décembre 2026", 1300],
+    ["Frais d'inscription", 200],
+  ]);
+  assert.equal(sheetTotals(lines).paid, 4100);
+});
+
+// Test 15 — reprise de la fiche 028 : chaque mois à la date recopiée (30/09/2026).
+test("reprise fiche 028 : dates passées gardées, 9 500 MRU, avril et mai restent dus", () => {
+  const months = [10, 11, 12, 1, 2, 3, 4, 5, 6].map((n) => m(n >= 10 ? 2026 : 2027, n));
+  const draft = newSheetDraft({ referentKey: "a", monthlyMru: null, unit: "MRO", prepaid: [] });
+  draft.monthly = "13000";
+  draft.enrollmentDue = "4000";
+  draft.enrollmentDate = "2026-09-30";
+  for (const month of [...months.slice(0, 6), months[8]]) draft.months[month] = { checked: true, paid: "", date: "2026-09-30" };
+  const { input, errors } = sheetDraftToInput(draft, { unit: "MRO", referentIndex: 0, months, today: "2026-10-05" });
+  assert.deepEqual(errors, []);
+  const lines = sheetLines(input);
+  assert.equal(sheetTotals(lines).paid, 9500);
+  assert.ok(lines.every((l) => l.date === "2026-09-30"));
+  assert.ok(!lines.some((l) => l.month === m(2027, 4) || l.month === m(2027, 5)));
+});
+
+// Test 16 — fiche 031, juin payé le 05/10/2026.
+test("fiche 031 avec juin au 05/10/2026 : 2 800 MRU à cette date", () => {
+  const months = [m(2026, 10), m(2027, 6)];
+  const draft = newSheetDraft({ referentKey: "a", monthlyMru: null, unit: "MRO", prepaid: [] });
+  draft.monthly = "24000";
+  draft.enrollmentDue = "4000";
+  draft.enrollmentDate = "2026-10-05";
+  draft.months[m(2027, 6)] = { checked: true, paid: "", date: "2026-10-05" };
+  const { input, errors } = sheetDraftToInput(draft, { unit: "MRO", referentIndex: 0, months, today: "2026-10-07" });
+  assert.deepEqual(errors, []);
+  const lines = sheetLines(input);
+  assert.equal(sheetTotals(lines).paid, 2800);
+  assert.deepEqual([...new Set(lines.map((l) => l.date))], ["2026-10-05"]);
+});
+
+test("une date à venir est refusée ; une date passée est acceptée", () => {
+  const base = sheet(1300, 0, [m(2026, 10)]);
+  assert.deepEqual(sheetErrors({ ...base, months: [{ month: m(2026, 10), paid: 1300, date: "2026-09-30" }] }, "2026-10-05"), []);
+  const future = sheetErrors({ ...base, months: [{ month: m(2026, 10), paid: 1300, date: "2026-10-20" }] }, "2026-10-05");
+  assert.equal(future.length, 1);
+  assert.match(future[0], /20\/10\/2026 n'est pas encore arrivée/);
+});
+
+test("fiche déjà saisie : le reste dû d'un mois en partie payé, l'inscription jamais refacturée", () => {
+  const already = { months: { [m(2026, 10)]: { due: 1300, paid: 800 } }, enrollment: { due: 400, paid: 400 } };
+  const months = [m(2026, 10), m(2026, 11)];
+  const draft = newSheetDraft({ referentKey: "a", monthlyMru: 1300, unit: "MRU", prepaid: [], enrollmentDueMru: 400 });
+  draft.months[m(2026, 10)] = { checked: true, paid: "" };
+  const { input, errors } = sheetDraftToInput(draft, { unit: "MRU", referentIndex: 0, months, already, today: "2026-10-05" });
+  assert.deepEqual(errors, []);
+  const lines = sheetLines(input);
+  // Octobre : le reste (500), et rien pour l'inscription déjà réglée.
+  assert.deepEqual(lines.map((l) => [l.label, l.before, l.paid, l.balance]), [["Octobre 2026", 800, 500, 0]]);
+  // Verser 600 sur ce reste de 500 : refusé.
+  draft.months[m(2026, 10)] = { checked: true, paid: "600" };
+  assert.equal(sheetDraftToInput(draft, { unit: "MRU", referentIndex: 0, months, already, today: "2026-10-05" }).errors.length, 1);
 });

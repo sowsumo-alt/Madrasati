@@ -6,22 +6,15 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { runWithReceipt } from "@/lib/receipts";
-import { reattachFamilySheets } from "@/lib/family-sheet-data";
+import { reattachFamilySheets, recordFamilySheet, recordSheetPayments } from "@/lib/family-sheet-data";
+import { familySheetSchema, type FamilySheetInput } from "@/lib/family-sheet";
+import { UserError, asResult } from "@/lib/user-error";
+import { PAYMENT_METHODS } from "@/lib/payment-methods";
 import { splitFullName } from "@/lib/student-form";
 import { studentSchema, type StudentFormValues } from "./schema";
 import { CURRENT_YEAR } from "@/lib/school-year";
 import { assertNnisAvailable, nniConflict } from "@/lib/nni-data";
 import { storedNni } from "@/lib/nni";
-import {
-  applyTuitionPlan,
-  enrollmentPlan,
-  enrollmentTuitionSchema,
-  prepaidParts,
-  recordGroupedPayment,
-  type EnrollmentTuition,
-  type PaymentPart,
-
-} from "@/lib/tuition-plan";
 
 /** Compare deux noms en ignorant casse, accents composés et espaces multiples. */
 function normalizeName(value: string) {
@@ -94,10 +87,20 @@ function studentFields(data: StudentFormValues) {
  * `tuition` : la formule de paiement des frais de scolarité choisie à
  * l'inscription ; ses échéances sont créées avec l'élève.
  */
-export async function createStudent(values: StudentFormValues, tuition?: EnrollmentTuition) {
+/**
+ * Inscription d'un élève seul, avec sa fiche de paiement (facultative) —
+ * la même fiche et le même calcul que pour une famille (lib/family-sheet.ts).
+ * Les erreurs de saisie reviennent en clair (UserError).
+ */
+export async function createStudent(values: StudentFormValues, sheetInput?: FamilySheetInput, method?: string) {
+  return asResult(() => createStudentWithSheet(values, sheetInput, method));
+}
+
+async function createStudentWithSheet(values: StudentFormValues, sheetInput?: FamilySheetInput, method?: string) {
   const user = await requireRole(ROLES.DIRECTOR);
   const data = studentSchema.parse(values);
-  const plan = enrollmentPlan(enrollmentTuitionSchema.parse(tuition));
+  const sheet = sheetInput ? familySheetSchema.parse(sheetInput) : undefined;
+  if (method && !(PAYMENT_METHODS as readonly string[]).includes(method)) throw new UserError("Mode de paiement inconnu.");
   await assertNnisAvailable(user.schoolId, [data.nni]);
 
   // classId non vérifié : un ID d'une autre école ferait apparaître son nom
@@ -170,71 +173,45 @@ export async function createStudent(values: StudentFormValues, tuition?: Enrollm
       primaryParentId = parentId;
     }
 
-    const year =
-      (data.enrollmentAmount ?? 0) > 0 || plan
-        ? await tx.academicYear.findFirst({
-            where: { schoolId: user.schoolId, isCurrent: true },
-            select: { id: true, label: true, startDate: true, endDate: true },
-          })
-        : null;
-    if (((data.enrollmentAmount ?? 0) > 0 || plan) && !year) throw new Error("Aucune année scolaire active.");
+    const year = sheet
+      ? await tx.academicYear.findFirst({
+          where: { schoolId: user.schoolId, isCurrent: true },
+          select: { id: true, label: true, startDate: true, endDate: true },
+        })
+      : null;
+    if (sheet && !year) throw new UserError("Aucune année scolaire active.");
 
-    // Ce que le parent règle aujourd'hui, sur un seul reçu : l'inscription,
-    // et les mois cochés (juin, que beaucoup d'écoles font payer d'avance,
-    // ou les premiers mois d'un élève inscrit avant Madrasati).
-    const parts: PaymentPart[] = [];
-
-    // Frais d'inscription payé sur place, optionnel : réutilise le même
-    // circuit Frais/Paiement/Reçu que le module Finance.
-    if (data.enrollmentAmount && data.enrollmentAmount > 0 && year) {
-      const fee = await tx.fee.create({
-        data: {
-          schoolId: user.schoolId,
-          studentId: student.id,
-          academicYearId: year.id,
-          label: `Frais d'inscription — ${year.label}`,
-          amount: data.enrollmentAmount,
-          dueDate: new Date(),
-          status: "PENDING",
-        },
-      });
-      parts.push({
-        feeId: fee.id,
-        studentId: student.id,
-        amount: data.enrollmentAmount,
-        feeAmount: data.enrollmentAmount,
-        paidBefore: 0,
-      });
-    }
-
-    // Les échéances des frais de scolarité, à partir du mois d'inscription.
-    if (plan && year) {
-      const { paidMonths, ...formula } = plan;
-      const applied = await applyTuitionPlan(tx, {
+    // La fiche de paiement de l'élève : la même que celle d'une famille, à
+    // un seul élève — inscription, mois, ce qui est versé et à quelle date.
+    let receipts: { firstPaymentId: string | null }[] = [];
+    if (sheet && year) {
+      const now = new Date();
+      const parts = await recordFamilySheet(tx, {
         schoolId: user.schoolId,
-        studentId: student.id,
         year,
-        ...formula,
+        familyParentId: null,
+        referentStudentId: student.id,
+        sheet,
         firstMonth: student.enrollmentDate,
+        now,
       });
-      parts.push(...(await prepaidParts(tx, applied.planId, paidMonths)));
+      receipts = await recordSheetPayments(tx, {
+        schoolId: user.schoolId,
+        parts,
+        method: method ?? "CASH",
+        userId: user.id,
+        attempt,
+        now,
+        parentId: primaryParentId,
+      });
     }
-
-    const { firstPaymentId } = await recordGroupedPayment(tx, {
-      schoolId: user.schoolId,
-      parts,
-      method: data.enrollmentMethod ?? "CASH",
-      userId: user.id,
-      attempt,
-      parentId: primaryParentId,
-    });
-
-    return { id: student.id, paymentId: firstPaymentId ?? undefined };
+    const last = receipts[receipts.length - 1];
+    return { id: student.id, paymentId: last?.firstPaymentId ?? undefined, receiptCount: receipts.length };
   });
 
   revalidatePath("/directeur/eleves");
   revalidatePath("/directeur");
-  if (result.paymentId || plan) revalidatePath("/directeur/finance");
+  if (sheet) revalidatePath("/directeur/finance");
   return result;
 }
 

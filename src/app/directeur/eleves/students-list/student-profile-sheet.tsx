@@ -144,7 +144,16 @@ export function StudentProfileSheet({
                     )}
                   </Row>
                 )}
-                <div className="pt-2">
+                <div className="space-y-2 pt-2">
+                  {/* La fiche de paiement : recopier la fiche papier, mois par mois, avec les dates. */}
+                  <Link
+                    href={`/directeur/fiche?eleve=${student.id}`}
+                    className="flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-primary-700 px-3 text-sm font-semibold text-white hover:bg-primary-800"
+                    data-testid="open-sheet"
+                  >
+                    <FileText className="h-4 w-4" />
+                    Fiche de paiement
+                  </Link>
                   <Button
                     variant="secondary"
                     size="sm"

@@ -6,14 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { UserError, asResult, type ActionResult } from "@/lib/user-error";
 import { assertNnisAvailable } from "@/lib/nni-data";
 import { storedNni } from "@/lib/nni";
-import {
-  applyTuitionPlan,
-  enrollmentPlan,
-  prepaidParts,
-  recordGroupedPayment,
-  type PaymentPart,
-} from "@/lib/tuition-plan";
-import { recordFamilySheet } from "@/lib/family-sheet-data";
+import { recordFamilySheet, recordSheetPayments, type DatedPart } from "@/lib/family-sheet-data";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { familyPartReceiptNumber, generateReceiptNumber, runWithReceipt } from "@/lib/receipts";
@@ -119,6 +112,8 @@ export interface FamilyEnrollmentResult {
   familyPaymentId: string | null;
   /** Reçus individuels, en paiements séparés. */
   paymentIds: string[];
+  /** Nombre de reçus d'une fiche : un par date de versement. */
+  receiptCount?: number;
 }
 
 /**
@@ -145,12 +140,10 @@ export async function enrollFamily(values: FamilyEnrollmentValues): Promise<Fami
   if (classCount !== classIds.length) throw new UserError("Classe introuvable.");
 
   const parentName = splitFullName(data.parentName);
-  // Fiches de paiement (famille de plusieurs enfants) : elles portent seules
-  // les montants. Sinon, le parcours d'origine, inchangé.
+  // Les fiches de paiement portent seules les montants (lib/family-sheet.ts) :
+  // aucun montant n'est calculé par enfant. Sans fiche, rien n'est facturé.
   const sheets = data.sheets && data.sheets.length > 0 ? data.sheets : null;
   if (sheets?.some((s) => s.referentIndex >= data.children.length)) throw new UserError("Élève référent introuvable.");
-  const withFee = sheets ? true : data.children.some((c) => c.amount > 0);
-  const plan = sheets ? null : enrollmentPlan(data.tuition);
 
   const result = await runWithReceipt(async (tx, attempt) => {
     // — Le parent : celui choisi, ou le même nom avec le même téléphone
@@ -191,15 +184,14 @@ export async function enrollFamily(values: FamilyEnrollmentValues): Promise<Fami
       });
     }
 
-    const year = withFee || plan
+    const year = sheets
       ? await tx.academicYear.findFirst({ where: { schoolId: user.schoolId, isCurrent: true } })
       : null;
-    if ((withFee || plan) && !year) throw new UserError("Aucune année scolaire active.");
+    if (sheets && !year) throw new UserError("Aucune année scolaire active.");
 
-    // — Les enfants, chacun avec son frais d'inscription s'il y en a un, et
-    // les mois de scolarité réglés dès l'inscription (juin, ou les premiers).
+    // — Les enfants : des élèves ordinaires, rattachés à la famille.
     const now = new Date();
-    const children: { studentId: string; parts: PaymentPart[] }[] = [];
+    const children: { studentId: string }[] = [];
     for (const child of data.children) {
       const student = await tx.student.create({
         data: {
@@ -221,49 +213,22 @@ export async function enrollFamily(values: FamilyEnrollmentValues): Promise<Fami
         data: { studentId: student.id, parentId: parent.id, isPrimary: true },
       });
 
-      const parts: PaymentPart[] = [];
-      if (!sheets && child.amount > 0 && year) {
-        const fee = await tx.fee.create({
-          data: {
-            schoolId: user.schoolId,
-            studentId: student.id,
-            academicYearId: year.id,
-            label: `Frais d'inscription — ${year.label}`,
-            amount: child.amount,
-            dueDate: now,
-            status: "PENDING",
-          },
-        });
-        parts.push({ feeId: fee.id, studentId: student.id, amount: child.amount, feeAmount: child.amount, paidBefore: 0 });
-      }
-
-      // Les échéances des frais de scolarité de cet enfant, selon la formule
-      // choisie pour la famille.
-      if (plan && year) {
-        const { paidMonths, ...formula } = plan;
-        const applied = await applyTuitionPlan(tx, {
-          schoolId: user.schoolId,
-          studentId: student.id,
-          year,
-          ...formula,
-          firstMonth: now,
-        });
-        parts.push(...(await prepaidParts(tx, applied.planId, paidMonths)));
-      }
-      children.push({ studentId: student.id, parts });
+      children.push({ studentId: student.id });
     }
 
-    // — Le règlement : un reçu pour la famille, ou un reçu par enfant.
+    // — Le règlement : un reçu par date de versement.
     let familyPaymentId: string | null = null;
+    let receiptCount = 0;
     const paymentIds: string[] = [];
-    const common = { schoolId: user.schoolId, method: data.method, paidAt: now, userId: user.id, attempt, parentId: parent.id };
+    const common = { schoolId: user.schoolId, method: data.method, userId: user.id, attempt, parentId: parent.id };
 
     if (sheets && year) {
       // Une fiche pour la famille : ses montants vont à l'élève référent et
       // appartiennent à la famille. Une fiche par enfant : chacune à son
-      // enfant. Dans les deux cas, un seul reçu pour ce qui est versé aujourd'hui.
+      // enfant. Un seul enfant : sa fiche, comme un élève inscrit seul. Un
+      // reçu par date de versement (aujourd'hui, ou les dates recopiées).
       const familySheet = sheets.length === 1 && children.length > 1;
-      const all: PaymentPart[] = [];
+      const all: DatedPart[] = [];
       for (const sheet of sheets) {
         all.push(
           ...(await recordFamilySheet(tx, {
@@ -277,24 +242,18 @@ export async function enrollFamily(values: FamilyEnrollmentValues): Promise<Fami
           })),
         );
       }
-      if (all.length > 0) {
-        const paid = await recordGroupedPayment(tx, { ...common, parts: all, forceGroup: true });
-        familyPaymentId = paid.groupId;
-        if (paid.firstPaymentId) paymentIds.push(paid.firstPaymentId);
-      }
-    } else if (data.paymentMode === "FAMILY") {
-      const all = children.flatMap((c) => c.parts);
-      if (all.length > 0) {
-        const paid = await recordGroupedPayment(tx, { ...common, parts: all, forceGroup: true });
-        familyPaymentId = paid.groupId;
-        if (paid.firstPaymentId) paymentIds.push(paid.firstPaymentId);
-      }
-    } else {
-      // Chaque appel relit le plus grand numéro, y compris ceux que cette
-      // transaction vient d'attribuer : les reçus se suivent.
-      for (const c of children) {
-        const paid = await recordGroupedPayment(tx, { ...common, parts: c.parts });
-        if (paid.firstPaymentId) paymentIds.push(paid.firstPaymentId);
+      const receipts = await recordSheetPayments(tx, {
+        ...common,
+        now,
+        parts: all,
+        forceGroup: children.length > 1,
+      });
+      receiptCount = receipts.length;
+      // Le reçu du jour (le dernier), ou celui de la dernière date recopiée.
+      const last = receipts[receipts.length - 1];
+      if (last) {
+        familyPaymentId = last.groupId;
+        if (last.firstPaymentId) paymentIds.push(last.firstPaymentId);
       }
     }
 
@@ -303,6 +262,7 @@ export async function enrollFamily(values: FamilyEnrollmentValues): Promise<Fami
       studentIds: children.map((c) => c.studentId),
       familyPaymentId,
       paymentIds,
+      receiptCount,
     };
   });
 
