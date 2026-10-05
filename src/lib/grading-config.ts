@@ -50,10 +50,17 @@ export interface FormulaPart {
   sheetCount?: number;
   /**
    * Bulletin annuel seulement : le trimestre dont les notes nourrissent ce
-   * bloc (« Composition du Trimestre 2 »). Absent : toute l'année — c'est
-   * ainsi que le meilleur devoir est cherché parmi les trois trimestres.
+   * bloc (« Composition du Trimestre 2 »). Absent : toute l'année.
    */
   term?: string;
+  /**
+   * Bulletin annuel, bloc de toute l'année : la règle appliquée d'abord dans
+   * chaque trimestre, avant que `multiple` réunisse les trimestres. Chez
+   * Ngalam, le meilleur devoir de chaque trimestre (« BEST »), puis la
+   * moyenne des trois (« AVERAGE ») : (14 + 16 + 15) ÷ 3 = 15, × 3 = 45.
+   * Absent : toutes les notes de l'année ensemble.
+   */
+  perTerm?: MultiRule;
 }
 
 export interface Formula {
@@ -158,14 +165,33 @@ export function defaultGradingConfig(): GradingConfig {
   };
 }
 
+/** En-têtes arabes des compositions du bulletin annuel officiel. */
+const COMPO_AR = ["الامتحان الأول", "الامتحان الثاني", "الامتحان الثالث"];
+
+/** Bloc « devoirs » du bulletin annuel, tel que confirmé par le directeur de l'École Ngalam. */
+function annualDevoirPart(): FormulaPart {
+  return {
+    id: "devoir",
+    label: "Moyenne des devoirs des trois trimestres",
+    kinds: DEVOIR_KINDS,
+    weight: 3,
+    multiple: "AVERAGE",
+    perTerm: "BEST",
+    required: true,
+    columnLabel: "Moy Int × 3",
+    columnLabelAr: "معدل الاختبارات",
+  };
+}
+
 /**
- * Bulletin annuel du modèle officiel relevé à l'École Ngalam :
- * (meilleur devoir de l'année × 3 + composition T1 × 1 + composition T2 × 2
- * + composition T3 × 3) ÷ 9. Le poids des compositions grandit au fil de
- * l'année : c'est le niveau de fin d'année qui compte le plus.
+ * Bulletin annuel du modèle officiel, formule confirmée par le directeur de
+ * l'École Ngalam : (moyenne des meilleurs devoirs de chaque trimestre × 3
+ * + composition T1 × 1 + composition T2 × 2 + composition T3 × 3) ÷ 9.
+ * Le poids des compositions grandit au fil de l'année : c'est le niveau de
+ * fin d'année qui compte le plus.
  */
 export function defaultAnnualConfig(): AnnualConfig {
-  const compo = (term: (typeof TERM_LABELS)[number], index: number) => ({
+  const compo = (term: (typeof TERM_LABELS)[number], index: number): FormulaPart => ({
     id: `composition-t${index + 1}`,
     label: `Composition ${term}`,
     kinds: ["COMPOSITION"] as ExamKind[],
@@ -173,27 +199,15 @@ export function defaultAnnualConfig(): AnnualConfig {
     multiple: "LAST" as const,
     required: true,
     term,
-    columnLabel: `Compo T${index + 1} ×${index + 1}`,
-    columnLabelAr: `امتحان${index + 1}×${index + 1}`,
+    columnLabel: `${index + 1}° Compo × ${index + 1}`,
+    columnLabelAr: COMPO_AR[index],
   });
 
   return {
     enabled: true,
     cumulative: true,
     secondary: {
-      parts: [
-        {
-          id: "devoir",
-          label: "Meilleur devoir de l'année",
-          kinds: DEVOIR_KINDS,
-          weight: 3,
-          multiple: "BEST",
-          required: true,
-          columnLabel: "Meilleur Devoir ×3",
-          columnLabelAr: "أحسن فرض×3",
-        },
-        ...TERM_LABELS.map(compo),
-      ],
+      parts: [annualDevoirPart(), ...TERM_LABELS.map(compo)],
       divisor: { mode: "AUTO" },
     },
     // Tant qu'aucun bulletin annuel du Fondamental n'a été fourni : la
@@ -232,6 +246,7 @@ const partSchema = z.object({
   examTitle: z.string().trim().max(60).optional(),
   sheetCount: z.number().int().min(1).max(10).optional(),
   term: z.string().trim().max(40).optional(),
+  perTerm: z.enum(MULTI_RULES).optional(),
 });
 
 const formulaSchema = z.object({
@@ -301,25 +316,40 @@ function upgradeAnnual(value: unknown): unknown {
 }
 
 /**
- * Les en-têtes annuels livrés avant la maquette du bulletin annuel
- * (« Compo T2 × 2 », « Moy Int × 3 ») prennent ceux de la maquette validée
- * (« Compo T2 ×2 », « Meilleur Devoir ×3 ») : seuls ces libellés d'origine
- * sont remplacés, jamais un en-tête que l'école a choisi elle-même.
+ * Règles annuelles enregistrées avec un modèle par défaut plus ancien, que
+ * l'école n'a pas modifié : elles prennent le modèle confirmé par le
+ * directeur de l'École Ngalam. Le bloc « meilleur devoir de l'année » devient
+ * « moyenne des meilleurs devoirs de chaque trimestre », et les en-têtes
+ * ceux de la maquette (« 2° Compo × 2 », « الامتحان الثاني »). Un bloc ou un
+ * en-tête que l'école a choisi elle-même n'est jamais touché.
  */
-function renameAnnualColumns<T>(config: T): T {
+function renameAnnualColumns<T>(original: T): T {
+  // Sur une copie : relire une règle ne doit pas modifier l'objet reçu.
+  const config = structuredClone(original);
   const annual = (config as { annual?: { secondary?: { parts?: Record<string, unknown>[] } } }).annual;
-  for (const part of annual?.secondary?.parts ?? []) {
+  const parts = annual?.secondary?.parts ?? [];
+  parts.forEach((part, index) => {
     const label = part.columnLabel;
-    if (typeof label !== "string") continue;
-    const compo = /^Compo T(d)(?: × d)?$/.exec(label);
-    if (compo) {
-      part.columnLabel = `Compo T${compo[1]} ×${compo[1]}`;
-      part.columnLabelAr = `امتحان${compo[1]}×${compo[1]}`;
-    } else if (label === "Moy Int × 3" && part.term === undefined && part.multiple === "BEST") {
-      part.columnLabel = "Meilleur Devoir ×3";
-      part.columnLabelAr = "أحسن فرض×3";
+    const oldDevoir =
+      part.term === undefined &&
+      part.perTerm === undefined &&
+      part.multiple === "BEST" &&
+      part.weight === 3 &&
+      (part.label === "Meilleur devoir de l'année" || part.label === "Devoirs") &&
+      (label === undefined || label === "Meilleur Devoir ×3" || label === "Moy Int × 3");
+    if (oldDevoir) {
+      parts[index] = { ...annualDevoirPart(), id: part.id, kinds: part.kinds, required: part.required };
+      return;
     }
-  }
+    if (typeof label !== "string") return;
+    // « Compo T2 × 2 », « Compo T2 ×2 », et « Compo T1 » sans multiplicateur.
+    const compo = /^Compo T(\d)(?: ?× ?(\d))?$/.exec(label);
+    if (compo && compo[1] === (compo[2] ?? "1") && Number(compo[1]) === part.weight) {
+      const n = Number(compo[1]);
+      part.columnLabel = `${n}° Compo × ${n}`;
+      part.columnLabelAr = COMPO_AR[n - 1] ?? part.columnLabelAr;
+    }
+  });
   return config;
 }
 
@@ -502,7 +532,9 @@ export function divisorOf(formula: Formula): number {
  */
 export function describeFormula(formula: Formula, labels: Record<MultiRule, string>): string {
   const terms = formula.parts.map((p) => {
-    const base = `${labels[p.multiple]} ${p.label.toLowerCase()}`;
+    // Un bloc calculé trimestre par trimestre se décrit par son nom (« moyenne
+    // des devoirs des trois trimestres ») : la règle seule le dirait mal.
+    const base = p.perTerm ? p.label.toLowerCase() : `${labels[p.multiple]} ${p.label.toLowerCase()}`;
     return p.weight === 1 ? base : `${base} × ${p.weight}`;
   });
   return `(${terms.join(" + ")}) ÷ ${divisorOf(formula)}`;

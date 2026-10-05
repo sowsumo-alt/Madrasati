@@ -16,6 +16,7 @@ import {
   type SchoolLevel,
 } from "@/lib/grading";
 import {
+  applyMultiRule,
   computeSubjectAverage,
   cumulativeTermFormula,
   defaultGradingConfig,
@@ -211,13 +212,16 @@ export function computeReportCards(input: ReportCardInput): ReportCard[] {
 
     const byStudent = new Map<string, SubjectDetail & { average: number | null }>();
     for (const student of students) {
-      const scoresByPart = examsByPart.map((list) =>
-        list.map((exam) => {
-          const grade = exam.grades.find((g) => g.studentId === student.id);
-          return grade && !grade.isAbsent && grade.score != null
-            ? onTwenty(grade.score, exam.maxScore)
-            : null;
-        }),
+      const scoreOf = (exam: ReportCardExam) => {
+        const grade = exam.grades.find((g) => g.studentId === student.id);
+        return grade && !grade.isAbsent && grade.score != null
+          ? onTwenty(grade.score, exam.maxScore)
+          : null;
+      };
+      const scoresByPart = examsByPart.map((list, index) =>
+        perTermPart(formula, index, yearScope)
+          ? termValues(list, scoreOf, formula.parts[index].perTerm!)
+          : list.map(scoreOf),
       );
       const computed = computeSubjectAverage(formula, scoresByPart);
 
@@ -234,7 +238,11 @@ export function computeReportCards(input: ReportCardInput): ReportCard[] {
 
       byStudent.set(student.id, {
         parts: computed.parts,
-        titles: examsByPart.map((list) => list.map((e) => e.title)),
+        titles: examsByPart.map((list, index) =>
+          perTermPart(formula, index, yearScope)
+            ? TERM_LABELS.filter((t) => list.some((e) => e.term === t))
+            : list.map((e) => e.title),
+        ),
         rank: null,
         observation,
         absent: examsByPart.map((list) =>
@@ -313,6 +321,35 @@ export function computeReportCards(input: ReportCardInput): ReportCard[] {
     rank: rankOf(card.average, allAverages),
     classSize: students.length,
   }));
+}
+
+/**
+ * Bloc annuel qui s'applique trimestre par trimestre (FormulaPart.perTerm) :
+ * seulement sur un bulletin qui couvre l'année, pour un bloc de toute l'année.
+ */
+function perTermPart(formula: Formula, index: number, yearScope: boolean): boolean {
+  const part = formula.parts[index];
+  return yearScope && part.term === undefined && part.perTerm !== undefined;
+}
+
+/**
+ * La note retenue dans chaque trimestre, dans l'ordre des trimestres : le
+ * meilleur devoir du 1er, celui du 2e, celui du 3e. Un trimestre sans note
+ * n'en donne pas — il ne compte pas comme un zéro.
+ */
+function termValues(
+  exams: ReportCardExam[],
+  scoreOf: (exam: ReportCardExam) => number | null,
+  rule: Formula["parts"][number]["multiple"],
+): (number | null)[] {
+  return TERM_LABELS.filter((t) => exams.some((e) => e.term === t)).map((term) => {
+    const scores = exams
+      .filter((e) => e.term === term)
+      .map(scoreOf)
+      .filter((s): s is number => s != null);
+    const applied = applyMultiRule(scores, rule);
+    return applied ? roundHundredth(applied.value) : null;
+  });
 }
 
 /** Note coefficientée d'une matière, telle qu'imprimée (Moy T × coefficient). */

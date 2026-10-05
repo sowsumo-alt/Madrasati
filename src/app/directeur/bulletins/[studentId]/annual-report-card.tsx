@@ -1,7 +1,8 @@
 import type { ReportCard, ReportCardSubject } from "@/lib/report-card-compute";
 import { weightedOf } from "@/lib/report-card-compute";
 import { SECONDARY_OFFICIAL_SUBJECTS, officialSubjectIndex, roundHundredth } from "@/lib/grading";
-import type { FormulaPart } from "@/lib/grading-config";
+import { divisorOf, type Formula, type FormulaPart, type MultiRule } from "@/lib/grading-config";
+import { MENTION_LABELS_FR } from "@/lib/report-card";
 import {
   DECISIONS,
   HONORS,
@@ -19,11 +20,14 @@ import styles from "./secondary-report-card.module.css";
  * Bulletin annuel du collège et du lycée, établi à la fin du 3e trimestre —
  * reproduction de la maquette validée (brand-assets/madrasati-mvp-bulletin-
  * annuel.html). Même famille que le bulletin trimestriel : mêmes en-têtes,
- * mêmes couleurs, même tableau ; il y ajoute le récapitulatif des trois
- * trimestres, les appréciations du conseil et la décision de passage.
+ * mêmes couleurs, même tableau à double en-tête ; il y ajoute les moyennes
+ * des trimestres passés, les appréciations du conseil et la décision de
+ * passage.
  *
- * Les colonnes de notes suivent la règle annuelle de l'école (par défaut :
- * meilleur devoir de l'année × 3, compositions T1 × 1, T2 × 2, T3 × 3, ÷ 9).
+ * Les colonnes de notes suivent la règle annuelle de l'école (par défaut,
+ * celle confirmée par le directeur de l'École Ngalam : moyenne des meilleurs
+ * devoirs de chaque trimestre × 3, compositions T1 × 1, T2 × 2, T3 × 3, ÷ 9),
+ * chaque case avec le détail de son calcul en petit.
  */
 
 export interface AnnualReportCardProps {
@@ -81,9 +85,51 @@ function header(part: FormulaPart): string {
   return part.columnLabel ?? (part.weight === 1 ? part.label : `${part.label} ×${part.weight}`);
 }
 
-/** Une case de note : la valeur pondérée seule, comme sur le bulletin papier (« 36 »). */
-function partCell(weighted: number | null) {
-  return weighted == null ? EMPTY : score(weighted);
+/**
+ * Une case de note : la valeur pondérée (« 45 »), et en petit dessous le
+ * calcul qui y mène — « (14+16+15)÷3×3 » pour les devoirs de l'année,
+ * « 13×2 » pour une composition comptée deux fois.
+ */
+function partCell(part: FormulaPart, detail: { scores: (number | null)[]; value: number | null; weighted: number | null } | undefined) {
+  if (!detail || detail.weighted == null || detail.value == null) return EMPTY;
+  const notes = detail.scores.filter((s): s is number => s != null);
+  let calc: string | null = null;
+  if (part.multiple === "AVERAGE" && notes.length > 1) {
+    calc = `(${notes.map(score).join("+")})÷${notes.length}${part.weight !== 1 ? `×${part.weight}` : ""}`;
+  } else if (part.weight !== 1) {
+    calc = `${score(detail.value)}×${part.weight}`;
+  }
+  return (
+    <>
+      {score(detail.weighted)}
+      {calc && <span className={styles.calcDetail}>{calc}</span>}
+    </>
+  );
+}
+
+const RULE_FR: Record<MultiRule, string> = {
+  BEST: "meilleure note",
+  AVERAGE: "moyenne",
+  SUM: "somme",
+  LAST: "dernière note",
+};
+const PER_TERM_FR: Record<MultiRule, string> = {
+  BEST: "meilleurs devoirs",
+  AVERAGE: "moyennes de devoirs",
+  SUM: "totaux de devoirs",
+  LAST: "derniers devoirs",
+};
+
+/**
+ * La formule de l'école en clair, sous le tableau : « Moy Int × 3 = moyenne
+ * des meilleurs devoirs de chaque trimestre × 3 · Moy T /20 = (…) ÷ 9 ».
+ */
+function formulaNote(formula: Formula): string {
+  const explained = formula.parts
+    .filter((p) => p.perTerm)
+    .map((p) => `${header(p)} = ${RULE_FR[p.multiple]} des ${PER_TERM_FR[p.perTerm!]} de chaque trimestre${p.weight !== 1 ? ` × ${p.weight}` : ""}`);
+  const average = `Moy T /20 = (${formula.parts.map(header).join(" + ")}) ÷ ${divisorOf(formula)}`;
+  return [...explained, average, "Notes × Coeff = Moy T × Coeff"].join(" · ");
 }
 
 /** « Passage en 2AS », « Redoublement », « Autorisé(e) ». */
@@ -113,25 +159,27 @@ export function AnnualReportCard({
   const rows = officialOrder(card.results);
   const parts = card.formula.parts;
   const rank = rankLabel(card.rank, card.classSize);
-  // Le poids de la composition de chaque trimestre, pour le récapitulatif.
-  const weightOfTerm = (term: string) =>
-    parts.find((p) => p.term === term && p.kinds.includes("COMPOSITION"))?.weight ?? null;
   const highlight = decision
     ? `✓ Décision : ${decisionText(decision, card.className)}`
     : suggestion
-      ? `✓ Suggestion : ${decisionText(suggestion, card.className)}`
+      ? `✓ Suggestion automatique : ${decisionText(suggestion, card.className)} — modifiable par la direction`
       : null;
+  const ordinal = (term: string) => {
+    const n = term.match(/\d/)?.[0];
+    return n ? `${n}° trimestre` : term;
+  };
 
   return (
     <div id={id} className={`${styles.bulletin} ${styles.annual}`} dir="ltr" lang="fr" data-testid="annual-report-card" data-pdf-single-page>
       <DocumentHeader school={school} official={official} />
 
       <div className={styles.annualTitleRow}>
-        <div className={styles.annualTitle}>{title ?? "Bulletin Annuel"}</div>
-        {yearLabel && <div className={styles.annualBadge}>Année {yearLabel}</div>}
+        <div className={styles.annualTitle}>{title ?? "Bulletin de notes — fin d'année"}</div>
+        <div className={styles.annualBadge}>Bulletin annuel</div>
       </div>
       <div className={styles.annualSub}>
-        {title ? "Bulletin annuel — moyennes des trois trimestres" : "Récapitulatif des 3 trimestres"}
+        {yearLabel ? `Année scolaire ${yearLabel} · ` : ""}Récapitulatif de l&apos;année, généré automatiquement par
+        Madrasati
       </div>
 
       <div className={styles.studentInfo}>
@@ -146,32 +194,8 @@ export function AnnualReportCard({
           <strong>{card.className}</strong>
         </div>
         <div>
-          <span>Année scolaire</span>
-          <strong>{yearLabel ?? "—"}</strong>
-        </div>
-      </div>
-
-      {/* Les trois trimestres, puis la moyenne annuelle */}
-      <div
-        className={`${styles.trimRecap} ${termRecap.length === 2 ? styles.trimRecapThree : ""}`}
-        data-testid="term-recap"
-      >
-        {termRecap.map((t) => {
-          const weight = weightOfTerm(t.term);
-          return (
-            <div key={t.term} className={styles.trimCard} data-testid="term-recap-card">
-              <div className={styles.trimLabel}>{t.term}</div>
-              <div className={styles.trimValue}>{t.average != null ? twoDecimals(t.average) : "—"}</div>
-              {weight != null && <div className={styles.trimCoef}>Poids ×{weight}</div>}
-            </div>
-          );
-        })}
-        <div className={`${styles.trimCard} ${styles.trimCardAnnual}`}>
-          <div className={styles.trimLabel}>Moyenne Annuelle</div>
-          <div className={styles.trimValue} data-testid="annual-average">
-            {card.average != null ? `${twoDecimals(card.average)}/20` : "—"}
-          </div>
-          <div className={styles.trimCoef}>Pondérée · Rang {rank}</div>
+          <span>Effectif</span>
+          <strong>{card.classSize}</strong>
         </div>
       </div>
 
@@ -183,20 +207,20 @@ export function AnnualReportCard({
               {parts.map((part) => (
                 <th key={part.id}>{header(part)}</th>
               ))}
-              <th>Moy Annuelle /20</th>
+              <th>Moy T /20</th>
               <th>Coeff</th>
-              <th>Note × Coeff</th>
-              <th>Rang</th>
+              <th>Notes × Coeff</th>
+              <th>Observation des professeurs</th>
             </tr>
             <tr className={styles.arRow} lang="ar">
               <th className={styles.colSubject}>المواد</th>
               {parts.map((part) => (
                 <th key={part.id}>{part.columnLabelAr ?? ""}</th>
               ))}
-              <th>المعدل السنوي</th>
+              <th>المعدل /20</th>
               <th>الضارب</th>
-              <th>النقطة المرجحة</th>
-              <th>الرتبة</th>
+              <th>النقاط المرجحة</th>
+              <th>ملاحظات الأساتذة</th>
             </tr>
           </thead>
           <tbody>
@@ -218,7 +242,7 @@ export function AnnualReportCard({
                         className={index === 0 ? styles.times3 : styles.compo}
                         data-testid={`part-${index}`}
                       >
-                        {partCell(detail?.weighted ?? null)}
+                        {partCell(part, detail)}
                       </td>
                     );
                   })}
@@ -229,31 +253,56 @@ export function AnnualReportCard({
                   <td className={styles.weighted} data-testid="weighted">
                     {weighted != null ? twoDecimals(weighted) : EMPTY}
                   </td>
-                  <td>{r.detail.rank ?? EMPTY}</td>
+                  <td className={styles.observation}>{r.detail.observation ?? ""}</td>
                 </tr>
               );
             })}
             <tr className={styles.totalRow}>
               <td className={styles.subject}>
-                <div className={styles.subjectFr}>Moyenne Générale Annuelle</div>
+                <div className={styles.subjectFr}>Total</div>
                 <div className={styles.subjectAr} lang="ar">
-                  المعدل العام السنوي
+                  المجموع
                 </div>
               </td>
               {parts.map((part) => (
                 <td key={part.id}></td>
               ))}
-              <td data-testid="general-average">
-                {card.average != null ? twoDecimals(card.average) : EMPTY}
-              </td>
+              <td></td>
               <td data-testid="total-coefficients">{card.totalCoefficients}</td>
               <td data-testid="total-points">
                 {card.totalPoints != null ? twoDecimals(card.totalPoints) : EMPTY}
               </td>
-              <td>{rank}</td>
+              <td></td>
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <div className={styles.calcNote} data-testid="formula-note">
+        💡 {formulaNote(card.formula)}. Les matières et leurs coefficients sont ceux de la classe.
+      </div>
+
+      {/* Les trimestres passés, repris des bulletins déjà établis, puis l'année */}
+      <div
+        className={`${styles.trimRecap} ${termRecap.length === 2 ? styles.trimRecapThree : ""}`}
+        data-testid="term-recap"
+      >
+        {termRecap.map((t) => (
+          <div key={t.term} className={styles.trimCard} data-testid="term-recap-card">
+            <div className={styles.trimLabel}>Moyenne {ordinal(t.term)}</div>
+            <div className={styles.trimValue}>{t.average != null ? twoDecimals(t.average) : "—"}</div>
+            <div className={styles.trimCoef}>Récupérée automatiquement</div>
+          </div>
+        ))}
+        <div className={`${styles.trimCard} ${styles.trimCardAnnual}`}>
+          <div className={styles.trimLabel}>Moyenne générale annuelle</div>
+          <div className={styles.trimValue} data-testid="annual-average">
+            {card.average != null ? `${twoDecimals(card.average)}/20` : "—"}
+          </div>
+          <div className={styles.trimCoef}>
+            {card.average != null ? `${MENTION_LABELS_FR[card.mention]} · ` : ""}Rang {rank}
+          </div>
+        </div>
       </div>
 
       <div className={styles.bottomGrid}>
@@ -285,8 +334,12 @@ export function AnnualReportCard({
         </div>
       </div>
 
+      <div className={styles.directorNote}>
+        <b>Observations du directeur :</b> <span className={styles.directorLine} />
+      </div>
+
       <div className={styles.signatures}>
-        <div>Le Directeur Général</div>
+        <div>Le Directeur</div>
         <div>Le Tuteur</div>
         <div>Le Directeur des Études</div>
       </div>

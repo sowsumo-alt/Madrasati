@@ -359,12 +359,41 @@ export function GradingRuleCard({
                   </Select>
                 </div>
 
+                {period === "ANNUAL" && !part.term && (
+                  <div className="space-y-1.5" title={t("grading.perTermHint")}>
+                    <Label>{t("grading.perTerm")}</Label>
+                    <Select
+                      value={part.perTerm ?? "NONE"}
+                      onValueChange={(v) =>
+                        updatePart(index, { perTerm: v === "NONE" ? undefined : (v as MultiRule) })
+                      }
+                    >
+                      <SelectTrigger aria-label={t("grading.perTerm")} data-testid={`per-term-${index}`}>
+                        <SelectValue>
+                          {part.perTerm ? ruleLabels[part.perTerm] : t("grading.perTermNone")}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="NONE">{t("grading.perTermNone")}</SelectItem>
+                        {MULTI_RULES.map((rule) => (
+                          <SelectItem key={rule} value={rule}>
+                            {ruleLabels[rule]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
                 {period === "ANNUAL" && (
                   <div className="space-y-1.5">
                     <Label>{t("grading.termOfPart")}</Label>
                     <Select
                       value={part.term ?? "ALL"}
-                      onValueChange={(v) => updatePart(index, { term: v === "ALL" ? undefined : v })}
+                      // Un bloc d'un seul trimestre n'a pas de règle « dans chaque trimestre ».
+                      onValueChange={(v) =>
+                        updatePart(index, v === "ALL" ? { term: undefined } : { term: v, perTerm: undefined })
+                      }
                     >
                       <SelectTrigger aria-label={t("grading.termOfPart")} data-testid={`term-${index}`}>
                         <SelectValue>{part.term ?? t("grading.wholeYear")}</SelectValue>

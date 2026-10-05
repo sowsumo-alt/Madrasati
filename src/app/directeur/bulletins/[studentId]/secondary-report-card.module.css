@@ -507,6 +507,29 @@
   margin-top: 8px;
 }
 
+/* Détail d'un calcul, sous la valeur d'une case du bulletin annuel. */
+.calcDetail {
+  display: block;
+  margin-top: 1px;
+  font-size: 8.5px;
+  font-weight: 400;
+  color: #9ca3af;
+  white-space: nowrap;
+}
+.directorNote {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 11.5px;
+  color: #374151;
+}
+.directorLine {
+  flex: 1;
+  min-width: 0;
+  border-bottom: 1px dotted #6b7280;
+  height: 14px;
+}
 .decisionHighlight {
   background: #e6f4ed;
   border: 1.5px solid #0b5e38;

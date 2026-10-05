@@ -158,3 +158,45 @@ test("l'option « bulletins cumulatifs » : oui par défaut, non pour un bulleti
   saved.annual.cumulative = true;
   assert.equal(parseGradingConfig(saved, { cumulativeWhenMissing: false }).annual.cumulative, true);
 });
+
+test("modèle annuel : moyenne des meilleurs devoirs de chaque trimestre, en-têtes de la maquette", () => {
+  const [devoir, ...compos] = defaultGradingConfig().annual.secondary.parts;
+  assert.equal(devoir.perTerm, "BEST");
+  assert.equal(devoir.multiple, "AVERAGE");
+  assert.equal(devoir.columnLabel, "Moy Int × 3");
+  assert.deepEqual(
+    compos.map((p) => p.columnLabel),
+    ["1° Compo × 1", "2° Compo × 2", "3° Compo × 3"],
+  );
+});
+
+test("une règle annuelle enregistrée avec l'ancien modèle prend la formule confirmée ; une règle choisie reste", () => {
+  const saved = JSON.parse(JSON.stringify(defaultGradingConfig()));
+  saved.annual.secondary.parts[0] = {
+    id: "devoir",
+    label: "Meilleur devoir de l'année",
+    kinds: ["DEVOIR", "CONTROLE", "INTERROGATION"],
+    weight: 3,
+    multiple: "BEST",
+    required: true,
+    columnLabel: "Meilleur Devoir ×3",
+    columnLabelAr: "أحسن فرض×3",
+  };
+  saved.annual.secondary.parts[2].columnLabel = "Compo T2 ×2";
+  const upgraded = parseGradingConfig(saved).annual.secondary.parts;
+  assert.equal(upgraded[0].perTerm, "BEST");
+  assert.equal(upgraded[0].multiple, "AVERAGE");
+  assert.equal(upgraded[2].columnLabel, "2° Compo × 2");
+
+  // Une école qui a choisi elle-même « meilleur devoir de l'année, × 2 ».
+  saved.annual.secondary.parts[0] = { ...saved.annual.secondary.parts[0], weight: 2, label: "Mon bloc" };
+  const kept = parseGradingConfig(saved).annual.secondary.parts[0];
+  assert.equal(kept.multiple, "BEST");
+  assert.equal(kept.perTerm, undefined);
+});
+
+test("en-tête annuel enregistré « Compo T1 » sans multiplicateur : il prend celui de la maquette", () => {
+  const saved = JSON.parse(JSON.stringify(defaultGradingConfig()));
+  saved.annual.secondary.parts[1].columnLabel = "Compo T1";
+  assert.equal(parseGradingConfig(saved).annual.secondary.parts[1].columnLabel, "1° Compo × 1");
+});

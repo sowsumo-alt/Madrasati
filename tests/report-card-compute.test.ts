@@ -235,27 +235,56 @@ function annualCards(list = yearExams, config?: GradingConfig) {
   });
 }
 
-test("bulletin annuel : (meilleur devoir de l'année × 3 + T1 × 1 + T2 × 2 + T3 × 3) ÷ 9", () => {
+test("bulletin annuel : (moyenne des devoirs des 3 trimestres × 3 + T1 × 1 + T2 × 2 + T3 × 3) ÷ 9", () => {
   const mary = annualCards()[0];
   const [fr, en] = mary.results;
 
-  // Français : meilleur devoir parmi 12, 11 et 14 → 14 × 3 = 42.
+  // Français : un devoir par trimestre, 12, 11 et 14 → (12 + 11 + 14) ÷ 3 × 3 = 37.
   assert.deepEqual(fr.detail.parts[0].scores, [12, 11, 14]);
-  assert.equal(fr.detail.parts[0].weighted, 42);
+  assert.equal(fr.detail.parts[0].weighted, 37);
   // Compositions : 12 × 1, 13 × 2 = 26, 14 × 3 = 42.
   assert.deepEqual(
     fr.detail.parts.slice(1).map((p) => p.weighted),
     [12, 26, 42],
   );
-  // (42 + 12 + 26 + 42) ÷ 9 = 122 ÷ 9 = 13,555… → 13,56
-  assert.equal(fr.average, 13.56);
+  // (37 + 12 + 26 + 42) ÷ 9 = 117 ÷ 9 = 13
+  assert.equal(fr.average, 13);
 
-  // Anglais : un seul devoir 10 → 30 ; 9 + 20 + 33 → (30 + 62) ÷ 9 = 10,22
+  // Anglais : un seul devoir, 10 au 1er trimestre → 30 ; 9 + 20 + 33 → (30 + 62) ÷ 9 = 10,22
   assert.equal(en.average, 10.22);
 
-  // Moyenne générale annuelle : (13,56 × 4 + 10,22 × 1) ÷ 5 = 64,46 ÷ 5 = 12,89
-  assert.equal(mary.totalPoints, 64.46);
-  assert.equal(mary.average, 12.89);
+  // Moyenne générale annuelle : (13 × 4 + 10,22 × 1) ÷ 5 = 62,22 ÷ 5 = 12,44
+  assert.equal(mary.totalPoints, 62.22);
+  assert.equal(mary.average, 12.44);
+});
+
+// L'exemple donné par le directeur de l'École Ngalam : meilleurs devoirs
+// retenus 14 au 1er trimestre, 16 au 2e, 15 au 3e.
+test("bulletin annuel : meilleurs devoirs 14, 16, 15 → moyenne 15, × 3 = 45", () => {
+  const exams = [
+    exam("fr", "Devoir 1", "DEVOIR", 5, { mary: 12 }, T1),
+    exam("fr", "Devoir 2", "DEVOIR", 9, { mary: 14 }, T1),
+    exam("fr", "Composition", "COMPOSITION", 28, { mary: 11 }, T1),
+    exam("fr", "Devoir 1", "DEVOIR", 40, { mary: 16 }, T2),
+    exam("fr", "Devoir 2", "DEVOIR", 45, { mary: 9 }, T2),
+    exam("fr", "Composition", "COMPOSITION", 60, { mary: 13 }, T2),
+    exam("fr", "Devoir 1", "DEVOIR", 80, { mary: 15 }, T3),
+    exam("fr", "Composition", "COMPOSITION", 90, { mary: 14 }, T3),
+  ];
+  const fr = annualCards(exams)[0].results[0];
+  const [devoirs, c1, c2, c3] = fr.detail.parts;
+
+  // Étape 1 : le meilleur devoir de chaque trimestre, puis leur moyenne.
+  assert.deepEqual(devoirs.scores, [14, 16, 15]);
+  assert.deepEqual(fr.detail.titles[0], [T1, T2, T3]);
+  assert.equal(devoirs.value, 15); // (14 + 16 + 15) ÷ 3
+  // Étape 2 : × 3.
+  assert.equal(devoirs.weighted, 45);
+
+  // Compositions : 11 × 1, 13 × 2, 14 × 3.
+  assert.deepEqual([c1.weighted, c2.weighted, c3.weighted], [11, 26, 42]);
+  // (45 + 11 + 26 + 42) ÷ 9 = 124 ÷ 9 = 13,777… → 13,78
+  assert.equal(fr.average, 13.78);
 });
 
 test("bulletin annuel : sans la composition du 3e trimestre, pas de moyenne annuelle", () => {

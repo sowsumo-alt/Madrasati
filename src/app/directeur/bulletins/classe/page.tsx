@@ -149,7 +149,7 @@ export default async function ClassReportCardsPage({
             rank: null,
             classSize: cards.length,
           }))}
-          title="Bulletin du 3e trimestre"
+          title="Bulletin de notes — 3ème trimestre"
           honors={parseHonors(decision?.honors)}
           decision={isDecisionKey(decision?.decision) ? decision.decision : null}
           suggestion={suggestDecision(card.average, rule.config.annual.passThreshold)}

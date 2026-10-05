@@ -180,12 +180,16 @@ export interface TermRecap {
   average: number | null;
   rank: number | null;
   classSize: number;
+  /** Moyenne reprise du bulletin remis ce trimestre-là (et non recalculée). */
+  fromIssued?: boolean;
 }
 
 /**
- * Moyennes générales d'un élève à chaque trimestre, reprises des bulletins
- * trimestriels — avec la règle de calcul de chacun d'eux s'il a déjà été
- * remis — pour montrer son évolution sur le bulletin annuel.
+ * Moyennes générales d'un élève à chaque trimestre, pour montrer son
+ * évolution sur le bulletin annuel. Un bulletin déjà remis fait foi : on
+ * reprend la moyenne relevée ce jour-là (ReportCardIssue.average), sans rien
+ * recalculer ni ressaisir. Sinon, elle est calculée avec la règle de ce
+ * bulletin.
  */
 export async function termRecap(options: {
   schoolId: string;
@@ -194,8 +198,16 @@ export async function termRecap(options: {
   academicYearId: string | null;
 }): Promise<TermRecap[]> {
   const { schoolId, classId, studentId, academicYearId } = options;
+  const issued = academicYearId
+    ? await prisma.reportCardIssue.findMany({
+        where: { schoolId, studentId, academicYearId, average: { not: null } },
+        select: { term: true, average: true },
+      })
+    : [];
   return Promise.all(
     TERM_LABELS.map(async (term) => {
+      const stored = issued.find((i) => i.term === term)?.average;
+      if (stored != null) return { term, average: stored, rank: null, classSize: 0, fromIssued: true };
       const rule = await reportCardRule({ schoolId, studentId, academicYearId, term });
       const cards = await buildReportCards(schoolId, classId, term, rule.config);
       const card = cards.find((c) => c.student.id === studentId);
@@ -204,6 +216,7 @@ export async function termRecap(options: {
         average: card?.average ?? null,
         rank: card?.average != null ? card.rank : null,
         classSize: card?.classSize ?? cards.length,
+        fromIssued: false,
       };
     }),
   );

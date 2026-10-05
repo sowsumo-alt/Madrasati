@@ -49,7 +49,7 @@ export default async function ReportCardPage({
 
   const student = await prisma.student.findFirst({
     where: { id: studentId, schoolId: user.schoolId },
-    include: { classRoom: true },
+    include: { classRoom: { include: { academicYear: { select: { label: true } } } } },
   });
   if (!student || !student.classId) notFound();
 
@@ -297,9 +297,9 @@ export default async function ReportCardPage({
               card={card}
               school={schoolIdentity}
               official={official}
-              yearLabel={academicYear?.label ?? null}
+              yearLabel={student.classRoom?.academicYear.label ?? academicYear?.label ?? null}
               termRecap={annualData.termRecap}
-              title={term === ANNUAL_TERM ? undefined : "Bulletin du 3e trimestre"}
+              title={term === ANNUAL_TERM ? undefined : "Bulletin de notes — 3ème trimestre"}
               honors={annualData.honors}
               decision={annualData.decision}
               suggestion={annualData.suggestion}
@@ -312,7 +312,7 @@ export default async function ReportCardPage({
               card={card}
               school={schoolIdentity}
               official={official}
-              yearLabel={academicYear?.label ?? null}
+              yearLabel={student.classRoom?.academicYear.label ?? academicYear?.label ?? null}
               suspensions={suspensions}
               comment={comment ? { body: comment.body, bodyAr: comment.bodyAr } : null}
               issuedAt={new Date()}
@@ -354,7 +354,7 @@ export default async function ReportCardPage({
         t={t}
         school={schoolIdentity}
         official={official}
-        yearLabel={academicYear?.label ?? null}
+        yearLabel={student.classRoom?.academicYear.label ?? academicYear?.label ?? null}
         photoUrl={student.photoUrl}
         evolution={cardEvolution}
         incomplete={missing.length > 0}
