@@ -29,6 +29,8 @@ export interface StandingFee {
   id: string;
   amount: number;
   dueDate: Date;
+  /** « Frais de scolarité — Octobre 2026 » : pour dire ce qui reste dû. */
+  label?: string;
   payments: { amount: number; paidAt: Date; receiptNumber: string }[];
 }
 
@@ -38,6 +40,8 @@ export interface ReceiptStanding {
   /** Ce qui manque encore sur les lignes de ce reçu. */
   linesLeft: number;
   stamp: ReceiptStamp;
+  /** Ce qui reste dû, en clair : « octobre 2026 », « frais d'inscription ». */
+  dueLabels: string[];
 }
 
 export function receiptStanding(input: {
@@ -70,7 +74,12 @@ export function receiptStanding(input: {
     .reduce((sum, f) => sum + Math.max(f.amount - paidOf(f), 0), 0);
 
   const stamp: ReceiptStamp = linesLeft > 0 ? "PARTIAL" : due > 0 ? "RECEIVED" : "PAID";
-  return { dueAfter: due, linesLeft, stamp };
+  const dueLabels = input.fees
+    .filter((f) => f.dueDate.getTime() <= endOfDay.getTime() && f.amount - paidOf(f) > 0)
+    .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())
+    .map((f) => shortFeeLabel(f.label ?? ""))
+    .filter(Boolean);
+  return { dueAfter: due, linesLeft, stamp, dueLabels };
 }
 
 /**
@@ -79,7 +88,18 @@ export function receiptStanding(input: {
  * « Paiement partiel » sur un mois pas encore échu ne doit pas laisser croire
  * que tout est réglé.
  */
+/** « Frais de scolarité — Octobre 2026 » → « octobre 2026 » ; « Frais d'inscription — 2026-2027 » → « inscription ». */
+function shortFeeLabel(label: string): string {
+  if (/^Frais d'inscription/i.test(label)) return "inscription";
+  const rest = label.replace(/^Frais de scolarité — /i, "");
+  return rest ? rest.charAt(0).toLowerCase() + rest.slice(1) : "";
+}
+
 export function receiptBalanceText(standing: ReceiptStanding, format: (mru: number) => string): string {
-  const text = `Reste dû après ce paiement : ${format(standing.dueAfter)}`;
+  // Les mois dus nommés : un parent qui vient de payer juin doit lire que les 500 restants sont octobre.
+  const which = standing.dueAfter > 0 && standing.dueLabels.length > 0
+    ? ` (${standing.dueLabels.slice(0, 3).join(", ")}${standing.dueLabels.length > 3 ? "…" : ""})`
+    : "";
+  const text = `Reste dû après ce paiement : ${format(standing.dueAfter)}${which}`;
   return standing.linesLeft > 0 ? `${text} (${format(standing.linesLeft)} restent sur ce reçu)` : text;
 }

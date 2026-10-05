@@ -73,7 +73,7 @@ export async function applyTuitionPlan(
     select: { periodStart: true, periodEnd: true },
   });
   const covered = coveredMonths(kept);
-  const installments = buildInstallments({
+  const built = buildInstallments({
     months: billed.filter((m) => !covered.has(m.getTime())),
     periodMonths,
     monthlyAmount,
@@ -81,6 +81,14 @@ export async function applyTuitionPlan(
     yearFirstMonth: yearMonths[0],
     yearLabel: year.label,
   });
+  // Un élève entré le 5 octobre ne doit pas octobre depuis le 1er : l'échéance
+  // de son mois d'entrée tombe le jour de son inscription, pas avant — sinon
+  // il apparaît « en retard » dans les impayés le jour même où il s'inscrit.
+  const student = await tx.student.findUnique({ where: { id: studentId }, select: { enrollmentDate: true } });
+  const enrolled = student?.enrollmentDate ?? null;
+  const installments = built.map((i) =>
+    enrolled && i.dueDate < enrolled && i.periodEnd >= monthStart(enrolled) ? { ...i, dueDate: enrolled } : i,
+  );
   if (installments.length > 0) {
     await tx.fee.createMany({
       data: installments.map((i) => ({

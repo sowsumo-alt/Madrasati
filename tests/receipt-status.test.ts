@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { receiptRank, receiptStanding, type StandingFee } from "../src/lib/receipt-status";
+import { receiptBalanceText, receiptRank, receiptStanding, type StandingFee } from "../src/lib/receipt-status";
 
 // La famille Sall (IBDAA 2, reçu REC-2026-0011) : fiche familiale à 1 600 MRU
 // par mois, inscription 400 ; le 05/10/2026, la famille verse l'inscription
@@ -13,6 +13,7 @@ function family(junePaid = 1600, octoberPayments: StandingFee["payments"] = []):
     id: `m${m}`,
     amount: 1600,
     dueDate: month(m, m >= 10 ? 2026 : 2027),
+    label: `Frais de scolarité — ${["", "Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "", "", "", "Octobre", "Novembre", "Décembre"][m]} ${m >= 10 ? 2026 : 2027}`,
     payments: [],
   }));
   months.find((f) => f.id === "m10")!.payments = octoberPayments;
@@ -22,15 +23,16 @@ function family(junePaid = 1600, octoberPayments: StandingFee["payments"] = []):
     ...months,
   ];
 }
+const core = (s: ReturnType<typeof receiptStanding>) => ({ dueAfter: s.dueAfter, linesLeft: s.linesLeft, stamp: s.stamp });
 const receipt = { receiptFeeIds: ["ins", "m6"], paidAt: at, receiptNumber: "REC-2026-0011" };
 
 test("test 21 — REC-2026-0011 : lignes réglées mais octobre dû → « Reçu », reste dû 1 600", () => {
-  assert.deepEqual(receiptStanding({ fees: family(), ...receipt }), { dueAfter: 1600, linesLeft: 0, stamp: "RECEIVED" });
+  assert.deepEqual(core(receiptStanding({ fees: family(), ...receipt })), { dueAfter: 1600, linesLeft: 0, stamp: "RECEIVED" });
 });
 
 test("famille à jour après ce paiement → « Payé », reste dû 0", () => {
   const october = [{ amount: 1600, paidAt: new Date("2026-10-02T12:00:00Z"), receiptNumber: "REC-2026-0009" }];
-  assert.deepEqual(receiptStanding({ fees: family(1600, october), ...receipt }), { dueAfter: 0, linesLeft: 0, stamp: "PAID" });
+  assert.deepEqual(core(receiptStanding({ fees: family(1600, october), ...receipt })), { dueAfter: 0, linesLeft: 0, stamp: "PAID" });
 });
 
 test("une ligne du reçu pas soldée → « Paiement partiel »", () => {
@@ -46,4 +48,10 @@ test("un ancien reçu ne change pas : un paiement daté d'après n'y compte pas"
   const sameTime = [{ amount: 1600, paidAt: at, receiptNumber: "REC-2026-0012" }];
   assert.equal(receiptStanding({ fees: family(1600, sameTime), ...receipt }).dueAfter, 1600);
   assert.equal(receiptRank("REC-2026-0011-2"), 11);
+});
+
+test("le reste dû nomme les mois : les 500 restants sont octobre, pas juin", () => {
+  const standing = receiptStanding({ fees: family(), ...receipt });
+  assert.deepEqual(standing.dueLabels, ["octobre 2026"]);
+  assert.equal(receiptBalanceText(standing, (n) => `${n} MRU`), "Reste dû après ce paiement : 1600 MRU (octobre 2026)");
 });

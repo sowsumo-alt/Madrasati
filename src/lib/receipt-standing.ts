@@ -18,6 +18,7 @@ export async function loadReceiptStanding(
       id: true,
       amount: true,
       dueDate: true,
+      label: true,
       payments: { select: { amount: true, paidAt: true, receiptNumber: true } },
     },
   });
