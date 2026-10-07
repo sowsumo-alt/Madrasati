@@ -69,17 +69,29 @@ export function SuperAdminDashboard({ data }: { data: DashboardData }) {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_21rem]">
-        <div className="min-w-0 space-y-5">
-          <RevenueCard revenue={data.revenue} />
-          <TrialsAlert schools={data.schools} />
-          <Suspense>
-            <SchoolsSection schools={data.schools} />
-          </Suspense>
+      {/* Deux colonnes dès 1 660 px (la largeur de la maquette), chacune empilée
+          à sa façon. En dessous, une seule colonne : les revenus, les actions
+          rapides, les écoles, puis l'activité (les colonnes s'effacent,
+          « contents », et chaque bloc prend sa place dans l'ordre). */}
+      <div className="flex flex-col gap-5 min-[1660px]:grid min-[1660px]:grid-cols-[minmax(0,1fr)_19.5rem] min-[1660px]:items-start">
+        <div className="contents min-[1660px]:block min-[1660px]:min-w-0 min-[1660px]:space-y-5">
+          <div className="order-1 min-w-0">
+            <RevenueCard revenue={data.revenue} />
+          </div>
+          <div className="order-3 min-w-0 space-y-5">
+            <TrialsAlert schools={data.schools} />
+            <Suspense>
+              <SchoolsSection schools={data.schools} />
+            </Suspense>
+          </div>
         </div>
-        <div className="space-y-5">
-          <QuickActions schools={data.schools} />
-          <RecentActivity items={data.activity} />
+        <div className="contents min-[1660px]:block min-[1660px]:space-y-5">
+          <div className="order-2">
+            <QuickActions schools={data.schools} />
+          </div>
+          <div className="order-4">
+            <RecentActivity items={data.activity} />
+          </div>
         </div>
       </div>
     </div>

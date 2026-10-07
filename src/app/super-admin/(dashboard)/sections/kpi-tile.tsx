@@ -56,7 +56,7 @@ export function KpiTile({
         </p>
       </div>
       {trend && trend.length > 1 && (
-        <Sparkline values={trend} color={t.line} className="absolute bottom-4 end-4 h-7 w-16 opacity-90" />
+        <Sparkline values={trend} color={t.line} className="absolute end-4 top-[2.85rem] h-7 w-16 opacity-90" />
       )}
     </div>
   );

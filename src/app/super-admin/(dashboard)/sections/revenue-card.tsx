@@ -21,7 +21,8 @@ export function RevenueCard({ revenue }: { revenue: DashboardData["revenue"] }) 
   const theme = useSaTheme();
   const [months, setMonths] = useState<6 | 12>(6);
   const period = revenue.periods[months];
-  const max = niceMax(Math.max(...period.points.map((p) => p.value), 1));
+  // Au moins 1 000 : sans paiement, l'axe reste lisible (0, 250, 500…) au lieu de 0 et 1.
+  const max = niceMax(Math.max(...period.points.map((p) => p.value), 1000));
   const change = period.change;
 
   return (

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { Banknote, Building2, Download, Eye, History, Loader2, MessageCircle, MoreVertical, Pencil, X } from "lucide-react";
+import { Banknote, Building2, ChevronDown, Download, Eye, History, Loader2, MessageCircle, MoreVertical, Pencil, X } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,6 +48,16 @@ function delayStyle(daysLate: number) {
   if (daysLate <= 14) return "bg-orange-100 text-orange-800 dark:bg-orange-500/25 dark:text-orange-200";
   return "bg-rose-100 text-rose-800 dark:bg-rose-500/25 dark:text-rose-200";
 }
+
+// Libellés courts des pastilles, comme sur la maquette ; le libellé complet reste dans la liste et l'infobulle.
+const SHORT_STATUS: Record<SubscriptionStatus, string> = {
+  pending: "En attente",
+  trial: "Essai",
+  active: "Actif",
+  past_due: "En retard",
+  restricted: "Restreint",
+  suspended: "Suspendu",
+};
 
 const norm = (v: string) => v.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 
@@ -179,33 +189,35 @@ export function SchoolsSection({ schools }: { schools: SchoolRow[] }) {
         <p className="px-5 py-16 text-center text-sm text-foreground/50">Aucune école ne correspond.</p>
       ) : (
         <>
-          {/* Ordinateur : le tableau de la maquette */}
-          <div className="hidden overflow-x-auto lg:block">
-            <table className="w-full min-w-[60rem] text-sm" style={{ fontVariantNumeric: "tabular-nums" }}>
+          {/* Grand écran (1 280 px et plus) : le tableau de la maquette */}
+          <div className="hidden overflow-x-auto xl:block">
+            <table className="w-full text-xs 2xl:text-[13px]" style={{ fontVariantNumeric: "tabular-nums" }}>
               <thead>
-                <tr className="text-start text-xs font-medium text-foreground/55">
-                  <th className="px-4 py-3 text-start font-medium">École</th>
-                  <th className="px-3 py-3 text-start font-medium">Directeur</th>
-                  <th className="px-3 py-3 text-center font-medium">Élèves</th>
-                  <th className="px-3 py-3 text-start font-medium">Formule</th>
-                  <th className="px-3 py-3 text-start font-medium">Statut</th>
-                  <th className="px-3 py-3 text-start font-medium">Dernier paiement</th>
-                  <th className="px-3 py-3 text-start font-medium">Prochaine échéance</th>
-                  <th className="px-3 py-3 text-end font-medium">Revenu mensuel</th>
-                  <th className="px-4 py-3 text-end font-medium">Actions</th>
+                <tr className="whitespace-nowrap text-start text-xs font-medium text-foreground/55">
+                  <th className="px-3 py-3 text-start font-medium">École</th>
+                  <th className="px-1.5 py-3 text-start font-medium">Directeur</th>
+                  <th className="px-1.5 py-3 text-center font-medium">Élèves</th>
+                  <th className="px-1.5 py-3 text-start font-medium">Formule</th>
+                  <th className="px-1.5 py-3 text-start font-medium">Statut</th>
+                  <th className="whitespace-normal px-1.5 py-3 text-start font-medium leading-tight 2xl:whitespace-nowrap">Dernier paiement</th>
+                  <th className="px-1.5 py-3 text-start font-medium">Échéance</th>
+                  <th className="px-1.5 py-3 text-end font-medium">Revenu / mois</th>
+                  <th className="px-3 py-3 text-end font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {filtered.map((s) => (
                   <tr key={s.id} className="transition-colors hover:bg-surface-muted/50" data-testid="sa-school-row">
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-3">
                       <SchoolName school={s} />
                     </td>
-                    <td className="px-3 py-3">
+                    <td className="px-1.5 py-3">
                       {s.directorName ? (
                         <>
-                          <p className="text-foreground/85">{s.directorName}</p>
-                          <p className="text-xs text-foreground/50" dir="ltr">
+                          <p className="max-w-[8.5rem] truncate text-foreground/85" title={s.directorName}>
+                            {s.directorName}
+                          </p>
+                          <p className="whitespace-nowrap text-xs text-foreground/50" dir="ltr">
                             {s.directorPhone ?? "—"}
                           </p>
                         </>
@@ -213,23 +225,23 @@ export function SchoolsSection({ schools }: { schools: SchoolRow[] }) {
                         <span className="text-foreground/35">—</span>
                       )}
                     </td>
-                    <td className="px-3 py-3 text-center text-foreground/80">{s.studentCount}</td>
-                    <td className="px-3 py-3">
+                    <td className="px-1.5 py-3 text-center text-foreground/80">{s.studentCount}</td>
+                    <td className="px-1.5 py-3">
                       <PlanSelect school={s} busy={busyId === s.id} onChange={(plan) => run(s.id, () => changeSchoolPlan(s.id, plan), "Formule mise à jour.")} />
                     </td>
-                    <td className="px-3 py-3">
+                    <td className="px-1.5 py-3">
                       <StatusCell
                         school={s}
                         busy={busyId === s.id}
                         onChange={(st) => run(s.id, () => changeSubscriptionStatus(s.id, st), "Statut mis à jour.")}
                       />
                     </td>
-                    <td className="px-3 py-3 text-foreground/70">{s.lastPaymentAt ? formatDate(s.lastPaymentAt) : "—"}</td>
-                    <td className="px-3 py-3 text-foreground/70">{s.nextDueAt ? formatDate(s.nextDueAt) : "—"}</td>
-                    <td className="px-3 py-3 text-end font-semibold text-foreground">
+                    <td className="whitespace-nowrap px-1.5 py-3 text-foreground/70">{s.lastPaymentAt ? formatDate(s.lastPaymentAt) : "—"}</td>
+                    <td className="whitespace-nowrap px-1.5 py-3 text-foreground/70">{s.nextDueAt ? formatDate(s.nextDueAt) : "—"}</td>
+                    <td className="whitespace-nowrap px-1.5 py-3 text-end font-semibold text-foreground">
                       {s.amountDue != null ? formatMRU(s.amountDue) : "Sur devis"}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-3">
                       <RowActions
                         school={s}
                         busy={busyId === s.id}
@@ -244,8 +256,8 @@ export function SchoolsSection({ schools }: { schools: SchoolRow[] }) {
             </table>
           </div>
 
-          {/* Tablette et téléphone : une carte par école */}
-          <ul className="divide-y divide-border lg:hidden">
+          {/* Tablette, petit portable et téléphone : une carte par école */}
+          <ul className="divide-y divide-border xl:hidden">
             {filtered.map((s) => (
               <li key={s.id} className="space-y-3 p-4" data-testid="sa-school-card">
                 <div className="flex items-start justify-between gap-3">
@@ -294,11 +306,13 @@ export function SchoolsSection({ schools }: { schools: SchoolRow[] }) {
 function SchoolName({ school }: { school: SchoolRow }) {
   return (
     <div className="flex min-w-0 items-center gap-3">
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
-        <Building2 className="h-[18px] w-[18px]" />
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+        <Building2 className="h-4 w-4" />
       </span>
       <span className="min-w-0">
-        <span className="block truncate font-semibold text-foreground">{school.name}</span>
+        <span className="block max-w-[9rem] truncate font-semibold text-foreground 2xl:max-w-[10rem]" title={school.name}>
+          {school.name}
+        </span>
         <span className="block text-xs text-foreground/50">
           {school.code}
           {school.city ? ` · ${school.city}` : ""}
@@ -315,7 +329,7 @@ function PlanSelect({ school, busy, onChange }: { school: SchoolRow; busy: boole
       disabled={busy}
       onChange={(e) => onChange(e.target.value)}
       aria-label={`Formule de ${school.name}`}
-      className="h-8 rounded-lg border border-border bg-surface px-2 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary-500/30 disabled:opacity-50"
+      className="h-8 rounded-lg border border-border bg-surface ps-2 pe-1 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary-500/30 disabled:opacity-50"
     >
       {PLANS.map((p) => (
         <option key={p} value={p}>
@@ -329,23 +343,30 @@ function PlanSelect({ school, busy, onChange }: { school: SchoolRow; busy: boole
 function StatusCell({ school: s, busy, onChange }: { school: SchoolRow; busy: boolean; onChange: (status: string) => void }) {
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      <select
-        value={s.subscriptionStatus}
-        disabled={busy}
-        onChange={(e) => onChange(e.target.value)}
-        aria-label={`Statut de ${s.name}`}
+      <span
         className={cn(
-          "h-7 cursor-pointer appearance-none rounded-full border-0 px-3 text-center text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-primary-500/40 disabled:opacity-50",
+          "relative inline-flex h-7 items-center gap-1 whitespace-nowrap rounded-full px-3 text-xs font-semibold focus-within:ring-2 focus-within:ring-primary-500/40",
           STATUS_STYLES[s.subscriptionStatus],
+          busy && "opacity-50",
         )}
-        data-testid="sa-status"
       >
-        {SUBSCRIPTION_STATUSES.map((st) => (
-          <option key={st} value={st} className="bg-surface text-foreground">
-            {SUBSCRIPTION_STATUS_LABELS[st]}
-          </option>
-        ))}
-      </select>
+        <span title={SUBSCRIPTION_STATUS_LABELS[s.subscriptionStatus]}>{SHORT_STATUS[s.subscriptionStatus]}</span>
+        <ChevronDown className="h-3 w-3 opacity-60" aria-hidden />
+        <select
+          value={s.subscriptionStatus}
+          disabled={busy}
+          onChange={(e) => onChange(e.target.value)}
+          aria-label={`Statut de ${s.name}`}
+          className="absolute inset-0 cursor-pointer opacity-0"
+          data-testid="sa-status"
+        >
+          {SUBSCRIPTION_STATUSES.map((st) => (
+            <option key={st} value={st}>
+              {SUBSCRIPTION_STATUS_LABELS[st]}
+            </option>
+          ))}
+        </select>
+      </span>
       {s.daysLate != null ? (
         <span title={`Échéance dépassée depuis ${s.daysLate} jour(s)`} className={cn("rounded-full px-2 py-0.5 text-xs font-semibold", delayStyle(s.daysLate))}>
           {s.daysLate} j
