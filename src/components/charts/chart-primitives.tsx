@@ -60,7 +60,7 @@ function fmt(n: number) {
 }
 
 /** Arrondit la borne haute à un nombre « propre » pour les graduations. */
-function niceMax(value: number) {
+export function niceMax(value: number) {
   if (value <= 0) return 1;
   const magnitude = 10 ** Math.floor(Math.log10(value));
   const normalized = value / magnitude;

@@ -1,33 +1,35 @@
 import type { ReactNode } from "react";
-import Link from "next/link";
-import { ShieldCheck } from "lucide-react";
+import { cookies } from "next/headers";
 import { requireSuperAdmin } from "@/lib/super-admin-session";
-import { SuperAdminSignOutButton } from "./sign-out-button";
+import { prisma } from "@/lib/prisma";
+import { TRIAL_REMINDER_DAYS, daysBetween, trialEndsAt } from "@/lib/plans";
+import { SaShell } from "@/components/super-admin/sa-shell";
+import { SA_THEME_COOKIE } from "@/components/super-admin/theme";
 
+/**
+ * Cadre de l'espace Super Admin : thème choisi (sombre par défaut, comme la
+ * maquette) et alertes de la cloche — écoles à activer, en retard de
+ * paiement, essais à relancer.
+ */
 export default async function SuperAdminLayout({ children }: { children: ReactNode }) {
   const admin = await requireSuperAdmin();
+  const theme = (await cookies()).get(SA_THEME_COOKIE)?.value === "light" ? "light" : "dark";
+
+  const schools = await prisma.school.findMany({
+    select: { subscriptionStatus: true, createdAt: true, nextDueAt: true },
+  });
+  const now = new Date();
+  const alerts = {
+    pending: schools.filter((s) => s.subscriptionStatus === "pending").length,
+    late: schools.filter((s) => s.subscriptionStatus === "past_due").length,
+    trialsEnding: schools.filter(
+      (s) => s.subscriptionStatus === "trial" && daysBetween(now, trialEndsAt(s)) <= TRIAL_REMINDER_DAYS,
+    ).length,
+  };
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-white">
-      <header className="flex items-center justify-between border-b border-white/10 px-4 py-4 sm:px-8">
-        <span className="flex items-center gap-2.5">
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10">
-            <ShieldCheck className="h-4.5 w-4.5" strokeWidth={2} />
-          </span>
-          <span className="font-semibold tracking-tight">Madrasati — Super Admin</span>
-        </span>
-        <span className="flex items-center gap-3">
-          <Link
-            href="/super-admin/en-tete-officiel"
-            className="text-sm text-white/70 transition-colors hover:text-white"
-          >
-            Bloc officiel
-          </Link>
-          <span className="hidden text-sm text-white/50 sm:inline">{admin.name}</span>
-          <SuperAdminSignOutButton />
-        </span>
-      </header>
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-8">{children}</main>
-    </div>
+    <SaShell adminName={admin.name} initialTheme={theme} alerts={alerts}>
+      {children}
+    </SaShell>
   );
 }

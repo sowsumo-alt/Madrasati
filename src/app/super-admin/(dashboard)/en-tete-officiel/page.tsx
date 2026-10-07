@@ -13,19 +13,19 @@ export default async function OfficialHeaderPage() {
     <div className="mx-auto max-w-4xl space-y-6">
       <Link
         href="/super-admin"
-        className="inline-flex items-center gap-2 text-sm text-white/55 transition-colors hover:text-white"
+        className="inline-flex items-center gap-2 text-sm text-foreground/60 transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         Écoles clientes
       </Link>
 
       <div>
-        <h1 className="text-xl font-semibold text-white">Bloc officiel des bulletins</h1>
-        <p className="mt-1 text-sm text-white/55">
+        <h1 className="text-xl font-semibold text-foreground">Bloc officiel des bulletins</h1>
+        <p className="mt-1 text-sm text-foreground/60">
           Imprimé en haut de chaque bulletin, identique pour toutes les écoles. Les directeurs ne
           peuvent pas le modifier. À changer uniquement si le Ministère change son intitulé.
         </p>
-        <p className="mt-2 text-xs text-white/40">
+        <p className="mt-2 text-xs text-foreground/45">
           {header.isDefault
             ? "Texte livré avec Madrasati."
             : `Modifié le ${formatDate(header.updatedAt!)}.`}

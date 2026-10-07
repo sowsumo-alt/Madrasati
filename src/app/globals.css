@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* Variante « dark: » — réservée à l'espace Super Admin en mode sombre (voir
+   plus bas). Elle s'applique à toute la page tant que cet espace est affiché
+   en sombre, fenêtres et menus compris (rendus hors de la page, en portail).
+   L'application des écoles n'a pas de mode sombre : elle n'est pas touchée. */
+@custom-variant dark (&:where(:root:has([data-sa-theme="dark"]) *));
+
 :root {
   --background: #f7f8f6;
   --foreground: #1a2420;
@@ -79,6 +85,38 @@
      range après 2xl, là où une valeur arbitraire (min-[1760px]) était
      écrasée par lui. */
   --breakpoint-3xl: 110rem;
+
+  /* Espace Super Admin : barre latérale et entrée active du menu. */
+  --color-sa-sidebar: var(--sa-sidebar);
+  --color-sa-active: var(--sa-active);
+  --color-sa-active-ink: var(--sa-active-ink);
+}
+
+/* ---------------------------------------------------------------------------
+   Espace Super Admin — thème sombre (maquette « Tableau de bord Madrasati en
+   mode sombre ») et thème clair, au choix (bouton soleil/lune de l'en-tête).
+   Les jetons de l'application sont redéfinis à l'échelle de la page : les
+   composants partagés (fenêtres, menus, champs, cartes) suivent sans réglage.
+   --------------------------------------------------------------------------- */
+:root:has([data-sa-theme="light"]) {
+  --sa-sidebar: #ffffff;
+  --sa-active: #0b5e38;
+  --sa-active-ink: #ffffff;
+}
+
+:root:has([data-sa-theme="dark"]) {
+  color-scheme: dark;
+  --background: #06100d;
+  --foreground: #e6eeea;
+  --surface: #0c1814;
+  --surface-muted: #13231d;
+  --border: #20332c;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --danger: #f87171;
+  --sa-sidebar: #08130f;
+  --sa-active: #0f5a3b;
+  --sa-active-ink: #ffffff;
 }
 
 /* Ombre douce des cartes du tableau de bord : un léger contact et un halo

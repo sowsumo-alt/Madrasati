@@ -9,11 +9,11 @@ export const buttonVariants = cva(
       variant: {
         primary: "bg-primary-700 text-white hover:bg-primary-800",
         secondary:
-          "bg-surface text-primary-800 border border-border hover:bg-surface-muted",
+          "bg-surface text-primary-800 border border-border hover:bg-surface-muted dark:text-primary-200",
         accent: "bg-accent-500 text-white hover:bg-accent-600",
-        ghost: "text-primary-800 hover:bg-surface-muted",
+        ghost: "text-primary-800 hover:bg-surface-muted dark:text-primary-200",
         danger: "bg-danger text-white hover:opacity-90",
-        link: "text-primary-700 underline-offset-4 hover:underline",
+        link: "text-primary-700 underline-offset-4 hover:underline dark:text-primary-300",
       },
       size: {
         sm: "h-8 px-3 text-xs",

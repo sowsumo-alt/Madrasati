@@ -1,11 +1,15 @@
 "use client";
 
 import { useId } from "react";
-import { SERIE, type Point } from "./chart-primitives";
+import { SERIE, type ChartTheme, type Point } from "./chart-primitives";
 import { smoothPath } from "./smooth-path";
 
-const GRID = "#e6ebe7";
-const INK_MUTED = "#6b7772";
+// Grille, étiquettes et anneau des points selon le fond : clair (application
+// des écoles) ou sombre (espace Super Admin).
+const THEMES: Record<ChartTheme, { grid: string; ink: string; ring: string }> = {
+  light: { grid: "#e6ebe7", ink: "#6b7772", ring: "#ffffff" },
+  dark: { grid: "rgba(255,255,255,0.08)", ink: "rgba(230,238,234,0.55)", ring: "#0c1814" },
+};
 
 /**
  * Courbe lissée avec aire dégradée — une seule série (le titre de la carte
@@ -19,6 +23,8 @@ export function AreaChart({
   color = SERIE,
   emptyLabel,
   highlightLast = false,
+  theme = "light",
+  tickFormat,
 }: {
   data: Point[];
   unit?: string;
@@ -27,8 +33,12 @@ export function AreaChart({
   emptyLabel: string;
   /** Étiquette directe sur le dernier point — la seule valeur écrite sur la courbe. */
   highlightLast?: boolean;
+  theme?: ChartTheme;
+  /** Écriture des graduations (montants : « 12 480 ») ; par défaut la valeur et l'unité. */
+  tickFormat?: (value: number) => string;
 }) {
   const gradientId = useId();
+  const { grid: GRID, ink: INK_MUTED, ring: RING } = THEMES[theme];
 
   if (data.length === 0) {
     return <p className="py-16 text-center text-xs text-foreground/40">{emptyLabel}</p>;
@@ -87,8 +97,7 @@ export function AreaChart({
             fill={INK_MUTED}
             style={{ fontVariantNumeric: "tabular-nums" }}
           >
-            {t}
-            {unit}
+            {tickFormat ? tickFormat(t) : `${t}${unit}`}
           </text>
         </g>
       ))}
@@ -111,7 +120,7 @@ export function AreaChart({
 
       {data.map((d, i) => (
         <g key={d.label}>
-          <circle cx={x(i)} cy={y(d.value)} r={4.5} fill={color} stroke="#ffffff" strokeWidth={2} />
+          <circle cx={x(i)} cy={y(d.value)} r={4.5} fill={color} stroke={RING} strokeWidth={2} />
           <title>{`${d.label} : ${d.value}${unit}`}</title>
           <text x={x(i)} y={H - 10} textAnchor="middle" fontSize={12} fill={INK_MUTED}>
             {d.label}

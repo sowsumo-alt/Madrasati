@@ -22,7 +22,7 @@ const EXAMPLE_SCHOOL = {
 };
 
 const textareaClass =
-  "min-h-[140px] w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm leading-relaxed text-white focus:border-white/40 focus:outline-none";
+  "min-h-[140px] w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm leading-relaxed text-foreground focus:border-primary-500 focus:outline-none";
 
 export function OfficialHeaderForm({
   initial,
@@ -75,11 +75,11 @@ export function OfficialHeaderForm({
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="space-y-1.5">
-          <span className="text-sm font-medium text-white/80">Français — une ligne par ligne</span>
+          <span className="text-sm font-medium text-foreground/80">Français — une ligne par ligne</span>
           <textarea value={fr} onChange={(e) => setFr(e.target.value)} className={textareaClass} dir="ltr" />
         </label>
         <label className="space-y-1.5">
-          <span className="text-sm font-medium text-white/80">Arabe — سطر لكل سطر</span>
+          <span className="text-sm font-medium text-foreground/80">Arabe — سطر لكل سطر</span>
           <textarea value={ar} onChange={(e) => setAr(e.target.value)} className={textareaClass} dir="rtl" lang="ar" />
         </label>
       </div>
@@ -90,7 +90,7 @@ export function OfficialHeaderForm({
       )}
 
       <div>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-white/45">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-foreground/50">
           Aperçu sur un bulletin
         </p>
         <div className="overflow-x-auto rounded-xl bg-white p-6">
@@ -106,7 +106,7 @@ export function OfficialHeaderForm({
             type="button"
             onClick={reset}
             disabled={busy !== null}
-            className="inline-flex h-10 items-center gap-2 rounded-lg border border-white/15 px-4 text-sm text-white/80 hover:bg-white/5 disabled:opacity-50"
+            className="inline-flex h-10 items-center gap-2 rounded-lg border border-border px-4 text-sm text-foreground/80 hover:bg-surface-muted disabled:opacity-50"
           >
             {busy === "reset" ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
             Texte d&apos;origine
@@ -116,7 +116,7 @@ export function OfficialHeaderForm({
           type="button"
           onClick={save}
           disabled={busy !== null || invalid}
-          className="inline-flex h-10 items-center gap-2 rounded-lg bg-white px-4 text-sm font-semibold text-neutral-950 hover:bg-white/90 disabled:opacity-50"
+          className="inline-flex h-10 items-center gap-2 rounded-lg bg-primary-700 px-4 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-50"
         >
           {busy === "save" && <Loader2 className="h-4 w-4 animate-spin" />}
           Enregistrer pour toutes les écoles
