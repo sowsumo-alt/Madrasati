@@ -85,12 +85,7 @@ const directorNavGroups: NavGroup[] = [
       { href: "/directeur/finance", labelKey: "nav.payments", icon: Wallet },
       // Même écran que Paiements, ouvert directement sur les frais non soldés.
       { href: "/directeur/finance?statut=impayes", labelKey: "nav.unpaid", icon: HandCoins },
-      {
-        href: "/directeur/rapports-financiers",
-        labelKey: "nav.financialReports",
-        icon: FileChartColumn,
-        soon: true,
-      },
+      { href: "/directeur/rapports-financiers", labelKey: "nav.financialReports", icon: FileChartColumn },
     ],
   },
   {
@@ -98,7 +93,7 @@ const directorNavGroups: NavGroup[] = [
     items: [
       { href: "/directeur/communication", labelKey: "nav.messages", icon: MessageCircle },
       { href: "/directeur/parents", labelKey: "nav.parents", icon: Contact },
-      { href: "/directeur/notifications", labelKey: "nav.notifications", icon: Bell, soon: true },
+      { href: "/directeur/notifications", labelKey: "nav.notifications", icon: Bell },
     ],
   },
   {

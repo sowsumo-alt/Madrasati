@@ -39,7 +39,7 @@ export default async function DirectorLayout({
       plan={school ? effectivePlan(school) : "standard"}
       searchHref="/directeur/eleves"
       alertCount={overdueFees}
-      alertHref="/directeur/finance"
+      alertHref="/directeur/notifications"
       alertLabel={
         overdueFees > 0
           ? `${overdueFees} frais échus non réglés`
