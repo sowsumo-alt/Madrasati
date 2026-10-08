@@ -53,6 +53,8 @@ export default async function SettingsPage() {
         prepayLastMonth: school.prepayLastMonth,
         amountUnit: school.amountUnit === "MRO" ? "MRO" : "MRU",
         familySheetMode: school.familySheetMode === "PER_CHILD" ? "PER_CHILD" : "FAMILY",
+        paymentDueDay: school.paymentDueDay,
+        paymentGraceDays: school.paymentGraceDays,
         phone: school.phone ?? "",
         email: school.email ?? "",
         logoUrl: school.logoUrl,

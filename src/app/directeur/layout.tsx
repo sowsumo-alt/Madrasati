@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { requireRole } from "@/lib/session";
 import { ROLES, ROLE_LABEL_KEYS } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
+import { dueFeesOf } from "@/lib/due-rule-data";
 import { AppShell } from "@/components/layout/app-shell";
 import { effectivePlan } from "@/lib/plans";
 import { Eye } from "lucide-react";
@@ -19,15 +20,10 @@ export default async function DirectorLayout({
       where: { id: user.schoolId },
       select: { name: true, plan: true, subscriptionStatus: true },
     }),
-    // La cloche signale les frais échus non réglés : la seule alerte qui
-    // demande une action de la direction au quotidien.
-    prisma.fee.count({
-      where: {
-        schoolId: user.schoolId,
-        status: { not: "PAID" },
-        dueDate: { lt: new Date() },
-      },
-    }),
+    // La cloche signale les frais échus non réglés — selon le jour limite et
+    // la tolérance de l'école : la seule alerte qui demande une action de la
+    // direction au quotidien.
+    dueFeesOf(user.schoolId).then((fees) => fees.length),
   ]);
 
   return (

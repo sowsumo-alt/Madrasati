@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
+import { loadDueRule } from "@/lib/due-rule-data";
+import { effectiveDueDate } from "@/lib/due-rule";
 import { familyBalance, familyLabel } from "@/lib/family";
 import { getTranslations } from "@/lib/i18n/server";
 import { FamilyView } from "../family-view/family-view";
@@ -61,6 +63,7 @@ export default async function FamilyPage({ params }: { params: Promise<{ parentI
   if (!parent) notFound();
 
   const { t } = await getTranslations();
+  const dueRule = await loadDueRule(user.schoolId);
   const students = parent.studentLinks
     .map((l) => l.student)
     .sort((a, b) => a.firstName.localeCompare(b.firstName, "fr"));
@@ -71,7 +74,7 @@ export default async function FamilyPage({ params }: { params: Promise<{ parentI
       s.fees.map((f) => ({
         amount: f.amount,
         totalPaid: f.payments.reduce((sum, p) => sum + p.amount, 0),
-        dueDate: f.dueDate,
+        dueDate: effectiveDueDate(f, dueRule),
       })),
     );
     return {

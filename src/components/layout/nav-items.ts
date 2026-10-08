@@ -22,6 +22,7 @@ import {
   HandCoins,
   FileChartColumn,
   Bell,
+  BellRing,
   UserCog,
   CalendarRange,
   NotebookPen,
@@ -85,6 +86,7 @@ const directorNavGroups: NavGroup[] = [
       { href: "/directeur/finance", labelKey: "nav.payments", icon: Wallet },
       // Même écran que Paiements, ouvert directement sur les frais non soldés.
       { href: "/directeur/finance?statut=impayes", labelKey: "nav.unpaid", icon: HandCoins },
+      { href: "/directeur/rappels", labelKey: "nav.reminders", icon: BellRing },
       { href: "/directeur/rapports-financiers", labelKey: "nav.financialReports", icon: FileChartColumn },
     ],
   },

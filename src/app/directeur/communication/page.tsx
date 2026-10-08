@@ -1,6 +1,7 @@
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
+import { dueFeesOf } from "@/lib/due-rule-data";
 import { FEATURES, schoolHasFeature } from "@/lib/plans";
 import { CommunicationView, type Recipient, type TemplateRow } from "./communication-view";
 
@@ -29,32 +30,16 @@ export default async function CommunicationPage() {
   // Reste dû par élève : c'est la donnée qui manquait au modèle « Rappel de
   // paiement », dont le montant partait vide. Calculé ici plutôt que côté
   // navigateur, pour ne pas exposer toute la finance de l'école au client.
-  const [fees, payments] = await Promise.all([
-    prisma.fee.findMany({
-      // Ce qui est dû aujourd'hui : pas les mois à venir d'une formule de paiement.
-      where: { schoolId: user.schoolId, status: { not: "PAID" }, dueDate: { lte: new Date() } },
-      select: { id: true, studentId: true, amount: true, dueDate: true },
-    }),
-    prisma.payment.groupBy({
-      by: ["feeId"],
-      where: { schoolId: user.schoolId },
-      _sum: { amount: true },
-    }),
-  ]);
-  const paidByFee = new Map(payments.map((p) => [p.feeId, p._sum.amount ?? 0]));
+  // Ce qui est dû aujourd'hui, selon le jour limite et la tolérance de
+  // l'école : pas les mois à venir d'une formule de paiement.
+  const fees = await dueFeesOf(user.schoolId);
   const outstandingByStudent = new Map<string, number>();
   // L'échéance non réglée la plus ancienne : la date du rappel de paiement.
   const oldestDueByStudent = new Map<string, Date>();
   for (const fee of fees) {
-    const remaining = fee.amount - (paidByFee.get(fee.id) ?? 0);
-    if (remaining > 0) {
-      outstandingByStudent.set(
-        fee.studentId,
-        (outstandingByStudent.get(fee.studentId) ?? 0) + remaining,
-      );
-      const oldest = oldestDueByStudent.get(fee.studentId);
-      if (!oldest || fee.dueDate < oldest) oldestDueByStudent.set(fee.studentId, fee.dueDate);
-    }
+    outstandingByStudent.set(fee.studentId, (outstandingByStudent.get(fee.studentId) ?? 0) + fee.remaining);
+    const oldest = oldestDueByStudent.get(fee.studentId);
+    if (!oldest || fee.payBy < oldest) oldestDueByStudent.set(fee.studentId, fee.payBy);
   }
 
   const recipients: Recipient[] = [

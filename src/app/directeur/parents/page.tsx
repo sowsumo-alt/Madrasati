@@ -1,12 +1,15 @@
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
+import { loadDueRule } from "@/lib/due-rule-data";
+import { effectiveDueDate } from "@/lib/due-rule";
 import { schoolHasFeature, FEATURES } from "@/lib/plans";
 import { familyBalance } from "@/lib/family";
 import { ParentsView, type ParentRow } from "./parents-view";
 
 export default async function ParentsPage() {
   const user = await requireRole(ROLES.DIRECTOR);
+  const dueRule = await loadDueRule(user.schoolId);
 
   const [parents, students, school] = await Promise.all([
     prisma.parent.findMany({
@@ -18,7 +21,7 @@ export default async function ParentsPage() {
             student: {
               include: {
                 classRoom: { select: { name: true } },
-                fees: { select: { amount: true, dueDate: true, payments: { select: { amount: true } } } },
+                fees: { select: { amount: true, dueDate: true, periodStart: true, payments: { select: { amount: true } } } },
               },
             },
           },
@@ -56,7 +59,7 @@ export default async function ParentsPage() {
         l.student.fees.map((f) => ({
           amount: f.amount,
           totalPaid: f.payments.reduce((sum, x) => sum + x.amount, 0),
-          dueDate: f.dueDate,
+          dueDate: effectiveDueDate(f, dueRule),
         })),
       ),
     ),

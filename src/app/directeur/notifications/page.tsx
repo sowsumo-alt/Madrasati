@@ -15,6 +15,7 @@ import {
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
+import { dueFeesOf } from "@/lib/due-rule-data";
 import { formatMRU } from "@/lib/format";
 import { FEATURES, daysBetween, schoolHasFeature, trialEndsAt } from "@/lib/plans";
 import { findAtRiskStudents } from "@/lib/at-risk";
@@ -62,10 +63,7 @@ export default async function NotificationsPage() {
       select: { name: true, plan: true, subscriptionStatus: true, createdAt: true, nextDueAt: true },
     }),
     prisma.academicYear.findFirst({ where: { schoolId, isCurrent: true }, select: { id: true } }),
-    prisma.fee.findMany({
-      where: { schoolId, status: { not: "PAID" }, dueDate: { lt: now } },
-      select: { amount: true, studentId: true, payments: { select: { amount: true } } },
-    }),
+    dueFeesOf(schoolId, now),
     prisma.student.findMany({
       where: { schoolId, status: "ACTIVE" },
       select: {
@@ -95,7 +93,7 @@ export default async function NotificationsPage() {
   const notices: Notice[] = [];
 
   // — Impayés : frais échus non soldés.
-  const overdueLeft = overdue.reduce((sum, f) => sum + Math.max(f.amount - f.payments.reduce((s, p) => s + p.amount, 0), 0), 0);
+  const overdueLeft = overdue.reduce((sum, f) => sum + f.remaining, 0);
   if (overdue.length > 0) {
     notices.push({
       id: "impayes",
@@ -103,8 +101,8 @@ export default async function NotificationsPage() {
       icon: Wallet,
       title: `${overdue.length} frais échu(s) non réglé(s)`,
       detail: `${formatMRU(overdueLeft)} à encaisser, pour ${new Set(overdue.map((f) => f.studentId)).size} élève(s).`,
-      href: "/directeur/finance?statut=impayes",
-      action: "Voir les impayés",
+      href: "/directeur/rappels",
+      action: "Envoyer les rappels",
     });
   }
 

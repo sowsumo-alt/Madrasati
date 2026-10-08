@@ -3,6 +3,8 @@ import { AlertTriangle, Ban, Banknote, CalendarClock, FileChartColumn, Receipt, 
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
+import { loadDueRule } from "@/lib/due-rule-data";
+import { effectiveDueDate } from "@/lib/due-rule";
 import { familyLabel } from "@/lib/family";
 import { formatMRU } from "@/lib/format";
 import { monthLabel } from "@/lib/tuition";
@@ -46,7 +48,7 @@ export default async function FinancialReportsPage({
   const period = reportPeriod(year, mois);
   const yearRange = reportPeriod(year, null);
 
-  const [fees, yearPayments, cancelled, links] = await Promise.all([
+  const [fees, yearPayments, cancelled, links, dueRule] = await Promise.all([
     prisma.fee.findMany({
       where: { schoolId: user.schoolId, academicYearId: year.id },
       select: {
@@ -54,6 +56,7 @@ export default async function FinancialReportsPage({
         label: true,
         amount: true,
         dueDate: true,
+        periodStart: true,
         payments: { select: { amount: true } },
         student: { select: { classRoom: { select: { name: true } } } },
       },
@@ -80,6 +83,7 @@ export default async function FinancialReportsPage({
         },
       },
     }),
+    loadDueRule(user.schoolId),
   ]);
 
   const groups = new Map<string, DebtorGroup>();
@@ -104,7 +108,7 @@ export default async function FinancialReportsPage({
       className: f.student.classRoom?.name ?? null,
       label: f.label,
       amount: f.amount,
-      dueDate: f.dueDate,
+      dueDate: effectiveDueDate(f, dueRule),
       paid: f.payments.reduce((sum, p) => sum + p.amount, 0),
     })),
     payments: inPeriod,

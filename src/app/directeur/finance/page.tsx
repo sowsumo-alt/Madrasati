@@ -1,6 +1,8 @@
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
+import { loadDueRule } from "@/lib/due-rule-data";
+import { effectiveDueDate, payByDate } from "@/lib/due-rule";
 import { FEATURES, schoolHasFeature } from "@/lib/plans";
 import { feeDisplayStatus, remainingOf } from "@/lib/fee-status";
 import { collectionRate, daysOverdue, feeListDay } from "@/lib/payments-list";
@@ -74,11 +76,14 @@ export default async function FinancePage({
   ]);
 
   const bilingual = schoolHasFeature(school, FEATURES.BILINGUAL_MESSAGES);
+  const dueRule = await loadDueRule(user.schoolId);
 
   const rows: FeeRow[] = fees
     .map((f) => {
       const totalPaid = f.payments.reduce((sum, p) => sum + p.amount, 0);
-      const amounts = { amount: f.amount, totalPaid, dueDate: f.dueDate };
+      // Statut et retard selon le jour limite et la tolérance de l'école.
+      const dueDate = effectiveDueDate(f, dueRule);
+      const amounts = { amount: f.amount, totalPaid, dueDate };
       const linked = f.student.parentLinks[0]?.parent ?? null;
       const parent = linked
         ? {
@@ -95,11 +100,12 @@ export default async function FinancePage({
         id: f.id,
         label: f.label,
         amount: f.amount,
-        dueDate: f.dueDate.toISOString(),
+        // L'échéance annoncée : le jour limite de l'école.
+        dueDate: payByDate(f, dueRule).toISOString(),
         totalPaid,
         remaining: remainingOf(amounts),
         tuitionPlanId: f.tuitionPlanId,
-        isDue: f.dueDate <= now,
+        isDue: dueDate <= now,
         status: feeDisplayStatus(amounts, now),
         overdueDays: daysOverdue(amounts, now),
         student: {

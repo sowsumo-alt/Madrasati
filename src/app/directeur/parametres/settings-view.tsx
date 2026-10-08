@@ -30,6 +30,7 @@ import {
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { DocumentHeader } from "@/components/documents/document-header";
 import { toSchoolIdentity, type OfficialHeaderText } from "@/lib/official-header";
+import { describeDueRule, dueRuleOf } from "@/lib/due-rule";
 
 const schoolSchema = z.object({
   name: z.string().trim().min(1, "Le nom de l'école est requis"),
@@ -40,6 +41,8 @@ const schoolSchema = z.object({
   prepayLastMonth: z.boolean().optional(),
   amountUnit: z.enum(["MRU", "MRO"]).optional(),
   familySheetMode: z.enum(["FAMILY", "PER_CHILD"]).optional(),
+  paymentDueDay: z.coerce.number().int().min(1, "Entre 1 et 28").max(28, "Entre 1 et 28").optional(),
+  paymentGraceDays: z.coerce.number().int().min(0, "Entre 0 et 30").max(30, "Entre 0 et 30").optional(),
   phone: z.string().trim().optional().or(z.literal("")),
   email: z.string().trim().optional().or(z.literal("")),
   logoUrl: z.string().nullable().optional(),
@@ -87,6 +90,9 @@ export function SettingsView({
   });
   const logoUrl = schoolForm.watch("logoUrl") ?? null;
   const receiptPrintMode = schoolForm.watch("receiptPrintMode");
+  // La règle d'échéance en une phrase, recalculée à chaque saisie.
+  const [dueDay, graceDays] = schoolForm.watch(["paymentDueDay", "paymentGraceDays"]);
+  const dueRuleText = describeDueRule(dueRuleOf({ paymentDueDay: Number(dueDay), paymentGraceDays: Number(graceDays) }));
   // L'aperçu suit la saisie : le directeur voit son en-tête changer avant
   // même d'enregistrer.
   const [name, address, city, phone, logoIsLetterhead] = schoolForm.watch([
@@ -283,6 +289,32 @@ export function SettingsView({
                   Une fiche pour la famille : un montant mensuel et une inscription, saisis une fois. Une fiche par
                   enfant : vous saisissez les montants de chaque enfant. Madrasati ne calcule jamais l&apos;un à partir
                   de l&apos;autre.
+                </p>
+              </div>
+              <div className="space-y-1.5 sm:col-span-2" data-testid="due-rule">
+                <Label>Paiement des mois</Label>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="paymentDueDay" className="text-xs font-normal text-foreground/70">
+                      Jour limite de paiement (du 1 au 28)
+                    </Label>
+                    <Input id="paymentDueDay" type="number" min={1} max={28} {...schoolForm.register("paymentDueDay")} data-testid="payment-due-day" />
+                    {schoolForm.formState.errors.paymentDueDay && (
+                      <p className="text-xs text-danger">{schoolForm.formState.errors.paymentDueDay.message}</p>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="paymentGraceDays" className="text-xs font-normal text-foreground/70">
+                      Jours de tolérance après cette date
+                    </Label>
+                    <Input id="paymentGraceDays" type="number" min={0} max={30} {...schoolForm.register("paymentGraceDays")} data-testid="payment-grace-days" />
+                    {schoolForm.formState.errors.paymentGraceDays && (
+                      <p className="text-xs text-danger">{schoolForm.formState.errors.paymentGraceDays.message}</p>
+                    )}
+                  </div>
+                </div>
+                <p className="rounded-lg bg-primary-50 px-3 py-2 text-xs text-primary-900" data-testid="due-rule-text">
+                  {dueRuleText} Avant, il est « à venir » ; un mois payé d&apos;avance n&apos;est jamais impayé.
                 </p>
               </div>
               <div className="space-y-1.5 sm:col-span-2">

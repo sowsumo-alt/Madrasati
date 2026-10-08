@@ -1,6 +1,9 @@
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
+import { loadDueRule } from "@/lib/due-rule-data";
+import { effectiveDueDate, payByDate } from "@/lib/due-rule";
+import { isLate } from "@/lib/fee-status";
 import { buildReportCards } from "@/lib/report-card-data";
 import { ParentView, type ChildData } from "./parent-view";
 
@@ -72,6 +75,7 @@ export default async function ParentHome({
     totalAttendance > 0 ? Math.round((presentAttendance / totalAttendance) * 100) : 100;
 
   // — Frais et paiements
+  const dueRule = await loadDueRule(user.schoolId);
   const fees = await prisma.fee.findMany({
     where: { schoolId: user.schoolId, studentId: selected.id },
     orderBy: { dueDate: "asc" },
@@ -132,14 +136,19 @@ export default async function ParentHome({
       date: a.date.toISOString(),
       status: a.status,
     })),
-    fees: fees.map((f) => ({
-      id: f.id,
-      label: f.label,
-      amount: f.amount,
-      dueDate: f.dueDate.toISOString(),
-      status: f.status,
-      totalPaid: f.payments.reduce((sum, p) => sum + p.amount, 0),
-    })),
+    fees: fees.map((f) => {
+      const totalPaid = f.payments.reduce((sum, p) => sum + p.amount, 0);
+      return {
+        id: f.id,
+        label: f.label,
+        amount: f.amount,
+        // Le jour limite de l'école ; « en retard » seulement après la tolérance.
+        dueDate: payByDate(f, dueRule).toISOString(),
+        status: f.status,
+        totalPaid,
+        late: isLate({ amount: f.amount, totalPaid, dueDate: effectiveDueDate(f, dueRule) }),
+      };
+    }),
     reportCard,
     schedule: slots.map((s) => ({
       id: s.id,

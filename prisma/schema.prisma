@@ -60,6 +60,11 @@ model School {
   // Impression des reçus : "TWO_PER_PAGE" (deux reçus par feuille A4, à
   // couper) ou "HALF_SHEET" (un reçu par demi-feuille A5 déjà coupée).
   receiptPrintMode   String    @default("TWO_PER_PAGE")
+  // Dernier jour du mois pour payer (1 à 28) et jours de tolérance : un mois
+  // reste « à venir » jusqu'au soir du jour limite + tolérance, puis devient
+  // dû (voir src/lib/due-rule.ts). Par défaut : le 1er, sans tolérance.
+  paymentDueDay      Int       @default(1)
+  paymentGraceDays   Int       @default(0)
   // Formule d'abonnement — "standard" | "advanced" | "network" (voir src/lib/plans.ts).
   // String plutôt qu'enum Prisma, comme le reste des champs de statut du schéma.
   // Une école naît en "advanced" pour essayer l'application complète.
@@ -87,6 +92,7 @@ model School {
   familyPayments       FamilyPayment[]
   cancelledPayments    CancelledPayment[]
   activityLogs         ActivityLog[]
+  paymentReminders     PaymentReminder[]
   attendance           AttendanceRecord[]
   templates            MessageTemplate[]
   holidays             Holiday[]
@@ -954,4 +960,24 @@ model ActivityLog {
 
   @@index([schoolId, createdAt])
   @@map("activity_logs")
+}
+
+// Rappel de paiement envoyé par WhatsApp depuis « Rappels du mois » : la
+// mention « rappel envoyé le … » qui évite de relancer deux fois la même
+// famille. Ce qui était dû au moment du rappel est gardé tel quel.
+model PaymentReminder {
+  id        String   @id @default(cuid())
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  // L'id du parent, ou « student:<id> » pour un élève sans parent.
+  groupKey  String
+  amount    Int
+  // « Octobre 2026, Novembre 2026 » : les mois rappelés.
+  months    String
+  userId    String?
+  userName  String
+  sentAt    DateTime @default(now())
+
+  @@index([schoolId, groupKey, sentAt])
+  @@map("payment_reminders")
 }

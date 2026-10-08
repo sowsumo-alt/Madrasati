@@ -41,6 +41,8 @@ export interface ChildData {
     dueDate: string;
     status: string;
     totalPaid: number;
+    /** Non soldé après le jour limite + la tolérance de l'école. */
+    late: boolean;
   }[];
   reportCard: {
     lines: {
@@ -351,10 +353,7 @@ export function ParentView({
             ) : (
               <ul className="divide-y divide-border">
                 {data.fees.map((f) => {
-                  const status =
-                    f.status !== "PAID" && new Date(f.dueDate) < new Date()
-                      ? "OVERDUE"
-                      : f.status;
+                  const status = f.late ? "OVERDUE" : f.status;
                   const meta = FEE_STATUS[status] ?? FEE_STATUS.PENDING;
                   return (
                     <li key={f.id} className="flex items-center justify-between px-5 py-3">

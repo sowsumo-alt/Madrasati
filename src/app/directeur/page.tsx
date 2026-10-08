@@ -25,6 +25,8 @@ import {
 import { findAtRiskStudents } from "@/lib/at-risk";
 import { CURRENT_YEAR } from "@/lib/school-year";
 import { outstandingTotal } from "@/lib/finance";
+import { loadDueRule } from "@/lib/due-rule-data";
+import { effectiveDueDate } from "@/lib/due-rule";
 import {
   isPresent,
   isoDay,
@@ -154,7 +156,7 @@ export default async function DashboardPage() {
       // Échéances arrivées seulement : les mois à venir d'une formule de
       // paiement ne sont pas des impayés.
       where: { schoolId, status: { not: "PAID" }, dueDate: { lte: new Date() } },
-      select: { id: true, amount: true },
+      select: { id: true, amount: true, dueDate: true, periodStart: true },
     }),
     prisma.payment.groupBy({
       by: ["feeId"],
@@ -314,7 +316,12 @@ export default async function DashboardPage() {
 
   // Reste réellement dû, paiements partiels déduits (voir lib/finance.ts).
   const paidByFee = new Map(paymentsByFee.map((p) => [p.feeId, p._sum.amount ?? 0]));
-  const outstanding = outstandingTotal(unpaidFees, paidByFee);
+  // Selon le jour limite et la tolérance de l'école (lib/due-rule.ts).
+  const dueRule = await loadDueRule(schoolId);
+  const outstanding = outstandingTotal(
+    unpaidFees.filter((f) => effectiveDueDate(f, dueRule) <= new Date()),
+    paidByFee,
+  );
 
   const atRiskEnabled = schoolHasFeature(school, FEATURES.AT_RISK_DETECTION);
   const atRiskCount = atRiskEnabled ? (await findAtRiskStudents(schoolId)).length : 0;

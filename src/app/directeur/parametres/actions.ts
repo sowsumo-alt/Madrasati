@@ -24,6 +24,8 @@ const schoolSchema = z.object({
   prepayLastMonth: z.boolean().optional(),
   amountUnit: z.enum(["MRU", "MRO"]).optional(),
   familySheetMode: z.enum(["FAMILY", "PER_CHILD"]).optional(),
+  paymentDueDay: z.coerce.number().int().min(1, "Entre 1 et 28").max(28, "Entre 1 et 28").optional(),
+  paymentGraceDays: z.coerce.number().int().min(0, "Entre 0 et 30").max(30, "Entre 0 et 30").optional(),
   phone: z.string().trim().optional().or(z.literal("")),
   email: z.string().trim().optional().or(z.literal("")),
   logoUrl: z
@@ -50,6 +52,8 @@ export async function updateSchool(values: SchoolFormValues) {
       ...(data.prepayLastMonth !== undefined ? { prepayLastMonth: data.prepayLastMonth } : {}),
       ...(data.amountUnit ? { amountUnit: data.amountUnit } : {}),
       ...(data.familySheetMode ? { familySheetMode: data.familySheetMode } : {}),
+      ...(data.paymentDueDay !== undefined ? { paymentDueDay: data.paymentDueDay } : {}),
+      ...(data.paymentGraceDays !== undefined ? { paymentGraceDays: data.paymentGraceDays } : {}),
       phone: data.phone || null,
       email: data.email || null,
       logoUrl: data.logoUrl || null,
