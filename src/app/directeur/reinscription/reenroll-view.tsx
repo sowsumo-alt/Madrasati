@@ -20,6 +20,7 @@ import { reenrollStudent, reenrollClass, markNotReenrolled } from "./actions";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { decisionLabel, type DecisionKey } from "@/lib/annual-decision";
+import { useSubmissionKeys } from "@/lib/submission-key";
 
 export interface ReenrollStudent {
   id: string;
@@ -99,6 +100,7 @@ export function ReenrollView({
   hasCurrentYear: boolean;
 }) {
   const router = useRouter();
+  const submission = useSubmissionKeys();
   const { t } = useLanguage();
   const [selections, setSelections] = useState<Record<string, string>>({});
   const [groupSelections, setGroupSelections] = useState<Record<string, string>>({});
@@ -130,7 +132,8 @@ export function ReenrollView({
     const amount = amountStr ? Number(amountStr) : undefined;
     setLoadingKey(studentId);
     try {
-      const result = await reenrollStudent(studentId, targetId, amount, methods[studentId]);
+      const result = await reenrollStudent(studentId, targetId, amount, methods[studentId], submission.keyFor(studentId));
+      submission.done(studentId);
       toast.success(t("reenroll.reenrolled"));
       router.refresh();
       if (result.paymentId) {

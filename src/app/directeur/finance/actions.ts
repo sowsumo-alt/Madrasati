@@ -91,7 +91,7 @@ export async function updateFee(feeId: string, values: FeeEditValues) {
   revalidatePath("/directeur");
 }
 
-export async function recordPayment(feeId: string, values: PaymentFormValues) {
+export async function recordPayment(feeId: string, values: PaymentFormValues, submissionKey?: string) {
   const user = await requireRole(ROLES.DIRECTOR);
   const data = paymentSchema.parse(values);
 
@@ -142,7 +142,7 @@ export async function recordPayment(feeId: string, values: PaymentFormValues) {
         attempt,
       });
       return paid.firstPaymentId!;
-    });
+    }, { submissionKey: submissionKey });
 
     revalidatePath("/directeur/finance");
     revalidatePath("/directeur");
@@ -188,7 +188,7 @@ export async function recordPayment(feeId: string, values: PaymentFormValues) {
       href: `/directeur/finance/recus/${payment.id}`,
     });
     return payment.id;
-  });
+  }, { submissionKey: submissionKey });
 
   revalidatePath("/directeur/finance");
   revalidatePath("/directeur");

@@ -93,9 +93,12 @@ async function refreshFeeStatus(tx: Prisma.TransactionClient, feeId: string, amo
  * ou un délai dépassé le dit, en rappelant que rien n'a été enregistré : tout
  * se fait dans une seule transaction.
  */
-export async function enrollFamilyChecked(values: FamilyEnrollmentValues): Promise<ActionResult<FamilyEnrollmentResult>> {
+export async function enrollFamilyChecked(
+  values: FamilyEnrollmentValues,
+  submissionKey?: string,
+): Promise<ActionResult<FamilyEnrollmentResult>> {
   try {
-    return await asResult(() => enrollFamily(values));
+    return await asResult(() => enrollFamily(values, submissionKey));
   } catch (e) {
     console.error("Inscription de famille échouée", e);
     return {
@@ -126,7 +129,7 @@ export interface FamilyEnrollmentResult {
  * parent exactement comme par l'inscription individuelle : listes, appels,
  * bulletins et impayés n'ont rien de particulier à savoir.
  */
-export async function enrollFamily(values: FamilyEnrollmentValues): Promise<FamilyEnrollmentResult> {
+export async function enrollFamily(values: FamilyEnrollmentValues, submissionKey?: string): Promise<FamilyEnrollmentResult> {
   const user = await requireRole(ROLES.DIRECTOR);
   const data = familyEnrollmentSchema.parse(values);
   // Un NNI n'appartient qu'à un seul enfant, dans la saisie comme dans l'école.
@@ -280,7 +283,7 @@ export async function enrollFamily(values: FamilyEnrollmentValues): Promise<Fami
       paymentIds,
       receiptCount,
     };
-  });
+  }, { submissionKey: submissionKey });
 
   revalidateFamilyPages(result.parentId);
   return result;
@@ -294,6 +297,7 @@ export async function enrollFamily(values: FamilyEnrollmentValues): Promise<Fami
 export async function recordFamilyPayment(
   parentId: string,
   values: FamilyPaymentValues,
+  submissionKey?: string,
 ): Promise<{ familyPaymentId: string }> {
   const user = await requireRole(ROLES.DIRECTOR);
   const data = familyPaymentSchema.parse(values);
@@ -367,7 +371,7 @@ export async function recordFamilyPayment(
       href: `/directeur/finance/recus/famille/${familyPayment.id}`,
     });
     return familyPayment.id;
-  });
+  }, { submissionKey: submissionKey });
 
   revalidateFamilyPages(parentId);
   return { familyPaymentId };

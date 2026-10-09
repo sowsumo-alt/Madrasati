@@ -34,6 +34,7 @@ import type { PaymentMethod } from "@/lib/payment-methods";
 import { PaymentMethodPicker } from "@/components/payments/payment-method-picker";
 import { MonthChips } from "./month-chips";
 import { saveTuitionPlan, tuitionForm } from "@/app/directeur/finance/tuition-actions";
+import { useSubmissionKeys } from "@/lib/submission-key";
 
 /**
  * Formule de paiement des frais de scolarité d'un élève : mensuel,
@@ -52,6 +53,7 @@ export function TuitionPlanDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const router = useRouter();
+  const submission = useSubmissionKeys();
   const open = studentId !== null;
   const [chosen, setChosen] = useState<string>("");
   const [form, setForm] = useState<TuitionFormData | null>(null);
@@ -133,11 +135,13 @@ export function TuitionPlanDialog({
         firstMonth,
         paidMonths: paidMonths.filter((m) => m >= firstMonth),
         method,
+        submissionKey: submission.keyFor(form.student.id),
       });
       if (!result.ok) {
         toast.error(result.error);
         return;
       }
+      submission.done(form.student.id);
       toast.success(
         `Formule enregistrée pour ${form.student.name} : ${result.created} échéance(s) créée(s)` +
           (result.prepaid > 0 ? `, ${formatMRU(result.prepaidTotal)} déjà payés enregistrés.` : "."),

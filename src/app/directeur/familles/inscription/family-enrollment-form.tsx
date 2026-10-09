@@ -41,6 +41,7 @@ import { billedMonthsFrom } from "@/components/finance/tuition-choice";
 import type { TuitionSettings } from "@/lib/tuition-data";
 import { clearDraft, loadDraft, useDraftAutosave } from "@/lib/form-draft";
 import { DraftBanner } from "@/components/forms/draft-banner";
+import { useSubmissionKeys } from "@/lib/submission-key";
 
 type Step = 1 | 2 | 3;
 
@@ -123,6 +124,7 @@ export function FamilyEnrollmentForm({
   draftKey: string;
 }) {
   const router = useRouter();
+  const submission = useSubmissionKeys();
   const { t } = useLanguage();
 
   const initialDraft = (): FamilyDraft => ({
@@ -381,6 +383,7 @@ export function FamilyEnrollmentForm({
             ? { mode: fiche.mode, referentIndex: Math.max(0, children.findIndex((c) => c.key === fiche.referentKey)) }
             : undefined,
         ),
+        submission.keyFor(),
       );
       if (!outcome.ok) {
         // La fiche reste à l'écran, telle que saisie : on peut réessayer.
@@ -390,6 +393,7 @@ export function FamilyEnrollmentForm({
         return;
       }
       const result = outcome;
+      submission.done();
       // Inscription enregistrée : le brouillon n'a plus lieu d'être.
       autosave.finish();
       toast.success(t("family.enrolled").replace("{count}", String(result.studentIds.length)));

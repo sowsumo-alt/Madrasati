@@ -93,6 +93,7 @@ model School {
   cancelledPayments    CancelledPayment[]
   activityLogs         ActivityLog[]
   paymentReminders     PaymentReminder[]
+  submissionKeys       SubmissionKey[]
   attendance           AttendanceRecord[]
   templates            MessageTemplate[]
   holidays             Holiday[]
@@ -980,4 +981,20 @@ model PaymentReminder {
 
   @@index([schoolId, groupKey, sentAt])
   @@map("payment_reminders")
+}
+
+// Envoi d'un formulaire d'encaissement déjà traité. Le navigateur tire une clé
+// au hasard à l'ouverture du formulaire ; si le même envoi arrive deux fois
+// (double clic, réseau lent qui relance), le second reçoit le résultat du
+// premier au lieu d'encaisser une seconde fois (voir lib/receipts.ts).
+model SubmissionKey {
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  key       String
+  // Résultat renvoyé au navigateur la première fois (JSON).
+  result    String
+  createdAt DateTime @default(now())
+
+  @@id([schoolId, key])
+  @@map("submission_keys")
 }

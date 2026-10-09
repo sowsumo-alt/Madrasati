@@ -29,6 +29,7 @@ import type { TuitionSettings } from "@/lib/tuition-data";
 import { clearDraft, loadDraft, useDraftAutosave } from "@/lib/form-draft";
 import { DraftBanner } from "@/components/forms/draft-banner";
 import { saveSheetAction } from "./actions";
+import { useSubmissionKeys } from "@/lib/submission-key";
 
 interface SheetEditorDraft {
   fiche: FicheDraft;
@@ -70,6 +71,7 @@ export function SheetEditor({
   draftKey: string;
 }) {
   const router = useRouter();
+  const submission = useSubmissionKeys();
   const [fiche, setFiche] = useState<FicheDraft>(initialDraft);
   const [method, setMethod] = useState<PaymentMethod>("CASH");
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -121,12 +123,14 @@ export function SheetEditor({
         mode: fiche.mode,
         referentStudentId: fiche.referentKey,
         sheets: converted.sheets.map((s) => ({ studentId: s.key, sheet: s.input })),
+        submissionKey: submission.keyFor(),
       });
       if (!result.ok) {
         toast.error(result.error);
         setConfirmOpen(false);
         return;
       }
+      submission.done();
       autosave.finish();
       const receipts = result.receipts;
       toast.success(

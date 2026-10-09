@@ -93,11 +93,11 @@ function studentFields(data: StudentFormValues) {
  * la même fiche et le même calcul que pour une famille (lib/family-sheet.ts).
  * Les erreurs de saisie reviennent en clair (UserError).
  */
-export async function createStudent(values: StudentFormValues, sheetInput?: FamilySheetInput, method?: string) {
-  return asResult(() => createStudentWithSheet(values, sheetInput, method));
+export async function createStudent(values: StudentFormValues, sheetInput?: FamilySheetInput, method?: string, submissionKey?: string) {
+  return asResult(() => createStudentWithSheet(values, sheetInput, method, submissionKey));
 }
 
-async function createStudentWithSheet(values: StudentFormValues, sheetInput?: FamilySheetInput, method?: string) {
+async function createStudentWithSheet(values: StudentFormValues, sheetInput?: FamilySheetInput, method?: string, submissionKey?: string) {
   const user = await requireRole(ROLES.DIRECTOR);
   const data = studentSchema.parse(values);
   const sheet = sheetInput ? familySheetSchema.parse(sheetInput) : undefined;
@@ -215,7 +215,7 @@ async function createStudentWithSheet(values: StudentFormValues, sheetInput?: Fa
     });
     const last = receipts[receipts.length - 1];
     return { id: student.id, paymentId: last?.firstPaymentId ?? undefined, receiptCount: receipts.length };
-  });
+  }, { submissionKey: submissionKey });
 
   revalidatePath("/directeur/eleves");
   revalidatePath("/directeur");

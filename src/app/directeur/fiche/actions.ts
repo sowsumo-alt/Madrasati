@@ -25,6 +25,8 @@ const saveSchema = z.object({
     .array(z.object({ studentId: z.string().min(1), sheet: familySheetSchema }))
     .min(1)
     .max(20),
+  /** Clé de cet envoi du formulaire : un renvoi n'encaisse pas deux fois. */
+  submissionKey: z.string().max(64).optional(),
 });
 export type SaveSheetInput = z.input<typeof saveSchema>;
 
@@ -123,7 +125,7 @@ export async function saveSheetAction(input: SaveSheetInput) {
         parentId: data.parentId,
         forceGroup: Boolean(family) || data.sheets.length > 1,
       });
-    });
+    }, { submissionKey: data.submissionKey });
 
     revalidatePath("/directeur/finance");
     revalidatePath("/directeur/eleves");

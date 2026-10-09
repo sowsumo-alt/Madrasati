@@ -30,6 +30,7 @@ export async function reenrollStudent(
   targetClassId: string,
   amount?: number,
   method?: string,
+  submissionKey?: string,
 ) {
   const user = await requireRole(ROLES.DIRECTOR);
   const targetClass = await getTargetClass(user.schoolId, targetClassId);
@@ -86,7 +87,7 @@ export async function reenrollStudent(
       href: `/directeur/finance/recus/${payment.id}`,
     });
     return payment.id;
-  });
+  }, { submissionKey: submissionKey });
 
   revalidatePath("/directeur/reinscription");
   revalidatePath("/directeur/eleves");

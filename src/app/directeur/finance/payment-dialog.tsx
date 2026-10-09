@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { paymentSchema, type PaymentFormValues } from "./schema";
 import { recordPayment } from "./actions";
 import type { FeeRow } from "./finance-view";
+import { useSubmissionKeys } from "@/lib/submission-key";
 
 /**
  * Enregistrement d'un paiement. Ouverte depuis une ligne, la fenêtre porte sur
@@ -46,6 +47,7 @@ export function PaymentDialog({
   feeId: string | null;
 }) {
   const router = useRouter();
+  const submission = useSubmissionKeys();
   const { t } = useLanguage();
   const [studentId, setStudentId] = useState("");
   const [chosenFeeId, setChosenFeeId] = useState("");
@@ -142,7 +144,8 @@ export function PaymentDialog({
   async function onSubmit(values: PaymentFormValues) {
     if (!fee || tooMuch) return;
     try {
-      const result = await recordPayment(fee.id, values);
+      const result = await recordPayment(fee.id, values, submission.keyFor(fee.id));
+      submission.done(fee.id);
       // Un court accusé de réception visuel avant de fermer : sans lui, le
       // paiement disparaît de l'écran si vite que rien ne confirme qu'il a
       // bien été enregistré.

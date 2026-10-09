@@ -31,6 +31,8 @@ const planSchema = z.object({
   paidMonths: z.array(z.string().min(1)).max(24).default([]),
   /** Mode de paiement de ces mois. */
   method: z.enum(PAYMENT_METHODS).default("CASH"),
+  /** Clé de cet envoi du formulaire : un renvoi n'encaisse pas deux fois. */
+  submissionKey: z.string().max(64).optional(),
 });
 export type TuitionPlanInput = z.input<typeof planSchema>;
 
@@ -90,7 +92,7 @@ export async function saveTuitionPlan(input: TuitionPlanInput) {
         note: "Déjà payé avant l'enregistrement dans Madrasati",
       });
       return { ...applied, prepaid: parts.length, prepaidTotal: parts.reduce((sum, p) => sum + p.amount, 0) };
-    });
+    }, { submissionKey: data.submissionKey });
 
     revalidatePath("/directeur/finance");
     revalidatePath("/directeur/eleves");

@@ -49,6 +49,7 @@ import { DraftBanner } from "@/components/forms/draft-banner";
 import { FormField, IconInput } from "@/components/forms/form-field";
 import { PhotoAvatarPicker } from "./student-form/photo-avatar-picker";
 import { STATUS_KEYS, STUDENT_STATUSES } from "./students-list/student-status";
+import { useSubmissionKeys } from "@/lib/submission-key";
 
 export interface StudentClassOption {
   id: string;
@@ -168,6 +169,7 @@ export function StudentFormDialog({
   draftKey,
 }: StudentFormDialogProps) {
   const router = useRouter();
+  const submission = useSubmissionKeys();
   const { t } = useLanguage();
   const isEdit = Boolean(editTarget);
   const {
@@ -304,12 +306,13 @@ export function StudentFormDialog({
   async function enroll(values: StudentFormValues) {
     setSaving(true);
     try {
-      const result = await createStudent(values, hasSheet ? converted.sheets[0].input : undefined, method);
+      const result = await createStudent(values, hasSheet ? converted.sheets[0].input : undefined, method, submission.keyFor());
       if (!result.ok) {
         toast.error(result.error);
         setPending(null);
         return;
       }
+      submission.done();
       // Inscription enregistrée : le brouillon n'a plus lieu d'être.
       autosave.finish();
       setDraftSavedAt(null);

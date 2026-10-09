@@ -20,6 +20,7 @@ import type { PaymentMethod } from "@/lib/payment-methods";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { recordFamilyPayment } from "../actions";
 import type { FamilyOpenFee } from "./types";
+import { useSubmissionKeys } from "@/lib/submission-key";
 
 /**
  * Paiement familial après l'inscription : le directeur saisit ce que le
@@ -38,6 +39,7 @@ export function FamilyPaymentDialog({
   fees: FamilyOpenFee[];
 }) {
   const router = useRouter();
+  const submission = useSubmissionKeys();
   const { t } = useLanguage();
   const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [method, setMethod] = useState<PaymentMethod>("CASH");
@@ -60,7 +62,8 @@ export function FamilyPaymentDialog({
         parts: fees.map((f) => ({ feeId: f.feeId, amount: parseAmount(amounts[f.feeId]) })),
         method,
         note: "",
-      });
+      }, submission.keyFor(parentId));
+      submission.done(parentId);
       toast.success(t("family.recorded"));
       onOpenChange(false);
       router.push(`/directeur/finance/recus/famille/${familyPaymentId}`);

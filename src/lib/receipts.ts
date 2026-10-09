@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prepareWriteGuard, prisma } from "@/lib/prisma";
+import { UserError } from "@/lib/user-error";
 
 /** Préfixe des numéros de reçu d'une année civile, ex: « REC-2026- ». */
 function receiptPrefix(year: number) {
@@ -74,6 +75,20 @@ export function familyPartReceiptNumber(familyReceiptNumber: string, rank: numbe
 
 const MAX_RECEIPT_ATTEMPTS = 5;
 
+/** Clé d'envoi fournie par le formulaire : lettres, chiffres et tirets seulement. */
+function submissionKeyOf(value: string | null | undefined): string | null {
+  if (value == null || value === "") return null;
+  if (!/^[A-Za-z0-9-]{8,64}$/.test(value)) throw new UserError("Envoi invalide : rechargez la page et recommencez.");
+  return value;
+}
+
+/** Relit un résultat enregistré, dates comprises. */
+function parseResult<T>(json: string): T {
+  return JSON.parse(json, (_k, v) =>
+    typeof v === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(v) ? new Date(v) : v,
+  ) as T;
+}
+
 /** Verrou des encaissements d'une école, tenu jusqu'à la fin de la transaction. */
 export async function lockSchoolReceipts(tx: Prisma.TransactionClient, schoolId: string) {
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${"receipts:" + schoolId}, 0))`;
@@ -104,7 +119,9 @@ export async function lockSchoolReceipts(tx: Prisma.TransactionClient, schoolId:
 export async function runWithReceipt<T>(
   schoolId: string,
   fn: (tx: Prisma.TransactionClient, attempt: number) => Promise<T>,
+  options: { submissionKey?: string | null } = {},
 ): Promise<T> {
+  const key = submissionKeyOf(options.submissionKey);
   let lastError: unknown;
   // Hors de la transaction : aucune connexion supplémentaire ne sera demandée
   // pendant l'attente du verrou (voir primeWriteGuard).
@@ -114,7 +131,16 @@ export async function runWithReceipt<T>(
     try {
       return await prisma.$transaction(async (tx) => {
         await lockSchoolReceipts(tx, schoolId);
-        return fn(tx, attempt);
+        // Même envoi déjà traité (double clic, réseau qui relance) : on rend le
+        // résultat du premier, rien n'est encaissé une seconde fois. Le verrou
+        // de l'école fait attendre le second envoi jusqu'à la fin du premier.
+        if (key) {
+          const done = await tx.submissionKey.findUnique({ where: { schoolId_key: { schoolId, key } } });
+          if (done) return parseResult<T>(done.result);
+        }
+        const result = await fn(tx, attempt);
+        if (key) await tx.submissionKey.create({ data: { schoolId, key, result: JSON.stringify(result ?? null) } });
+        return result;
       }, {
         isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
         // Une inscription de famille (plusieurs enfants, plusieurs mois) fait
