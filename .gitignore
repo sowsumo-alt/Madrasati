@@ -48,3 +48,6 @@ next-env.d.ts
 .vercel
 .env*
 .neon
+
+# Dossier de travail local (rapports et tests d'audit) : jamais publié.
+diagnostic/
