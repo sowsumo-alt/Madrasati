@@ -15,7 +15,7 @@ import {
   type ExamEditValues,
   type ExamScope,
 } from "./schema";
-import { assertClassAccess } from "@/lib/teacher-scope";
+import { assertSubjectAccess } from "@/lib/teacher-scope";
 
 export interface CreateExamResult {
   /** Nombre d'examens réellement planifiés. */
@@ -245,8 +245,8 @@ export async function saveGrades(examId: string, entries: GradeEntry[]) {
   });
   if (!exam) throw new Error("Examen introuvable.");
 
-  // Un enseignant ne peut noter que dans ses propres classes.
-  await assertClassAccess(user, exam.classId);
+  // Un enseignant ne note que les matières qui lui sont confiées.
+  await assertSubjectAccess(user, exam.classId, exam.subjectId);
 
   const studentsInClass = await prisma.student.findMany({
     where: { schoolId: user.schoolId, classId: exam.classId },

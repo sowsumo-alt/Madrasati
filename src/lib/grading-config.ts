@@ -87,11 +87,36 @@ export interface AnnualConfig {
    * que ses propres notes et le bulletin annuel est un document à part.
    */
   cumulative: boolean;
+  /**
+   * Bulletin du 2e trimestre d'une école aux bulletins cumulatifs :
+   * « CUMULATIVE » (meilleur devoir × 3 + composition T1 × 1 + composition
+   * T2 × 2), ou « TERM » (la règle du trimestre seul, ÷ 4). Sans effet si les
+   * bulletins ne sont pas cumulatifs (chaque trimestre compte alors seul).
+   */
+  secondTerm: SecondTermMode;
   secondary: Formula;
   fundamental: Formula;
   /** Moyenne annuelle à partir de laquelle le passage est suggéré. */
   passThreshold: number;
 }
+
+export const SECOND_TERM_MODES = ["CUMULATIVE", "TERM"] as const;
+export type SecondTermMode = (typeof SECOND_TERM_MODES)[number];
+
+/**
+ * Barème des mentions de l'école : la moyenne générale minimale de chaque
+ * mention ; en dessous de « passable », la mention est « insuffisant ».
+ */
+export interface MentionScale {
+  excellent: number;
+  veryGood: number;
+  good: number;
+  fairlyGood: number;
+  passable: number;
+}
+
+/** Le barème d'origine de Madrasati, gardé par défaut. */
+export const DEFAULT_MENTIONS: MentionScale = { excellent: 16, veryGood: 14, good: 12, fairlyGood: 10, passable: 8 };
 
 export interface GradingConfig {
   version: 1;
@@ -101,6 +126,8 @@ export interface GradingConfig {
   fundamental: Formula;
   /** Bulletin annuel récapitulatif. */
   annual: AnnualConfig;
+  /** Barème des mentions des bulletins. */
+  mentions: MentionScale;
 }
 
 export const TERM_LABELS = ["Trimestre 1", "Trimestre 2", "Trimestre 3"] as const;
@@ -162,6 +189,7 @@ export function defaultGradingConfig(): GradingConfig {
       divisor: { mode: "AUTO" },
     },
     annual: defaultAnnualConfig(),
+    mentions: { ...DEFAULT_MENTIONS },
   };
 }
 
@@ -206,6 +234,7 @@ export function defaultAnnualConfig(): AnnualConfig {
   return {
     enabled: true,
     cumulative: true,
+    secondTerm: "CUMULATIVE",
     secondary: {
       parts: [annualDevoirPart(), ...TERM_LABELS.map(compo)],
       divisor: { mode: "AUTO" },
@@ -262,10 +291,26 @@ export const gradingConfigSchema = z.object({
     enabled: z.boolean(),
     // Absent des règles enregistrées avant cette option : le modèle par défaut.
     cumulative: z.boolean().default(true),
+    // Absent des règles enregistrées avant cette option : comme avant (cumulatif).
+    secondTerm: z.enum(SECOND_TERM_MODES).default("CUMULATIVE"),
     secondary: formulaSchema,
     fundamental: formulaSchema,
     passThreshold: z.number().min(0).max(20),
   }),
+  // Absent des règles enregistrées avant ce réglage : le barème d'origine.
+  mentions: z
+    .object({
+      excellent: z.number().min(0).max(20),
+      veryGood: z.number().min(0).max(20),
+      good: z.number().min(0).max(20),
+      fairlyGood: z.number().min(0).max(20),
+      passable: z.number().min(0).max(20),
+    })
+    .refine(
+      (m) => m.excellent > m.veryGood && m.veryGood > m.good && m.good > m.fairlyGood && m.fairlyGood > m.passable,
+      "Chaque mention doit demander une moyenne plus haute que la suivante.",
+    )
+    .default(DEFAULT_MENTIONS),
 });
 
 /**

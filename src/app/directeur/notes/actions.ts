@@ -5,7 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
-import { assertClassAccess, getTeacherScope } from "@/lib/teacher-scope";
+import { assertSubjectAccess, getTeacherScope } from "@/lib/teacher-scope";
 import { schoolLevelOf } from "@/lib/grading";
 import { partForKind, type FormulaPart } from "@/lib/grading-config";
 import { currentGradingConfig } from "@/lib/grading-config-data";
@@ -51,7 +51,8 @@ export async function saveGradeSheet(input: GradeSheetInput) {
   const user = await requireRole(ROLES.DIRECTOR, ROLES.TEACHER);
   const data = sheetSchema.parse(input);
 
-  await assertClassAccess(user, data.classId);
+  // Un enseignant ne note que les matières qui lui sont confiées.
+  await assertSubjectAccess(user, data.classId, data.subjectId);
 
   const [classRoom, rule] = await Promise.all([
     prisma.classRoom.findFirst({

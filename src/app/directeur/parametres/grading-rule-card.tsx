@@ -73,6 +73,15 @@ function formatNumber(value: number): string {
   return String(Math.round(value * 100) / 100).replace(".", ",");
 }
 
+/** Libellés des mentions, dans l'ordre du barème. */
+const MENTION_LABEL_KEYS = {
+  excellent: "bulletin.mention.EXCELLENT",
+  veryGood: "bulletin.mention.VERY_GOOD",
+  good: "bulletin.mention.GOOD",
+  fairlyGood: "bulletin.mention.FAIRLY_GOOD",
+  passable: "bulletin.mention.PASSABLE",
+} as const;
+
 export function GradingRuleCard({
   initialConfig,
   isDefault,
@@ -263,6 +272,21 @@ export function GradingRuleCard({
                 </span>
               </label>
             )}
+            {config.annual.enabled && config.annual.cumulative && (
+              <div className="space-y-1.5">
+                <Label htmlFor="second-term">{t("grading.secondTermTitle")}</Label>
+                <select
+                  id="second-term"
+                  value={config.annual.secondTerm}
+                  onChange={(e) => updateAnnual({ secondTerm: e.target.value === "TERM" ? "TERM" : "CUMULATIVE" })}
+                  className="h-10 w-full max-w-xl rounded-lg border border-border bg-surface px-3 text-sm"
+                  data-testid="second-term"
+                >
+                  <option value="CUMULATIVE">{t("grading.secondTermCumulative")}</option>
+                  <option value="TERM">{t("grading.secondTermTerm")}</option>
+                </select>
+              </div>
+            )}
             <div className="flex flex-wrap items-end gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="pass-threshold">{t("grading.passThreshold")}</Label>
@@ -282,6 +306,34 @@ export function GradingRuleCard({
             </div>
           </div>
         )}
+
+        {/* Barème des mentions de l'école (bulletins de tous les cycles). */}
+        <div className="space-y-2 rounded-xl border border-border bg-surface-muted/40 p-4" data-testid="mention-scale">
+          <p className="text-sm font-semibold text-foreground">{t("grading.mentionsTitle")}</p>
+          <p className="text-xs text-foreground/55">{t("grading.mentionsHint")}</p>
+          <div className="flex flex-wrap gap-3">
+            {(["excellent", "veryGood", "good", "fairlyGood", "passable"] as const).map((key) => (
+              <div key={key} className="space-y-1">
+                <Label htmlFor={`mention-${key}`} className="text-xs font-normal text-foreground/70">
+                  {t(MENTION_LABEL_KEYS[key])} ≥
+                </Label>
+                <Input
+                  id={`mention-${key}`}
+                  type="number"
+                  min={0}
+                  max={20}
+                  step={0.5}
+                  value={config.mentions[key]}
+                  onChange={(e) =>
+                    setConfig((current) => ({ ...current, mentions: { ...current.mentions, [key]: Number(e.target.value) || 0 } }))
+                  }
+                  className="w-24"
+                  data-testid={`mention-${key}`}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
 
         {/* Cycle concerné : les deux ne comptent pas forcément pareil. */}
         <div className="flex flex-wrap gap-2">

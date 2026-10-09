@@ -77,3 +77,34 @@ export async function assertClassAccess(
 
   throw new Error("Vous n'avez pas accès à cette classe.");
 }
+
+/**
+ * Notes d'une matière : le directeur, l'enseignant à qui cette matière est
+ * confiée dans cette classe, ou le professeur principal de la classe (même
+ * règle que la grille de saisie, lib/grade-sheet-data.ts : l'instituteur du
+ * Fondamental enseigne toutes les matières de sa classe). Enseigner une autre
+ * matière dans la classe ne suffit plus : le professeur d'arabe d'une 1AS ne
+ * modifie pas les notes de mathématiques de son collègue.
+ */
+export async function assertSubjectAccess(
+  user: { id: string; role: string; schoolId: string },
+  classId: string,
+  subjectId: string,
+) {
+  await assertClassAccess(user, classId);
+  if (user.role === ROLES.DIRECTOR) return;
+
+  const [own, principal] = await Promise.all([
+    prisma.classSubject.findFirst({
+      where: { classId, subjectId, teacher: { userId: user.id, schoolId: user.schoolId } },
+      select: { id: true },
+    }),
+    prisma.classRoom.findFirst({
+      where: { id: classId, schoolId: user.schoolId, mainTeacher: { userId: user.id } },
+      select: { id: true },
+    }),
+  ]);
+  if (!own && !principal) {
+    throw new Error("Cette matière est confiée à un collègue : seul son professeur, ou la direction, peut en saisir les notes.");
+  }
+}

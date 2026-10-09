@@ -168,6 +168,8 @@ export function bulletinFormula(
     if (index === TERM_LABELS.length - 1) {
       return { formula: formulaFor(config, level, true), yearScope: true };
     }
+    // Réglage de l'école : le 2e trimestre peut compter seul (÷ 4).
+    if (config.annual.secondTerm === "TERM") return { formula: formulaFor(config, level), yearScope: false };
     return { formula: cumulativeTermFormula(formulaFor(config, level), index), yearScope: false };
   }
   return { formula: formulaFor(config, level), yearScope: false };
@@ -310,7 +312,7 @@ export function computeReportCards(input: ReportCardInput): ReportCard[] {
       average,
       totalCoefficients: general.totalCoefficients,
       totalPoints: scheme === "SECONDARY" && average != null ? general.totalPoints : null,
-      mention: mentionFor(average),
+      mention: mentionFor(average, config.mentions),
       attendance: input.attendance.get(student.id) ?? NO_ATTENDANCE,
     };
   });

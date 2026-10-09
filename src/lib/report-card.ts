@@ -1,3 +1,4 @@
+import { DEFAULT_MENTIONS, type MentionScale } from "@/lib/grading-config";
 export interface SubjectResult {
   subjectName: string;
   /** Nom arabe, imprimé à droite du nom français. Null si non renseigné. */
@@ -41,13 +42,13 @@ export type MentionKey =
  * langue de l'utilisateur (fr/en/ar) et se traduit à l'affichage via le
  * dictionnaire, pas ici.
  */
-export function mentionFor(average: number | null): MentionKey {
+export function mentionFor(average: number | null, scale: MentionScale = DEFAULT_MENTIONS): MentionKey {
   if (average == null) return "NONE";
-  if (average >= 16) return "EXCELLENT";
-  if (average >= 14) return "VERY_GOOD";
-  if (average >= 12) return "GOOD";
-  if (average >= 10) return "FAIRLY_GOOD";
-  if (average >= 8) return "PASSABLE";
+  if (average >= scale.excellent) return "EXCELLENT";
+  if (average >= scale.veryGood) return "VERY_GOOD";
+  if (average >= scale.good) return "GOOD";
+  if (average >= scale.fairlyGood) return "FAIRLY_GOOD";
+  if (average >= scale.passable) return "PASSABLE";
   return "INSUFFICIENT";
 }
 
