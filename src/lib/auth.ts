@@ -3,8 +3,18 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 
+/**
+ * Empreinte bcrypt d'un mot de passe quelconque (même coût que les vraies) :
+ * comparée quand l'e-mail est inconnu ou le compte désactivé, pour que la
+ * réponse prenne le même temps que pour un vrai compte. Sans elle, le délai
+ * révélait quels e-mails ont un compte (≈ 130 ms d'écart mesurés).
+ */
+const DUMMY_HASH = "$2b$10$N66ljgkQZU8ksa9p.kh2R.OShAIpS6bu5wDPyA/bYEPgpvhez0.RO";
+
 export const authOptions: NextAuthOptions = {
-  session: { strategy: "jwt" },
+  // 7 jours sans visite, puis nouvelle connexion (30 jours auparavant) ; une
+  // visite prolonge la session (renouvelée au plus une fois par jour).
+  session: { strategy: "jwt", maxAge: 7 * 24 * 60 * 60, updateAge: 24 * 60 * 60 },
   pages: {
     signIn: "/login",
   },
@@ -22,7 +32,10 @@ export const authOptions: NextAuthOptions = {
           where: { email: credentials.email.toLowerCase().trim() },
         });
 
-        if (!user || !user.isActive) return null;
+        if (!user || !user.isActive) {
+          await bcrypt.compare(credentials.password, DUMMY_HASH);
+          return null;
+        }
 
         const isValid = await bcrypt.compare(credentials.password, user.passwordHash);
         if (!isValid) return null;
@@ -54,7 +67,10 @@ export const authOptions: NextAuthOptions = {
         const admin = await prisma.superAdmin.findUnique({
           where: { email: credentials.email.toLowerCase().trim() },
         });
-        if (!admin) return null;
+        if (!admin) {
+          await bcrypt.compare(credentials.password, DUMMY_HASH);
+          return null;
+        }
 
         const isValid = await bcrypt.compare(credentials.password, admin.passwordHash);
         if (!isValid) return null;

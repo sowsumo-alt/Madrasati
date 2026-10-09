@@ -44,7 +44,9 @@ export function writeRefusal(
   account: AccountAccess | null,
   write: { model: string; selfUpdate: boolean },
 ): string | null {
-  if (!account) return null; // pas un compte d'école (inscription, Super Admin)
+  // Une session ouverte dont le compte n'existe plus en base (supprimé) : refusée.
+  // L'inscription d'une école et le Super Admin n'arrivent jamais ici (pas de compte d'école à relire).
+  if (!account) return INACTIVE_MESSAGE;
   if (write.model === "User" && write.selfUpdate) return null; // son propre mot de passe
   if (!account.isActive) return INACTIVE_MESSAGE;
   if (account.role === "DIRECTOR" && account.access === "READ_ONLY") return READ_ONLY_MESSAGE;

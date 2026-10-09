@@ -35,7 +35,8 @@ test("directeur complet : tout ; accès retiré : rien ; hors école (inscriptio
   assert.equal(writeRefusal({ role: "DIRECTOR", access: "FULL", isActive: true }, { model: "Payment", selfUpdate: false }), null);
   assert.equal(writeRefusal({ role: "DIRECTOR", access: "FULL", isActive: false }, { model: "Payment", selfUpdate: false }), INACTIVE_MESSAGE);
   assert.equal(writeRefusal({ role: "TEACHER", access: "FULL", isActive: true }, { model: "Grade", selfUpdate: false }), null);
-  assert.equal(writeRefusal(null, { model: "School", selfUpdate: false }), null);
+  // Session encore ouverte d'un compte supprimé de la base : refusée, jamais traitée comme un compte valide.
+  assert.equal(writeRefusal(null, { model: "Fee", selfUpdate: false }), INACTIVE_MESSAGE);
 });
 
 test("libellés et e-mails", () => {

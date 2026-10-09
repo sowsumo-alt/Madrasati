@@ -47,9 +47,9 @@ export async function requireRole(...roles: Role[]) {
       school: { select: { id: true, subscriptionStatus: true } },
     },
   });
-  // Accès retiré (un associé que le directeur principal a désactivé) : la
-  // session encore ouverte ne suffit plus, dès la page suivante.
-  if (account && !account.isActive) redirect("/acces-retire");
+  // Accès retiré (un associé que le directeur principal a désactivé) ou compte
+  // supprimé : la session encore ouverte ne suffit plus, dès la page suivante.
+  if (!account || !account.isActive) redirect("/acces-retire");
   if (account?.mustChangePassword) redirect("/mon-compte");
 
   // Validation manuelle coupée : une école restée « pending » (inscrite quand
