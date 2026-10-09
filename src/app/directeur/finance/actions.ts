@@ -105,7 +105,7 @@ export async function recordPayment(feeId: string, values: PaymentFormValues) {
   // couvre plusieurs mois s'il le faut — un seul reçu pour le tout.
   if (fee.tuitionPlanId) {
     const tuitionPlanId = fee.tuitionPlanId;
-    const paymentId = await runWithReceipt(async (tx, attempt) => {
+    const paymentId = await runWithReceipt(user.schoolId, async (tx, attempt) => {
       const installments = await tx.fee.findMany({
         where: { tuitionPlanId, schoolId: user.schoolId },
         orderBy: [{ periodStart: "asc" }, { dueDate: "asc" }],
@@ -154,7 +154,7 @@ export async function recordPayment(feeId: string, values: PaymentFormValues) {
   // « 0 déjà payé » et poser un statut PARTIAL alors que le frais est en
   // réalité soldé. Le réessai sur collision de numéro est mutualisé dans
   // runWithReceipt, partagé avec l'inscription et la réinscription.
-  const paymentId = await runWithReceipt(async (tx, attempt) => {
+  const paymentId = await runWithReceipt(user.schoolId, async (tx, attempt) => {
     const receiptNumber = await generateReceiptNumber(tx, user.schoolId, attempt);
 
     const payment = await tx.payment.create({

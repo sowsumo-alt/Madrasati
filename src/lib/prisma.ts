@@ -1,5 +1,5 @@
 import { PrismaClient } from "@prisma/client";
-import { WRITE_OPERATIONS, guardWrite } from "@/lib/write-guard";
+import { WRITE_OPERATIONS, guardWrite, primeWriteGuard } from "@/lib/write-guard";
 
 const globalForPrisma = globalThis as unknown as {
   prismaBase: PrismaClient | undefined;
@@ -28,18 +28,22 @@ if (process.env.NODE_ENV !== "production") {
  * d'extension : le client y est inutilisable de toute façon, et la page ne
  * doit pas planter au chargement.
  */
+const accountAccess = (userId: string) =>
+  basePrisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true, access: true, isActive: true },
+  });
+
+/** Relit le compte qui écrit avant une transaction à verrou (voir primeWriteGuard). */
+export const prepareWriteGuard = () => primeWriteGuard(accountAccess);
+
 export const prisma = (typeof window !== "undefined" ? basePrisma : basePrisma.$extends({
   name: "controle-ecriture",
   query: {
     $allModels: {
       async $allOperations({ model, operation, args, query }) {
         if (WRITE_OPERATIONS.has(operation)) {
-          await guardWrite(model, args, (userId) =>
-            basePrisma.user.findUnique({
-              where: { id: userId },
-              select: { role: true, access: true, isActive: true },
-            }),
-          );
+          await guardWrite(model, args, accountAccess);
         }
         return query(args);
       },

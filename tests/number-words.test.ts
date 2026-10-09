@@ -35,3 +35,14 @@ test("la monnaie s'accorde", () => {
   assert.equal(amountInWords(20000), "vingt mille ouguiyas");
   assert.equal(amountInWords(1), "un ouguiya");
 });
+
+test("école en MRO : le montant en lettres reprend la fiche papier (MRO) et précise l'équivalent en MRU", () => {
+  // 9 500 MRU = 95 000 MRO : la fiche 028 de l'école est écrite en MRO.
+  assert.equal(
+    amountInWords(9500, "MRO"),
+    "quatre-vingt-quinze mille anciennes ouguiyas (MRO), soit neuf mille cinq cents ouguiyas (MRU)",
+  );
+  // Une école en MRU garde exactement le texte d'aujourd'hui.
+  assert.equal(amountInWords(9500, "MRU"), "neuf mille cinq cents ouguiyas");
+  assert.equal(amountInWords(9500), "neuf mille cinq cents ouguiyas");
+});

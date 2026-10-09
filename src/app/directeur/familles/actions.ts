@@ -146,7 +146,7 @@ export async function enrollFamily(values: FamilyEnrollmentValues): Promise<Fami
   const sheets = data.sheets && data.sheets.length > 0 ? data.sheets : null;
   if (sheets?.some((s) => s.referentIndex >= data.children.length)) throw new UserError("Élève référent introuvable.");
 
-  const result = await runWithReceipt(async (tx, attempt) => {
+  const result = await runWithReceipt(user.schoolId, async (tx, attempt) => {
     // — Le parent : celui choisi, ou le même nom avec le même téléphone
     // (règle de l'inscription individuelle), ou une nouvelle fiche.
     let parent = data.existingParentId
@@ -306,7 +306,7 @@ export async function recordFamilyPayment(
   if (!parent) throw new Error("Famille introuvable.");
   const childIds = parent.studentLinks.map((l) => l.studentId);
 
-  const familyPaymentId = await runWithReceipt(async (tx, attempt) => {
+  const familyPaymentId = await runWithReceipt(user.schoolId, async (tx, attempt) => {
     // Les frais ne sont acceptés que s'ils appartiennent aux enfants de cette
     // famille ; le reste dû est relu dans la transaction, pas dans le
     // navigateur, pour qu'un autre encaissement entre-temps soit pris en compte.

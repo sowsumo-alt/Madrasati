@@ -5,9 +5,10 @@ import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { FEATURES, schoolHasFeature } from "@/lib/plans";
-import { formatMRU, formatDateIn, formatLongDate, formatLongDateAr, formatAmount, formatPhone } from "@/lib/format";
+import { formatDateIn, formatLongDate, formatLongDateAr, formatAmount, formatPhone } from "@/lib/format";
 import { PrintButton } from "@/components/ui/print-button";
 import { toSchoolIdentity, type SchoolIdentity } from "@/lib/official-header";
+import { formatMoney, isAmountUnit, type AmountUnit } from "@/lib/money";
 import { PdfButton } from "@/components/ui/pdf-button";
 import {
   CompactReceipt,
@@ -62,6 +63,7 @@ function methodLabel(method: string, t: (key: TranslationKey) => string) {
 function receiptOf(
   payment: ReceiptPayment,
   school: SchoolIdentity,
+  unit: AmountUnit,
   t: (key: TranslationKey) => string,
   locale: Locale,
   id?: string,
@@ -70,8 +72,11 @@ function receiptOf(
   // Reste sur ce frais après ce versement : « Acompte » s'il y en a un, sinon « Payé ».
   const totalPaid = payment.fee.payments.reduce((sum, p) => sum + p.amount, 0);
   const remaining = Math.max(payment.fee.amount - totalPaid, 0);
+  // Les montants dans l'unité de l'école : une école en MRO retrouve sa fiche papier.
+  const money = (amount: number) => formatMoney(amount, unit);
   return (
     <CompactReceipt
+      unit={unit}
       id={id}
       school={school}
       title={t("finance.receiptTitle")}
@@ -93,14 +98,14 @@ function receiptOf(
         {
           label: payment.fee.label,
           detail: payment.note?.trim() || null,
-          amount: formatMRU(payment.fee.amount),
+          amount: money(payment.fee.amount),
         },
       ]}
-      total={formatMRU(payment.amount)}
+      total={money(payment.amount)}
       paidAmount={payment.amount}
       methodCode={payment.method}
       method={methodLabel(payment.method, t)}
-      remaining={remaining > 0 ? t("finance.remainingIs").replace("{amount}", formatMRU(remaining)) : null}
+      remaining={remaining > 0 ? t("finance.remainingIs").replace("{amount}", money(remaining)) : null}
       labels={{ paid: t("finance.paidAmount"), method: t("finance.method"), thanks: t("finance.thankYou") }}
     />
   );
@@ -142,6 +147,7 @@ export default async function ReceiptPage({
     return (
       <CancelledReceiptView
         school={toSchoolIdentity(cancelled.school)}
+        unit={isAmountUnit(cancelled.school.amountUnit) ? cancelled.school.amountUnit : "MRU"}
         title={t("finance.receiptTitle")}
         receiptNumber={cancelled.receiptNumber}
         paidAt={cancelled.paidAt}
@@ -199,6 +205,7 @@ export default async function ReceiptPage({
   const parent = payment.student.parentLinks[0]?.parent ?? null;
   const { t, locale } = await getTranslations();
   const school = toSchoolIdentity(payment.school);
+  const unit: AmountUnit = isAmountUnit(payment.school.amountUnit) ? payment.school.amountUnit : "MRU";
 
   const confirmationTemplate = await prisma.messageTemplate.findFirst({
     where: { schoolId: user.schoolId, key: "PAYMENT_CONFIRMATION" },
@@ -268,7 +275,7 @@ export default async function ReceiptPage({
             label={partner ? "Imprimer les 2 reçus" : t("finance.printReceipt")}
             onUse={markReceiptsPrinted.bind(null, printedIds)}
           />
-          <CancelReceiptButton target={{ paymentId: payment.id }} amountLabel={formatMRU(payment.amount)} />
+          <CancelReceiptButton target={{ paymentId: payment.id }} amountLabel={formatMoney(payment.amount, unit)} />
         </div>
       </div>
 
@@ -280,8 +287,8 @@ export default async function ReceiptPage({
 
       <ReceiptSheet
         mode={mode}
-        top={receiptOf(payment, school, t, locale, "recu-card")}
-        bottom={partner ? receiptOf(partner, school, t, locale) : undefined}
+        top={receiptOf(payment, school, unit, t, locale, "recu-card")}
+        bottom={partner ? receiptOf(partner, school, unit, t, locale) : undefined}
         emptyHint="Bas de feuille libre : le prochain reçu du jour s'y placera. Vous pouvez aussi imprimer maintenant."
       />
     </div>

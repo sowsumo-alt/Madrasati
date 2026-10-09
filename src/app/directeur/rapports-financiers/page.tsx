@@ -5,6 +5,7 @@ import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { loadDueRule } from "@/lib/due-rule-data";
 import { effectiveDueDate } from "@/lib/due-rule";
+import { balanceOf } from "@/lib/money";
 import { familyLabel } from "@/lib/family";
 import { formatMRU } from "@/lib/format";
 import { monthLabel } from "@/lib/tuition";
@@ -118,6 +119,18 @@ export default async function FinancialReportsPage({
     now,
   });
 
+  // Ce qui reste dû des années précédentes : toujours dû, mais hors des frais
+  // de l'année affichée. Sans cette ligne, le rapport de la nouvelle année
+  // paraissait à jour alors que les impayés de l'an passé restaient à encaisser.
+  const olderFees = await prisma.fee.findMany({
+    where: { schoolId: user.schoolId, status: { not: "PAID" }, academicYear: { startDate: { lt: year.startDate } } },
+    select: { amount: true, dueDate: true, periodStart: true, payments: { select: { amount: true } } },
+  });
+  const previousDue = balanceOf(
+    olderFees.map((f) => ({ amount: f.amount, paid: f.payments.reduce((sum, p) => sum + p.amount, 0), dueDate: effectiveDueDate(f, dueRule) })),
+    now,
+  ).due;
+
   const byMonth = period.months.map((m) => ({
     label: capitalize(SHORT_MONTH.format(m)),
     value: yearPayments
@@ -191,7 +204,14 @@ export default async function FinancialReportsPage({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
         <KpiCard label="Facturé sur l'année" value={formatMRU(report.totals.billed)} icon={Receipt} tone="blue" hint={`Versé : ${formatMRU(report.totals.paid)}`} />
         <KpiCard label={period.month ? "Encaissé ce mois" : "Encaissé sur l'année"} value={formatMRU(report.collected)} icon={Banknote} tone="emerald" hint={`${report.receipts} reçu(s)`} />
-        <KpiCard label="Reste dû à ce jour" value={formatMRU(report.totals.due)} icon={AlertTriangle} tone="rose" hint="mois échus non réglés" href="/directeur/finance?statut=impayes" />
+        <KpiCard
+          label="Reste dû à ce jour"
+          value={formatMRU(report.totals.due)}
+          icon={AlertTriangle}
+          tone="rose"
+          hint={previousDue > 0 ? `+ ${formatMRU(previousDue)} des années précédentes` : "mois échus non réglés"}
+          href="/directeur/finance?statut=impayes"
+        />
         <KpiCard label="À venir" value={formatMRU(report.totals.upcoming)} icon={CalendarClock} tone="amber" hint="mois pas encore arrivés" />
         <KpiCard label="Reçus annulés" value={String(report.cancelled.count)} icon={Ban} tone="violet" hint={formatMRU(report.cancelled.amount)} href="/directeur/activite?type=CANCEL" />
       </div>

@@ -54,20 +54,17 @@ export function writeRefusal(
 // Un seul contrôle par requête : le compte est relu une fois, pas à chaque écriture.
 const perRequest = new WeakMap<object, Promise<{ userId: string; account: AccountAccess | null } | null>>();
 
-export async function guardWrite(
-  model: string,
-  args: unknown,
-  lookup: (userId: string) => Promise<AccountAccess | null>,
-) {
+/** Le compte qui écrit pendant cette action serveur, relu une fois par requête. */
+async function writerOf(lookup: (userId: string) => Promise<AccountAccess | null>) {
   let requestHeaders: Headers;
   try {
     const { headers } = await import("next/headers");
     requestHeaders = await headers();
   } catch {
-    return; // hors d'une requête : scripts, tâches du système
+    return null; // hors d'une requête : scripts, tâches du système
   }
   // Seules les actions serveur modifient les données à la demande d'un utilisateur.
-  if (!requestHeaders.get("next-action")) return;
+  if (!requestHeaders.get("next-action")) return null;
 
   let current = perRequest.get(requestHeaders);
   if (!current) {
@@ -80,7 +77,26 @@ export async function guardWrite(
     })();
     perRequest.set(requestHeaders, current);
   }
-  const who = await current;
+  return current;
+}
+
+/**
+ * À appeler AVANT d'ouvrir une transaction qui peut attendre un verrou : la
+ * relecture du compte se fait alors maintenant, sur sa propre connexion. Faite
+ * à la première écriture dans la transaction, elle demandait une connexion de
+ * plus pendant que d'autres transactions, en attente du même verrou, occupaient
+ * toutes celles du pool : plus personne n'avançait jusqu'au délai maximal.
+ */
+export async function primeWriteGuard(lookup: (userId: string) => Promise<AccountAccess | null>) {
+  await writerOf(lookup);
+}
+
+export async function guardWrite(
+  model: string,
+  args: unknown,
+  lookup: (userId: string) => Promise<AccountAccess | null>,
+) {
+  const who = await writerOf(lookup);
   if (!who) return;
   const where = (args as { where?: { id?: unknown } } | undefined)?.where;
   const refusal = writeRefusal(who.account, { model, selfUpdate: where?.id === who.userId });

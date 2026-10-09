@@ -70,8 +70,16 @@ export function numberToFrenchWords(value: number): string {
   return parts.join(" ");
 }
 
-/** « vingt mille ouguiyas » — la monnaie mauritanienne, au pluriel dès deux. */
-export function amountInWords(amount: number): string {
-  const words = numberToFrenchWords(amount);
-  return `${words} ${Math.floor(Math.abs(amount)) > 1 ? "ouguiyas" : "ouguiya"}`;
+const ouguiya = (amount: number) => (Math.floor(Math.abs(amount)) > 1 ? "ouguiyas" : "ouguiya");
+
+/**
+ * « vingt mille ouguiyas » — la monnaie mauritanienne, au pluriel dès deux.
+ * `amount` est en MRU. Une école qui écrit en MRO lit sur le reçu le montant
+ * de sa fiche papier (en anciennes ouguiyas) puis son équivalent en MRU.
+ */
+export function amountInWords(amount: number, unit: "MRU" | "MRO" = "MRU"): string {
+  const mru = `${numberToFrenchWords(amount)} ${ouguiya(amount)}`;
+  if (unit !== "MRO") return mru;
+  const mro = amount * 10;
+  return `${numberToFrenchWords(mro)} anciennes ${ouguiya(mro)} (MRO), soit ${mru} (MRU)`;
 }

@@ -119,7 +119,7 @@ async function createStudentWithSheet(values: StudentFormValues, sheetInput?: Fa
   // d'être pris. Sans lui, une collision annulait l'inscription entière —
   // l'élève, son parent et le paiement — et le directeur ne voyait qu'un
   // « Une erreur est survenue » sans savoir ce qui avait été enregistré.
-  const result = await runWithReceipt(async (tx, attempt) => {
+  const result = await runWithReceipt(user.schoolId, async (tx, attempt) => {
     const student = await tx.student.create({
       data: {
         schoolId: user.schoolId,

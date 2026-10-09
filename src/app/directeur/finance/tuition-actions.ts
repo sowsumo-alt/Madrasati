@@ -60,7 +60,7 @@ export async function saveTuitionPlan(input: TuitionPlanInput) {
       .map((m) => monthStart(new Date(m)))
       .filter((m) => !Number.isNaN(m.getTime()) && m >= firstMonth);
 
-    const result = await runWithReceipt(async (tx, attempt) => {
+    const result = await runWithReceipt(user.schoolId, async (tx, attempt) => {
       const applied = await applyTuitionPlan(tx, {
         schoolId: user.schoolId,
         studentId: student.id,

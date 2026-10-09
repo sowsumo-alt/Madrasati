@@ -1,8 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { lockSchoolReceipts } from "@/lib/receipts";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
+import { prepareWriteGuard, prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { asResult } from "@/lib/user-error";
@@ -26,8 +27,14 @@ export async function cancelPaymentAction(input: z.infer<typeof schema>) {
     const target = data.familyPaymentId
       ? { familyPaymentId: data.familyPaymentId }
       : { paymentId: data.paymentId ?? "" };
+    // Même verrou que les encaissements : une annulation ne croise jamais un
+    // paiement en cours sur le même frais (statut du frais recalculé juste).
+    await prepareWriteGuard();
     const result = await prisma.$transaction(
-      (tx) => cancelReceipt(tx, { schoolId: user.schoolId, userId: user.id, reason: data.reason, target }),
+      async (tx) => {
+        await lockSchoolReceipts(tx, user.schoolId);
+        return cancelReceipt(tx, { schoolId: user.schoolId, userId: user.id, reason: data.reason, target });
+      },
       { timeout: 40_000 },
     );
     revalidatePath("/directeur/finance");

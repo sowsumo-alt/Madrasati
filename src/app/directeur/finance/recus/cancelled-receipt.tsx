@@ -2,7 +2,8 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { CompactReceipt, ReceiptSheet } from "@/components/receipts/compact-receipt";
 import { PrintButton } from "@/components/ui/print-button";
-import { formatDateIn, formatLongDate, formatMRU } from "@/lib/format";
+import { formatDateIn, formatLongDate } from "@/lib/format";
+import { formatMoney, type AmountUnit } from "@/lib/money";
 import type { SchoolIdentity } from "@/lib/official-header";
 
 /**
@@ -11,6 +12,7 @@ import type { SchoolIdentity } from "@/lib/official-header";
  */
 export function CancelledReceiptView({
   school,
+  unit = "MRU",
   title,
   receiptNumber,
   paidAt,
@@ -26,6 +28,8 @@ export function CancelledReceiptView({
   backLabel,
 }: {
   school: SchoolIdentity;
+  /** Unité de l'école : les montants et la somme en lettres la suivent. */
+  unit?: AmountUnit;
   title: string;
   receiptNumber: string;
   paidAt: Date;
@@ -63,8 +67,9 @@ export function CancelledReceiptView({
             receiptNumber={receiptNumber}
             date={formatDateIn("fr", paidAt, { day: "numeric", month: "long", year: "numeric" })}
             parties={parties}
-            lines={lines.map((l) => ({ label: l.label, detail: l.detail, amount: formatMRU(l.amount) }))}
-            total={formatMRU(total)}
+            unit={unit}
+            lines={lines.map((l) => ({ label: l.label, detail: l.detail, amount: formatMoney(l.amount, unit) }))}
+            total={formatMoney(total, unit)}
             paidAmount={total}
             methodCode={methodCode}
             method={method}

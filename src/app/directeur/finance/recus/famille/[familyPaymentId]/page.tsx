@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { formatMoney, isAmountUnit, type AmountUnit } from "@/lib/money";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { requireRole } from "@/lib/session";
@@ -11,7 +12,6 @@ import {
   formatDateIn,
   formatLongDate,
   formatLongDateAr,
-  formatMRU,
   formatPhone,
 } from "@/lib/format";
 import { PrintButton } from "@/components/ui/print-button";
@@ -91,6 +91,11 @@ export default async function FamilyReceiptPage({
 
   const { t, locale } = await getTranslations();
   const { school, parent } = familyPayment;
+  // Montants dans l'unité de l'école (MRO : la fiche papier, puis l'équivalent en MRU).
+  const unit: AmountUnit = isAmountUnit(school.amountUnit) ? school.amountUnit : "MRU";
+  const money = (amount: number) => formatMoney(amount, unit);
+  const moneyAr = (amount: number) =>
+    unit === "MRO" ? `${formatAmount(amount * 10)} أوقية قديمة (${formatAmount(amount)} أوقية جديدة)` : `${formatAmount(amount)} أوقية`;
 
   // Reçu annulé : ses lignes sont dans la trace des annulations.
   if (familyPayment.cancelledAt) {
@@ -98,6 +103,7 @@ export default async function FamilyReceiptPage({
     return (
       <CancelledReceiptView
         school={toSchoolIdentity(school)}
+        unit={unit}
         title={t("family.receiptTitle")}
         receiptNumber={familyPayment.receiptNumber}
         paidAt={familyPayment.paidAt}
@@ -185,11 +191,11 @@ export default async function FamilyReceiptPage({
     perChild.set(p.studentId, entry);
   }
   const lines = oneStudent
-    ? receiptLines.map((l) => `- ${l.label}${l.detail ? ` (${l.detail})` : ""} : ${formatAmount(l.amount)} MRU`)
-    : [...perChild.values()].map((c) => `- ${c.firstName} : ${formatAmount(c.amount)} MRU`);
+    ? receiptLines.map((l) => `- ${l.label}${l.detail ? ` (${l.detail})` : ""} : ${money(l.amount)}`)
+    : [...perChild.values()].map((c) => `- ${c.firstName} : ${money(c.amount)}`);
   const linesAr = oneStudent
-    ? receiptLines.map((l) => `- ${l.detail ?? l.label}: ${formatAmount(l.amount)} أوقية`)
-    : [...perChild.values()].map((c) => `- ${c.firstName}: ${formatAmount(c.amount)} أوقية`);
+    ? receiptLines.map((l) => `- ${l.detail ?? l.label}: ${moneyAr(l.amount)}`)
+    : [...perChild.values()].map((c) => `- ${c.firstName}: ${moneyAr(c.amount)}`);
   const forWhom = familySheet
     ? `votre famille (${enrolledCount} élèves inscrits)`
     : oneStudent
@@ -202,9 +208,9 @@ export default async function FamilyReceiptPage({
       : "لأطفالكم";
   const confirmationMessage = parent
     ? withArabic(
-        `Bonjour ${parentName},\n\nNous confirmons la réception d'un paiement de ${formatAmount(familyPayment.total)} MRU pour ${forWhom}, effectué le ${formatLongDate(familyPayment.paidAt)} :\n${lines.join("\n")}\n\nReçu n° ${familyPayment.receiptNumber}. Merci pour votre règlement.\n\n${schoolSignatureFr(school.name)}`,
+        `Bonjour ${parentName},\n\nNous confirmons la réception d'un paiement de ${money(familyPayment.total)} pour ${forWhom}, effectué le ${formatLongDate(familyPayment.paidAt)} :\n${lines.join("\n")}\n\nReçu n° ${familyPayment.receiptNumber}. Merci pour votre règlement.\n\n${schoolSignatureFr(school.name)}`,
         bilingual
-          ? `مرحبًا ${parentName}،\n\nنؤكد استلام دفعة بمبلغ ${formatAmount(familyPayment.total)} أوقية موريتانية ${forWhomAr}، بتاريخ ${formatLongDateAr(familyPayment.paidAt)}:\n${linesAr.join("\n")}\n\nإيصال رقم ${familyPayment.receiptNumber}. شكرًا لتسديدكم.\n\n${schoolSignatureAr(school.name)}`
+          ? `مرحبًا ${parentName}،\n\nنؤكد استلام دفعة بمبلغ ${unit === "MRO" ? moneyAr(familyPayment.total) : `${formatAmount(familyPayment.total)} أوقية موريتانية`} ${forWhomAr}، بتاريخ ${formatLongDateAr(familyPayment.paidAt)}:\n${linesAr.join("\n")}\n\nإيصال رقم ${familyPayment.receiptNumber}. شكرًا لتسديدكم.\n\n${schoolSignatureAr(school.name)}`
           : null,
       )
     : "";
@@ -252,7 +258,7 @@ export default async function FamilyReceiptPage({
           <PrintButton label={t("finance.printReceipt")} />
           <CancelReceiptButton
             target={{ familyPaymentId: familyPayment.id }}
-            amountLabel={formatMRU(familyPayment.total)}
+            amountLabel={money(familyPayment.total)}
             family={payments.length > 1}
           />
         </div>
@@ -286,12 +292,13 @@ export default async function FamilyReceiptPage({
                   : [{ label: t("family.receiptFamily"), name, sub: t("family.childCount").replace("{count}", String(perChild.size)) }]),
               { label: t("finance.parentOrGuardian"), name: parentName ?? "—", sub: parent ? displayPhone(parent.phone) : null },
             ]}
-            lines={receiptLines.map((l) => ({ label: l.label, detail: l.detail, amount: formatMRU(l.amount) }))}
-            total={formatMRU(familyPayment.total)}
+            unit={unit}
+            lines={receiptLines.map((l) => ({ label: l.label, detail: l.detail, amount: money(l.amount) }))}
+            total={money(familyPayment.total)}
             paidAmount={familyPayment.total}
             methodCode={familyPayment.method}
             method={methodLabel}
-            remaining={remaining > 0 ? t("finance.remainingIs").replace("{amount}", formatMRU(remaining)) : null}
+            remaining={remaining > 0 ? t("finance.remainingIs").replace("{amount}", money(remaining)) : null}
             labels={{ paid: t("finance.paidAmount"), method: t("finance.method"), thanks: t("finance.thankYou") }}
           />
         }

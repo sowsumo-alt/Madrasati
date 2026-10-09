@@ -36,7 +36,7 @@ export async function reenrollStudent(
 
   // Même circuit que Finance et l inscription : si le numéro de reçu vient
   // d être pris, la transaction est rejouée au lieu d échouer.
-  const paymentId = await runWithReceipt(async (tx, attempt) => {
+  const paymentId = await runWithReceipt(user.schoolId, async (tx, attempt) => {
     const updated = await tx.student.updateMany({
       where: { id: studentId, schoolId: user.schoolId },
       data: { classId: targetClass.id, status: "ACTIVE" },

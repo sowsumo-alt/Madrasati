@@ -77,7 +77,7 @@ export async function saveSheetAction(input: SaveSheetInput) {
       }
     }
 
-    const receipts = await runWithReceipt(async (tx, attempt) => {
+    const receipts = await runWithReceipt(user.schoolId, async (tx, attempt) => {
       const now = new Date();
       if (family) {
         await prepareFamilyFiche(tx, {

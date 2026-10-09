@@ -34,6 +34,8 @@ export interface CompactReceiptProps {
   total: string;
   /** Montant payé en MRU, écrit aussi en lettres. */
   paidAmount: number;
+  /** Unité de l'école : en MRO, le montant en lettres reprend la fiche papier. */
+  unit?: "MRU" | "MRO";
   /** Code du mode de paiement (logo) et son libellé. */
   methodCode: string;
   method: string;
@@ -62,6 +64,7 @@ export function CompactReceipt({
   lines,
   total,
   paidAmount,
+  unit = "MRU",
   methodCode,
   method,
   remaining,
@@ -171,7 +174,7 @@ export function CompactReceipt({
         </table>
 
         <p className={styles.words} data-testid="amount-words">
-          Arrêté le présent reçu à la somme de <b>{amountInWords(paidAmount)}</b>.
+          Arrêté le présent reçu à la somme de <b>{amountInWords(paidAmount, unit)}</b>.
         </p>
         {cancelled && (
           <p className={styles.cancelNote} data-testid="receipt-cancelled">

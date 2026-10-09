@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { prepareWriteGuard, prisma } from "@/lib/prisma";
 
 /** Préfixe des numéros de reçu d'une année civile, ex: « REC-2026- ». */
 function receiptPrefix(year: number) {
@@ -74,6 +74,11 @@ export function familyPartReceiptNumber(familyReceiptNumber: string, rank: numbe
 
 const MAX_RECEIPT_ATTEMPTS = 5;
 
+/** Verrou des encaissements d'une école, tenu jusqu'à la fin de la transaction. */
+export async function lockSchoolReceipts(tx: Prisma.TransactionClient, schoolId: string) {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${"receipts:" + schoolId}, 0))`;
+}
+
 /**
  * Exécute une transaction qui attribue un numéro de reçu, en la rejouant si
  * le numéro a été pris entre-temps.
@@ -84,24 +89,40 @@ const MAX_RECEIPT_ATTEMPTS = 5;
  * était perdue avec le paiement. Une règle de numérotation partagée mérite un
  * traitement d'erreur partagé.
  *
- * L'isolation Serializable est celle qui empêche deux paiements simultanés de
- * lire tous les deux « 0 déjà payé » et de conclure chacun que le frais reste
- * partiel. Un échec de sérialisation (P2034) est retenté au même titre qu'une
- * collision de numéro (P2002) ; la transaction ayant été annulée en entier, le
- * rejeu repart d'un état propre.
+ * Les encaissements d'une même école passent un par un : chaque transaction
+ * commence par prendre un verrou propre à l'école (pg_advisory_xact_lock),
+ * relâché à sa fin. En « Read Committed », la transaction qui attendait relit
+ * ensuite l'état validé par la précédente : le numéro suivant est toujours
+ * le bon (aucun trou, aucune collision) et deux paiements du même frais ne
+ * peuvent plus lire tous les deux « 0 déjà payé ». Auparavant, en
+ * « Serializable » sans verrou, deux encaissements simultanés entraient en
+ * conflit : l'un était rejoué avec un numéro décalé (un trou dans la suite des
+ * reçus) ou finissait en erreur après plusieurs rejeux.
+ *
+ * Le rejeu sur P2002 / P2034 reste un filet de sécurité.
  */
 export async function runWithReceipt<T>(
+  schoolId: string,
   fn: (tx: Prisma.TransactionClient, attempt: number) => Promise<T>,
 ): Promise<T> {
   let lastError: unknown;
+  // Hors de la transaction : aucune connexion supplémentaire ne sera demandée
+  // pendant l'attente du verrou (voir primeWriteGuard).
+  await prepareWriteGuard();
 
   for (let attempt = 0; attempt < MAX_RECEIPT_ATTEMPTS; attempt++) {
     try {
-      return await prisma.$transaction((tx) => fn(tx, attempt), {
-        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      return await prisma.$transaction(async (tx) => {
+        await lockSchoolReceipts(tx, schoolId);
+        return fn(tx, attempt);
+      }, {
+        isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
         // Une inscription de famille (plusieurs enfants, plusieurs mois) fait
-        // plus de requêtes qu'un paiement : de la marge sur une connexion lente.
-        timeout: 40_000,
+        // plus de requêtes qu'un paiement, et un encaissement peut attendre son
+        // tour derrière un autre de la même école : de la marge sur une
+        // connexion lente, pour attendre plutôt qu'échouer.
+        timeout: 60_000,
+        maxWait: 20_000,
       });
     } catch (e) {
       lastError = e;
