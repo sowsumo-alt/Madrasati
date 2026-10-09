@@ -133,7 +133,8 @@ export async function resetDirectorPassword(userId: string) {
     await prisma.$transaction(async (tx) => {
       await tx.user.update({
         where: { id: target.id },
-        data: { passwordHash, mustChangePassword: true },
+        // Les sessions ouvertes avec l'ancien mot de passe se ferment.
+        data: { passwordHash, mustChangePassword: true, sessionVersion: { increment: 1 } },
       });
       await logActivity(tx, {
         schoolId: owner.schoolId,

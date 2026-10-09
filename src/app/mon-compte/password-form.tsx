@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -11,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { changeOwnPassword } from "./actions";
 import { PASSWORD_MIN_LENGTH } from "@/lib/account";
+import { signOut } from "next-auth/react";
 
 const schema = z
   .object({
@@ -27,8 +27,7 @@ const schema = z
 
 type Values = z.infer<typeof schema>;
 
-export function PasswordForm({ mustChange }: { mustChange: boolean }) {
-  const router = useRouter();
+export function PasswordForm() {
   const {
     register,
     handleSubmit,
@@ -42,11 +41,10 @@ export function PasswordForm({ mustChange }: { mustChange: boolean }) {
   async function onSubmit(values: Values) {
     try {
       await changeOwnPassword(values);
-      toast.success("Mot de passe modifié.");
+      toast.success("Mot de passe modifié. Reconnectez-vous avec votre nouveau mot de passe.");
       reset({ currentPassword: "", newPassword: "", confirmPassword: "" });
-      // Après un mot de passe imposé, on renvoie l'utilisateur vers son espace.
-      if (mustChange) router.push("/");
-      else router.refresh();
+      // Les anciennes sessions sont fermées (celle-ci comprise) : nouvelle connexion.
+      await signOut({ callbackUrl: "/login" });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Une erreur est survenue.");
     }

@@ -40,6 +40,9 @@ export async function changeOwnPassword(values: ChangePasswordValues) {
     data: {
       passwordHash: await hashPassword(data.newPassword),
       mustChangePassword: false,
+      // Toutes les sessions ouvertes, celle-ci comprise, se ferment : on se
+      // reconnecte avec le nouveau mot de passe.
+      sessionVersion: { increment: 1 },
     },
   });
 }

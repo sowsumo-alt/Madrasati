@@ -1001,6 +1001,8 @@ export const dictionaries = {
     "login.createSchool": "Créer mon école",
     "login.emailPlaceholder": "votre@email.com",
     "login.invalidCredentials": "Email ou mot de passe incorrect.",
+    "login.tooManyAttempts": "Trop d'essais : connexion bloquée pendant 15 minutes. Réessayez plus tard ou demandez au directeur de réinitialiser votre mot de passe.",
+    "session.expired": "Votre session a été fermée. Reconnexion…",
 
     "comm.arabicHint":
       "Ajoutée automatiquement en bas du message envoyé, pour les parents qui lisent l'arabe.",
@@ -2272,6 +2274,8 @@ export const dictionaries = {
     "login.createSchool": "Create my school",
     "login.emailPlaceholder": "you@email.com",
     "login.invalidCredentials": "Incorrect email or password.",
+    "login.tooManyAttempts": "Too many attempts: sign-in blocked for 15 minutes. Try again later or ask the director to reset your password.",
+    "session.expired": "Your session was closed. Redirecting to sign-in…",
 
     "comm.arabicHint":
       "Added automatically at the bottom of the message, for parents who read Arabic.",
@@ -3539,6 +3543,8 @@ export const dictionaries = {
     "login.createSchool": "إنشاء مدرستي",
     "login.emailPlaceholder": "you@email.com",
     "login.invalidCredentials": "البريد الإلكتروني أو كلمة المرور غير صحيحة.",
+    "login.tooManyAttempts": "محاولات كثيرة: تم إيقاف تسجيل الدخول لمدة 15 دقيقة. حاول لاحقًا أو اطلب من المدير إعادة تعيين كلمة المرور.",
+    "session.expired": "تم إغلاق جلستك. جارٍ إعادة التوجيه…",
 
     "comm.arabicHint": "تُضاف تلقائيًا أسفل الرسالة، لأولياء الأمور الذين يقرؤون العربية.",
     "comm.templateTitlePlaceholder": "تذكير باجتماع",

@@ -68,7 +68,7 @@ export default async function AccountPage() {
             <p className="mb-3 text-xs font-medium uppercase tracking-wide text-foreground/40">
               Changer le mot de passe
             </p>
-            <PasswordForm mustChange={mustChange} />
+            <PasswordForm />
           </div>
         </CardContent>
       </Card>

@@ -28,6 +28,10 @@ export async function requireSuperAdmin() {
   if (!admin) {
     redirect("/super-admin/login");
   }
+  // Session antérieure à une déconnexion : refusée, même si le cookie est encore valide.
+  if (admin.sessionVersion !== (session?.user?.sv ?? 0)) {
+    redirect("/session-expiree?espace=super-admin");
+  }
 
   return admin;
 }

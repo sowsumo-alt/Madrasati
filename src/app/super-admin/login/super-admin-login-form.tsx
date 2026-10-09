@@ -9,6 +9,7 @@ import { z } from "zod";
 import { Loader2, Lock, LogIn, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { TOO_MANY_ATTEMPTS } from "@/lib/login-errors";
 
 const schema = z.object({
   email: z.string().min(1, "L'email est requis").email("Email invalide"),
@@ -33,7 +34,11 @@ export function SuperAdminLoginForm() {
       redirect: false,
     });
     if (!result || result.error) {
-      setServerError("Email ou mot de passe incorrect.");
+      setServerError(
+        result?.error === TOO_MANY_ATTEMPTS
+          ? "Trop d'essais : connexion bloquée pendant 15 minutes."
+          : "Email ou mot de passe incorrect.",
+      );
       return;
     }
     router.push("/super-admin");

@@ -165,6 +165,8 @@ export async function resetUserPassword(userId: string): Promise<AccountResult> 
     data: {
       passwordHash: await hashPassword(tempPassword),
       mustChangePassword: true,
+      // Les sessions ouvertes avec l'ancien mot de passe se ferment.
+      sessionVersion: { increment: 1 },
     },
   });
 

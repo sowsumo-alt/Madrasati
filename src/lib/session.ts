@@ -44,12 +44,15 @@ export async function requireRole(...roles: Role[]) {
       isActive: true,
       isOwner: true,
       access: true,
+      sessionVersion: true,
       school: { select: { id: true, subscriptionStatus: true } },
     },
   });
   // Accès retiré (un associé que le directeur principal a désactivé) ou compte
   // supprimé : la session encore ouverte ne suffit plus, dès la page suivante.
   if (!account || !account.isActive) redirect("/acces-retire");
+  // Session antérieure à une déconnexion ou à un changement de mot de passe.
+  if (account.sessionVersion !== (user.sv ?? 0)) redirect("/session-expiree");
   if (account?.mustChangePassword) redirect("/mon-compte");
 
   // Validation manuelle coupée : une école restée « pending » (inscrite quand

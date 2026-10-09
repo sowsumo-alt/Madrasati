@@ -143,9 +143,23 @@ model SuperAdmin {
   email        String   @unique
   passwordHash String
   name         String
+  // Version des sessions : augmentée à la déconnexion, toute session plus
+  // ancienne est refusée (voir lib/auth.ts).
+  sessionVersion Int    @default(0)
   createdAt    DateTime @default(now())
 
   @@map("super_admins")
+}
+
+// Compteur d'essais (connexion par e-mail et par adresse, inscription publique) :
+// au-delà de la limite, la porte reste fermée jusqu'à la fin de la fenêtre
+// (voir lib/rate-limit.ts).
+model RateLimit {
+  key         String   @id
+  count       Int      @default(0)
+  windowStart DateTime @default(now())
+
+  @@map("rate_limits")
 }
 
 /**
@@ -201,6 +215,10 @@ model User {
   // Directeur principal : celui qui a créé l'école. Lui seul invite, change
   // le rôle ou retire l'accès des autres directeurs (les associés).
   isOwner            Boolean  @default(false)
+  // Version des sessions : augmentée à la déconnexion et à chaque changement
+  // ou réinitialisation du mot de passe ; toute session plus ancienne est
+  // refusée (requireRole), même si son cookie n'a pas expiré.
+  sessionVersion     Int      @default(0)
   // Accès d'un directeur : "FULL" (tout faire) ou "READ_ONLY" (tout
   // consulter, rien modifier — contrôlé côté serveur, lib/write-guard.ts).
   access             String   @default("FULL")

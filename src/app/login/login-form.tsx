@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff, Loader2, Lock, LogIn, Mail } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/language-provider";
+import { TOO_MANY_ATTEMPTS } from "@/lib/login-errors";
 
 const schema = z.object({
   email: z.string().min(1, "L'email est requis").email("Email invalide"),
@@ -62,10 +63,10 @@ export function LoginForm() {
       password,
       redirect: false,
     });
-    if (!result || result.error) return false;
+    if (!result || result.error) return result?.error ?? "ERROR";
     router.push("/");
     router.refresh();
-    return true;
+    return null;
   }
 
   async function onSubmit(values: FormValues) {
@@ -73,8 +74,8 @@ export function LoginForm() {
     if (remember) window.localStorage.setItem(REMEMBER_KEY, values.email);
     else window.localStorage.removeItem(REMEMBER_KEY);
 
-    const ok = await login(values.email, values.password);
-    if (!ok) setServerError(t("login.invalidCredentials"));
+    const error = await login(values.email, values.password);
+    if (error) setServerError(t(error === TOO_MANY_ATTEMPTS ? "login.tooManyAttempts" : "login.invalidCredentials"));
   }
 
   return (
