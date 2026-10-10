@@ -7,6 +7,7 @@ import { requireRole } from "@/lib/session";
 import { saveGradingConfig } from "@/lib/grading-config-data";
 import type { GradingConfig } from "@/lib/grading-config";
 import { ROLES } from "@/lib/roles";
+import { imageDataUriSchema } from "@/lib/image-data-uri";
 
 /**
  * Data URI d'image, plafonné pour éviter de gonfler la base. Assez large pour
@@ -28,11 +29,7 @@ const schoolSchema = z.object({
   paymentGraceDays: z.coerce.number().int().min(0, "Entre 0 et 30").max(30, "Entre 0 et 30").optional(),
   phone: z.string().trim().optional().or(z.literal("")),
   email: z.string().trim().optional().or(z.literal("")),
-  logoUrl: z
-    .string()
-    .max(LOGO_MAX_CHARS, "Image trop lourde")
-    .nullable()
-    .optional(),
+  logoUrl: imageDataUriSchema(LOGO_MAX_CHARS),
   logoIsLetterhead: z.boolean().optional(),
 });
 export type SchoolFormValues = z.infer<typeof schoolSchema>;

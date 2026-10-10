@@ -19,7 +19,7 @@ export const config = {
      *   plateforme — le reste de /super-admin reste protégé normalement :
      *   il faut une session valide ET, en plus, passer requireSuperAdmin()
      *   côté serveur, qui rejette tout rôle autre que SUPER_ADMIN)
-     * - /api/auth (routes NextAuth)
+     * - /api/auth (routes NextAuth) et /api/health (moniteur de disponibilité)
      * - manifest.webmanifest, sw.js, offline.html (PWA : le navigateur les
      *   récupère sans session ; rediriger vers /login casserait
      *   l'installation "Ajouter à l'écran d'accueil" et l'enregistrement du
@@ -29,6 +29,6 @@ export const config = {
      * Le « + » final (au lieu de « * ») est ce qui laisse la racine publique :
      * il impose au moins un caractère après le slash.
      */
-    "/((?!login|inscription|api/auth|super-admin/login|manifest\\.webmanifest|sw\\.js|offline\\.html|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|webp)).+)",
+    "/((?!login|inscription|api/auth|api/health|super-admin/login|manifest\\.webmanifest|sw\\.js|offline\\.html|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|webp)).+)",
   ],
 };

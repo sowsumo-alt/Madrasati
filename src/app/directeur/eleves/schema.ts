@@ -2,6 +2,7 @@ import { z } from "zod";
 import { optionalPhoneSchema } from "@/lib/phone";
 import { PAYMENT_METHODS } from "@/lib/payment-methods";
 import { optionalNniSchema } from "@/lib/nni";
+import { imageDataUriSchema } from "@/lib/image-data-uri";
 
 const optionalText = (max: number) => z.string().trim().max(max).optional().or(z.literal(""));
 
@@ -30,7 +31,7 @@ export const studentSchema = z
     /** Jour de l'inscription, prérempli avec la date du jour. */
     enrollmentDate: z.string().trim().optional().or(z.literal("")),
     /** Photo stockée en data URI, réduite côté navigateur. */
-    photoUrl: z.string().max(400_000, "Image trop lourde").nullable().optional(),
+    photoUrl: imageDataUriSchema(400_000),
     /** Nom complet du père ou du tuteur, découpé en prénom et nom côté serveur. */
     parentName: optionalText(120),
     parentPhone: optionalPhoneSchema,

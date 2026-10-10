@@ -1,0 +1,30 @@
+# Avant chaque mise en ligne : types, lint et tests unitaires.
+# (Vercel construit l'application de son côté ; ce contrôle s'affiche sur
+# chaque commit et chaque demande de fusion.)
+name: Vérifications
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verifier:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Types
+        run: npx tsc --noEmit -p .
+      - name: Lint
+        run: npx eslint .
+      - name: Tests unitaires
+        run: npm test
