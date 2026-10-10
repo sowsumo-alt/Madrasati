@@ -1,22 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { AlertTriangle, ChevronRight, Plus, Upload, Users } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { FamilyFilterBanner } from "@/components/family/family-filter-banner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { AlphabetFilter, matchesLetter } from "@/components/ui/alphabet-filter";
+import { AlphabetFilter } from "@/components/ui/alphabet-filter";
+import { STUDENTS_PAGE_SIZE, studentsParamsOf, type StudentsListState } from "@/lib/students-query";
+import { useSearchParamInput } from "@/lib/use-search-param-input";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { joinFullName } from "@/lib/student-form";
-import {
-  StudentFormDialog,
-  type StudentClassOption,
-  type StudentEditTarget,
-} from "./student-form-dialog";
-import { ImportDialog } from "./import-dialog";
+import type { StudentClassOption, StudentEditTarget } from "./student-form-dialog";
+import { useOpenedOnce } from "@/lib/use-opened-once";
 import type { CatalogGroup } from "@/lib/class-catalog";
 import { moveStudentsToClass, setStudentStatus, setStudentsStatus } from "./actions";
 import {
@@ -28,9 +27,20 @@ import { StudentsTable } from "./students-list/students-table";
 import { StudentsPagination } from "./students-list/students-pagination";
 import { BulkActionsBar } from "./students-list/bulk-actions-bar";
 import { BulkMoveDialog } from "./students-list/bulk-move-dialog";
-import { StudentProfileSheet } from "./students-list/student-profile-sheet";
-import { TuitionPlanDialog } from "@/components/finance/tuition-plan-dialog";
 import type { TuitionSettings, StudentMoney, TuitionSummary } from "@/lib/tuition-data";
+
+// Fenêtres chargées au premier clic (next/dynamic) : leur code n'est pas
+// téléchargé avec la page — plus léger en 3G. Voir useOpenedOnce.
+const StudentFormDialog = dynamic(() => import("./student-form-dialog").then((m) => m.StudentFormDialog), { ssr: false });
+const ImportDialog = dynamic(() => import("./import-dialog").then((m) => m.ImportDialog), { ssr: false });
+const StudentProfileSheet = dynamic(
+  () => import("./students-list/student-profile-sheet").then((m) => m.StudentProfileSheet),
+  { ssr: false },
+);
+const TuitionPlanDialog = dynamic(
+  () => import("@/components/finance/tuition-plan-dialog").then((m) => m.TuitionPlanDialog),
+  { ssr: false },
+);
 
 export interface StudentRow {
   id: string;
@@ -64,9 +74,9 @@ export interface StudentRow {
   } | null;
 }
 
-// Dix lignes par page : la liste tient sur un écran d'ordinateur portable
-// sans défiler, et reste lisible sur un téléphone.
-const PAGE_SIZE = 10;
+// Dix lignes par page (STUDENTS_PAGE_SIZE) : la liste tient sur un écran
+// d'ordinateur portable sans défiler, et reste lisible sur un téléphone.
+const PAGE_SIZE = STUDENTS_PAGE_SIZE;
 
 function toEditTarget(s: StudentRow): StudentEditTarget {
   return {
@@ -91,19 +101,36 @@ function toEditTarget(s: StudentRow): StudentEditTarget {
 }
 
 export function StudentsView({
+  state,
   students,
+  total,
+  pageCount,
+  hasStudents,
+  letters,
+  unassignedCount,
+  familyParent,
   classes,
   schoolName,
   currentYearLabel,
   catalog,
   tuitionSettings,
   draftKey,
-  initialQuery = "",
-  initialClassFilter = "ALL",
-  initialFamilyFilter = null,
   autoOpenNew = false,
 }: {
+  /** Recherche, filtres et page lus dans l'adresse (voir lib/students-query). */
+  state: StudentsListState;
+  /** Les élèves de la page affichée seulement. */
   students: StudentRow[];
+  /** Élèves correspondant aux filtres, toutes pages confondues. */
+  total: number;
+  pageCount: number;
+  hasStudents: boolean;
+  /** Lettres du filtre A-Z qui ont au moins un élève. */
+  letters: string[];
+  /** Élèves actifs sans classe, dans toute l'école. */
+  unassignedCount: number;
+  /** Parent de la famille filtrée (?famille=…), pour le bandeau. */
+  familyParent: StudentRow["parent"];
   classes: StudentClassOption[];
   /** Catégories et niveaux, pour créer une classe depuis l'import. */
   catalog: CatalogGroup[];
@@ -113,23 +140,23 @@ export function StudentsView({
   draftKey: string;
   schoolName: string;
   currentYearLabel: string | null;
-  /** Terme envoyé par la recherche globale de l'en-tête (?q=…). */
-  initialQuery?: string;
-  /** Classe présélectionnée (?classe=…), depuis la page Classes. */
-  initialClassFilter?: ClassFilter;
-  /** Famille présélectionnée (?famille=<parentId>). */
-  initialFamilyFilter?: string | null;
   /** Ouvre directement le formulaire d'inscription (?new=1), depuis le menu "Inscription". */
   autoOpenNew?: boolean;
 }) {
   const router = useRouter();
   const { t } = useLanguage();
-  const [query, setQuery] = useState(initialQuery);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
-  const [classFilter, setClassFilter] = useState<ClassFilter>(initialClassFilter);
-  const [letter, setLetter] = useState<string | null>(null);
-  const [familyFilter, setFamilyFilter] = useState<string | null>(initialFamilyFilter);
-  const [page, setPage] = useState(1);
+  const [isNavigating, startNavigation] = useTransition();
+  /** Nouvel état de la liste : l'adresse change, le serveur renvoie la page. */
+  function navigate(next: StudentsListState) {
+    const qs = studentsParamsOf(next);
+    startNavigation(() => router.replace(`/directeur/eleves${qs ? `?${qs}` : ""}`, { scroll: false }));
+  }
+  // Recherche tapée ici (y compris celle de l'en-tête, ?q=…), envoyée après une pause.
+  const [query, setQuery] = useSearchParamInput(state.query, (q) => navigate({ ...state, query: q, page: 1 }));
+  const statusFilter: StatusFilter = state.status;
+  const classFilter: ClassFilter = state.classFilter;
+  const letter = state.letter;
+  const familyFilter = familyParent ? state.family : null;
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [formOpen, setFormOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -141,6 +168,10 @@ export function StudentsView({
   const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
   const [bulkRemoveOpen, setBulkRemoveOpen] = useState(false);
   const [bulkLoading, setBulkLoading] = useState(false);
+  const formLoaded = useOpenedOnce(formOpen);
+  const importLoaded = useOpenedOnce(importOpen);
+  const profileLoaded = useOpenedOnce(profileId != null);
+  const tuitionLoaded = useOpenedOnce(tuitionFor != null);
 
   useEffect(() => {
     if (autoOpenNew) {
@@ -151,52 +182,11 @@ export function StudentsView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoOpenNew]);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return students.filter((s) => {
-      const matchesQuery =
-        !q ||
-        `${s.firstName} ${s.lastName}`.toLowerCase().includes(q) ||
-        (s.className ?? "").toLowerCase().includes(q);
-      const matchesStatus = statusFilter === "ALL" || s.status === statusFilter;
-      const matchesClass =
-        classFilter === "ALL" ||
-        (classFilter === "NONE" ? s.className == null : s.classId === classFilter);
-      const matchesInitial = matchesLetter(`${s.firstName} ${s.lastName}`, letter);
-      const matchesFamily = !familyFilter || s.parent?.id === familyFilter;
-      return matchesQuery && matchesStatus && matchesClass && matchesInitial && matchesFamily;
-    });
-  }, [students, query, statusFilter, classFilter, letter, familyFilter]);
-
-  const familyParent = familyFilter
-    ? (students.find((s) => s.parent?.id === familyFilter)?.parent ?? null)
-    : null;
-
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const currentPage = Math.min(page, pageCount);
-  const pageRows = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-
-  // Seuls les élèves actifs comptent : un élève transféré ou diplômé n'a pas
-  // vocation à porter une classe, le signaler serait un faux positif.
-  const unassignedCount = useMemo(
-    () => students.filter((s) => s.className == null && s.status === "ACTIVE").length,
-    [students],
-  );
-
-  // Une sélection ne garde que les élèves encore présents dans la liste.
-  const selectedIds = useMemo(
-    () => students.filter((s) => selected.has(s.id)).map((s) => s.id),
-    [students, selected],
-  );
+  const currentPage = state.page;
+  const pageRows = students;
+  // Sélection gardée d'une page à l'autre (identifiants seulement).
+  const selectedIds = [...selected];
   const profile = students.find((s) => s.id === profileId) ?? null;
-
-  /** Tout changement de filtre ramène à la première page. */
-  function onFilter<T>(setter: (value: T) => void) {
-    return (value: T) => {
-      setter(value);
-      setPage(1);
-    };
-  }
 
   function openCreate() {
     setEditTarget(null);
@@ -321,20 +311,17 @@ export function StudentsView({
           parentId={familyFilter}
           parent={familyParent}
           clearLabelKey="family.clearStudents"
-          onClear={() => {
-            setFamilyFilter(null);
-            setPage(1);
-          }}
+          onClear={() => navigate({ ...state, query, family: null, page: 1 })}
         />
       )}
 
       <StudentsToolbar
         query={query}
-        onQueryChange={onFilter(setQuery)}
+        onQueryChange={setQuery}
         classFilter={classFilter}
-        onClassFilterChange={onFilter(setClassFilter)}
+        onClassFilterChange={(value) => navigate({ ...state, query, classFilter: value, page: 1 })}
         statusFilter={statusFilter}
-        onStatusFilterChange={onFilter(setStatusFilter)}
+        onStatusFilterChange={(value) => navigate({ ...state, query, status: value, page: 1 })}
         classes={classes}
       />
 
@@ -343,9 +330,9 @@ export function StudentsView({
           le plus fréquent de la journée. Les lettres sans élève sont grisées,
           pour ne jamais mener à une liste vide. */}
       <AlphabetFilter
-        names={students.map((s) => `${s.firstName} ${s.lastName}`)}
+        names={letters}
         value={letter}
-        onChange={onFilter(setLetter)}
+        onChange={(value) => navigate({ ...state, query, letter: value, page: 1 })}
       />
 
       {/* Explique l'écart entre cette liste et les compteurs des autres écrans :
@@ -355,10 +342,8 @@ export function StudentsView({
         <button
           type="button"
           onClick={() => {
-            setStatusFilter("ALL");
             setQuery("");
-            setClassFilter((current) => (current === "NONE" ? "ALL" : "NONE"));
-            setPage(1);
+            navigate({ ...state, status: "ALL", query: "", classFilter: classFilter === "NONE" ? "ALL" : "NONE", page: 1 });
           }}
           className={`flex w-full items-center gap-2.5 rounded-xl border px-4 py-3 text-start text-sm transition-colors ${
             classFilter === "NONE"
@@ -378,7 +363,10 @@ export function StudentsView({
         </button>
       )}
 
-      <section className="overflow-hidden rounded-2xl border border-border/80 bg-surface shadow-soft">
+      <section
+        className={`overflow-hidden rounded-2xl border border-border/80 bg-surface shadow-soft transition-opacity ${isNavigating ? "opacity-60" : ""}`}
+        aria-busy={isNavigating}
+      >
         {selectedIds.length > 0 && (
           <BulkActionsBar
             count={selectedIds.length}
@@ -387,9 +375,9 @@ export function StudentsView({
             onClear={() => setSelected(new Set())}
           />
         )}
-        {filtered.length === 0 ? (
+        {students.length === 0 ? (
           <div className="px-5 py-16 text-center text-sm text-foreground/50">
-            {students.length === 0 ? t("students.emptyList") : t("students.noMatch")}
+            {!hasStudents ? t("students.emptyList") : t("students.noMatch")}
           </div>
         ) : (
           <>
@@ -401,23 +389,21 @@ export function StudentsView({
               onView={(s) => setProfileId(s.id)}
               onEdit={openEdit}
               onToggleStatus={setConfirmTarget}
-              onFamily={(parentId) => {
-                setFamilyFilter(parentId);
-                setPage(1);
-              }}
+              onFamily={(parentId) => navigate({ ...state, query, family: parentId, page: 1 })}
               schoolName={schoolName}
             />
             <StudentsPagination
               page={currentPage}
               pageCount={pageCount}
-              total={filtered.length}
+              total={total}
               pageSize={PAGE_SIZE}
-              onPageChange={setPage}
+              onPageChange={(page) => navigate({ ...state, query, page })}
             />
           </>
         )}
       </section>
 
+      {profileLoaded && (
       <StudentProfileSheet
         student={profile}
         currentYearLabel={currentYearLabel}
@@ -426,7 +412,11 @@ export function StudentsView({
         onEdit={openEdit}
         onTuition={(student) => setTuitionFor(student.id)}
       />
-      <TuitionPlanDialog studentId={tuitionFor} onOpenChange={(open) => !open && setTuitionFor(null)} />
+      )}
+      {tuitionLoaded && (
+        <TuitionPlanDialog studentId={tuitionFor} onOpenChange={(open) => !open && setTuitionFor(null)} />
+      )}
+      {formLoaded && (
       <StudentFormDialog
         open={formOpen}
         onOpenChange={setFormOpen}
@@ -436,7 +426,10 @@ export function StudentsView({
         tuitionSettings={tuitionSettings}
         draftKey={draftKey}
       />
-      <ImportDialog open={importOpen} onOpenChange={setImportOpen} classes={classes} catalog={catalog} />
+      )}
+      {importLoaded && (
+        <ImportDialog open={importOpen} onOpenChange={setImportOpen} classes={classes} catalog={catalog} />
+      )}
       <ConfirmDialog
         open={Boolean(confirmTarget)}
         onOpenChange={(open) => !open && setConfirmTarget(null)}

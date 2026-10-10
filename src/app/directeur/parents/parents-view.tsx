@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -16,6 +16,9 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ListPagination } from "@/components/ui/list-pagination";
+import { listHref } from "@/lib/list-page";
+import { useSearchParamInput } from "@/lib/use-search-param-input";
 import {
   createParentAccount,
   resetUserPassword,
@@ -53,18 +56,35 @@ export interface ParentRow {
 
 export function ParentsView({
   parents,
+  query,
+  page,
+  pageCount,
+  total,
+  hasParents,
+  pageSize,
   students,
   schoolName,
   parentPortalEnabled,
 }: {
+  /** Les parents de la page affichée seulement (liste paginée côté serveur). */
   parents: ParentRow[];
+  query: string;
+  page: number;
+  pageCount: number;
+  /** Parents correspondant à la recherche, toutes pages confondues. */
+  total: number;
+  hasParents: boolean;
+  pageSize: number;
   students: ParentStudentOption[];
   schoolName: string;
   parentPortalEnabled: boolean;
 }) {
   const router = useRouter();
   const { t } = useLanguage();
-  const [query, setQuery] = useState("");
+  const [isNavigating, startNavigation] = useTransition();
+  const go = (q: string, p: number) =>
+    startNavigation(() => router.replace(listHref("/directeur/parents", { q: q.trim(), page: p }), { scroll: false }));
+  const [search, setSearch] = useSearchParamInput(query, (q) => go(q, 1));
   const [formOpen, setFormOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<ParentEditTarget | null>(null);
   const [credentials, setCredentials] = useState<AccountResult | null>(null);
@@ -86,15 +106,9 @@ export function ParentsView({
     }
   }
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return parents;
-    return parents.filter(
-      (p) =>
-        `${p.firstName} ${p.lastName}`.toLowerCase().includes(q) ||
-        p.children.some((c) => c.name.toLowerCase().includes(q)),
-    );
-  }, [parents, query]);
+  const filtered = parents;
+  const from = (page - 1) * pageSize + 1;
+  const to = Math.min(page * pageSize, total);
 
   function openCreate() {
     setEditTarget(null);
@@ -131,17 +145,20 @@ export function ParentsView({
       <div className="relative max-w-xs">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/40" />
         <Input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
           placeholder={t("parents.searchPlaceholder")}
           className="pl-9"
         />
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
+      <div
+        className={`overflow-hidden rounded-xl border border-border bg-surface shadow-sm transition-opacity ${isNavigating ? "opacity-60" : ""}`}
+        aria-busy={isNavigating}
+      >
         {filtered.length === 0 ? (
           <div className="px-5 py-16 text-center text-sm text-foreground/50">
-            {parents.length === 0
+            {!hasParents
               ? "Aucun parent pour l'instant. Ajoutez le premier."
               : "Aucun parent ne correspond à votre recherche."}
           </div>
@@ -294,6 +311,17 @@ export function ParentsView({
                 })}
               </tbody>
             </table>
+            <ListPagination
+              page={page}
+              pageCount={pageCount}
+              summary={t("parents.showing")
+                .replace("{from}", String(from))
+                .replace("{to}", String(to))
+                .replace("{total}", String(total))}
+              previousLabel={t("students.previousPage")}
+              nextLabel={t("students.nextPage")}
+              onPageChange={(p) => go(search, p)}
+            />
           </div>
         )}
       </div>

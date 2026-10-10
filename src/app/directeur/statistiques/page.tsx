@@ -71,14 +71,17 @@ export default async function StatisticsPage({
     : [];
   const classIds = classes.map((c) => c.id);
 
-  const [students, attendance, payments, grades] = await Promise.all([
+  const [students, attendanceGroups, payments, grades] = await Promise.all([
     prisma.student.findMany({
       where: isCurrent ? { schoolId, status: "ACTIVE" } : { schoolId, classId: { in: classIds } },
       select: { gender: true, createdAt: true },
     }),
-    prisma.attendanceRecord.findMany({
+    // Totaux par jour et par statut, comptés par la base (une grande école
+    // a des dizaines de milliers d'appels sur une année).
+    prisma.attendanceRecord.groupBy({
+      by: ["date", "status"],
       where: { schoolId, classId: { in: classIds }, date: { gte: from, lt: to } },
-      select: { date: true, status: true },
+      _count: { _all: true },
     }),
     prisma.payment.findMany({
       where: { schoolId, paidAt: { gte: from, lt: to } },
@@ -108,10 +111,12 @@ export default async function StatisticsPage({
     shortLabel(monthFormatter.format(new Date(Date.UTC(key.year, key.month, 1))));
 
   // — Graphiques mensuels. Un mois sans appel est omis, pas compté à zéro.
+  const attendance = attendanceGroups.map((g) => ({ date: g.date, status: g.status, count: g._count._all }));
   const attendanceRates = monthlyAttendance(attendance, months);
   const revenue = monthlySums(payments.map((p) => ({ at: p.paidAt, amount: p.amount })), months);
   const trendRates = monthlyAttendance(attendance, trendMonths);
-  const present = attendance.filter((a) => isPresent(a.status)).length;
+  const present = attendance.filter((a) => isPresent(a.status)).reduce((sum, a) => sum + a.count, 0);
+  const recorded = attendance.reduce((sum, a) => sum + a.count, 0);
   const last = months.length - 1;
 
   const averages = subjectAverages(
@@ -132,7 +137,7 @@ export default async function StatisticsPage({
     newThisMonth: students.filter((s) => isInMonth(s.createdAt, months[last])).length,
     studentTrend: runningTotals(students.map((s) => s.createdAt), trendMonths),
 
-    overallAttendance: attendance.length === 0 ? null : Math.round((present / attendance.length) * 100),
+    overallAttendance: recorded === 0 ? null : Math.round((present / recorded) * 100),
     attendanceChange: pointsChange(trendRates),
     attendanceTrend: trendRates.map((r) => r.rate),
 

@@ -115,7 +115,7 @@ export default async function DashboardPage() {
     paymentsByFee,
     upcomingExamCount,
     classes,
-    attendanceHistory,
+    attendanceGroups,
     activeStudents,
     activeTeachers,
     recentStudents,
@@ -128,6 +128,7 @@ export default async function DashboardPage() {
     holidays,
     school,
     currentYear,
+    dueRule,
   ] = await Promise.all([
     prisma.student.count({ where: { schoolId, status: "ACTIVE" } }),
     // Même filtre ACTIVE que le compteur principal : sans lui, la mention
@@ -179,9 +180,12 @@ export default async function DashboardPage() {
         _count: { select: { students: { where: { status: "ACTIVE" } } } },
       },
     }),
-    prisma.attendanceRecord.findMany({
+    // Totaux par jour et par statut, comptés par la base (et non une ligne par
+    // élève et par jour : jusqu'à 100 000 lignes pour une grande école).
+    prisma.attendanceRecord.groupBy({
+      by: ["date", "status"],
       where: { schoolId, date: { gte: monthStart(attendanceMonths[0]) } },
-      select: { date: true, status: true },
+      _count: { _all: true },
     }),
     prisma.student.findMany({
       where: { schoolId, status: "ACTIVE" },
@@ -312,12 +316,13 @@ export default async function DashboardPage() {
       where: { schoolId, isCurrent: true },
       select: { label: true, endDate: true },
     }),
+    // Jour limite et tolérance de l'école (lib/due-rule.ts), lus en même temps.
+    loadDueRule(schoolId),
   ]);
+  const attendanceHistory = attendanceGroups.map((g) => ({ date: g.date, status: g.status, count: g._count._all }));
 
   // Reste réellement dû, paiements partiels déduits (voir lib/finance.ts).
   const paidByFee = new Map(paymentsByFee.map((p) => [p.feeId, p._sum.amount ?? 0]));
-  // Selon le jour limite et la tolérance de l'école (lib/due-rule.ts).
-  const dueRule = await loadDueRule(schoolId);
   const outstanding = outstandingTotal(
     unpaidFees.filter((f) => effectiveDueDate(f, dueRule) <= new Date()),
     paidByFee,

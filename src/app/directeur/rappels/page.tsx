@@ -7,7 +7,7 @@ import { describeDueRule } from "@/lib/due-rule";
 import { formatMoney } from "@/lib/money";
 import { formatDate, formatPhone } from "@/lib/format";
 import { loadReminderGroups } from "@/lib/payment-reminder-data";
-import { reminderMessage, reminderPhone, reminderWhatsAppUrl } from "@/lib/payment-reminder";
+import { reminderMessage, reminderPhone } from "@/lib/payment-reminder";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { RemindersView, type ReminderRow } from "./reminders-view";
 
@@ -38,7 +38,8 @@ export default async function RemindersPage() {
       name: g.parentName ?? g.children[0]?.name ?? "Élève",
       href: g.parentId ? `/directeur/familles/${g.parentId}` : studentId ? `/directeur/eleves?q=${encodeURIComponent(g.children[0]?.name ?? "")}` : null,
       phone: g.phone ? formatPhone(reminderPhone(g.phone)) : null,
-      whatsappUrl: g.phone ? reminderWhatsAppUrl(g.phone, message) : null,
+      // Le lien wa.me (le message encodé une seconde fois) est construit dans le navigateur.
+      phoneDigits: g.phone ? reminderPhone(g.phone) : null,
       children: g.children.map((c) => ({ name: c.name, className: c.className })),
       lines: g.lines.map((l) => ({ label: l.label, amount: formatMoney(l.amount, unit) })),
       total: formatMoney(g.total, unit),

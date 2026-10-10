@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { CheckCircle2, ChevronDown, Clock, MessageCircle, PhoneOff, Search } from "lucide-react";
 import { formatDate, formatTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { buildWhatsAppUrl } from "@/lib/whatsapp";
 import { recordReminder } from "./actions";
 
 export interface ReminderRow {
@@ -14,7 +15,8 @@ export interface ReminderRow {
   name: string;
   href: string | null;
   phone: string | null;
-  whatsappUrl: string | null;
+  /** Numéro au format WhatsApp (222…), ou null : le lien est construit ici. */
+  phoneDigits: string | null;
   children: { name: string; className: string | null }[];
   lines: { label: string; amount: string }[];
   total: string;
@@ -27,12 +29,17 @@ export interface ReminderRow {
 
 type Tab = "todo" | "done" | "all";
 
+/** Familles affichées d'un coup : les suivantes avec « Afficher plus » (page légère en 3G). */
+const BATCH = 20;
+
 export function RemindersView({ rows, monthStart, readOnly }: { rows: ReminderRow[]; monthStart: string; readOnly: boolean }) {
   // Rappels notés pendant la visite : la ligne bascule sans attendre le rechargement.
   const [justSent, setJustSent] = useState<Record<string, { at: string; by: string }>>({});
   const [tab, setTab] = useState<Tab>("todo");
   const [query, setQuery] = useState("");
   const [openMessage, setOpenMessage] = useState<string | null>(null);
+  const [shown, setShown] = useState(BATCH);
+  useEffect(() => setShown(BATCH), [tab, query]);
 
   const lastOf = (row: ReminderRow) => justSent[row.key] ?? row.lastSent;
   const sentThisMonth = (row: ReminderRow) => {
@@ -132,9 +139,10 @@ export function RemindersView({ rows, monthStart, readOnly }: { rows: ReminderRo
         </p>
       ) : (
         <ul className="space-y-3">
-          {visible.map((row) => {
+          {visible.slice(0, shown).map((row) => {
             const last = lastOf(row);
             const done = sentThisMonth(row);
+            const whatsappUrl = row.phoneDigits ? buildWhatsAppUrl(row.phoneDigits, row.message) : null;
             return (
               <li
                 key={row.key}
@@ -207,7 +215,7 @@ export function RemindersView({ rows, monthStart, readOnly }: { rows: ReminderRo
                     <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", openMessage === row.key && "rotate-180")} />
                   </button>
                   <div className="ms-auto">
-                    {!row.whatsappUrl ? (
+                    {!whatsappUrl ? (
                       <span className="inline-flex items-center gap-1.5 text-xs text-foreground/60">
                         <PhoneOff className="h-3.5 w-3.5" />
                         Aucun numéro WhatsApp
@@ -221,7 +229,7 @@ export function RemindersView({ rows, monthStart, readOnly }: { rows: ReminderRo
                       <span className="text-xs text-foreground/50">Lecture seule</span>
                     ) : (
                       <a
-                        href={row.whatsappUrl}
+                        href={whatsappUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={() => void markSent(row)}
@@ -248,6 +256,16 @@ export function RemindersView({ rows, monthStart, readOnly }: { rows: ReminderRo
             );
           })}
         </ul>
+      )}
+      {visible.length > shown && (
+        <button
+          type="button"
+          onClick={() => setShown((n) => n + BATCH)}
+          className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm font-semibold text-primary-700 hover:bg-surface-muted"
+          data-testid="reminders-more"
+        >
+          Afficher plus ({visible.length - shown} famille{visible.length - shown > 1 ? "s" : ""} restante{visible.length - shown > 1 ? "s" : ""})
+        </button>
       )}
     </div>
   );

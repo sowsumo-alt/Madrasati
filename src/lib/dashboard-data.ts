@@ -68,6 +68,14 @@ export function percentChange(current: number, previous: number): number | null 
 /** Présent ou en retard : l'élève était là. */
 export const isPresent = (status: string) => status === "PRESENT" || status === "LATE";
 
+/**
+ * Appels, un par élève et par jour — ou déjà comptés par la base (jour,
+ * statut, nombre) : une grande école n'envoie pas ses 100 000 lignes d'appel
+ * au tableau de bord, seulement leurs totaux.
+ */
+export type AttendanceCount = { date: Date; status: string; count?: number };
+const countOf = (records: AttendanceCount[]) => records.reduce((sum, r) => sum + (r.count ?? 1), 0);
+
 /** Lundi 0 h (UTC) de la semaine en cours. */
 export function startOfWeek(now: Date): Date {
   const day = now.getUTCDay(); // 0 = dimanche
@@ -83,7 +91,7 @@ export function startOfWeek(now: Date): Date {
  * la courbe — même règle que pour les mois sans appel.
  */
 export function weeklyAttendance(
-  records: { date: Date; status: string }[],
+  records: AttendanceCount[],
   weekStart: Date,
 ): { dayIndex: number; rate: number }[] {
   const days: { dayIndex: number; rate: number }[] = [];
@@ -91,23 +99,25 @@ export function weeklyAttendance(
     const from = weekStart.getTime() + i * DAY_MS;
     const to = from + DAY_MS;
     const ofDay = records.filter((r) => r.date.getTime() >= from && r.date.getTime() < to);
-    if (ofDay.length === 0) continue;
-    const present = ofDay.filter((r) => isPresent(r.status)).length;
-    days.push({ dayIndex: i, rate: Math.round((present / ofDay.length) * 100) });
+    const total = countOf(ofDay);
+    if (total === 0) continue;
+    const present = countOf(ofDay.filter((r) => isPresent(r.status)));
+    days.push({ dayIndex: i, rate: Math.round((present / total) * 100) });
   }
   return days;
 }
 
 /** Taux de présence mois par mois, les mois sans appel omis. */
 export function monthlyAttendance(
-  records: { date: Date; status: string }[],
+  records: AttendanceCount[],
   months: MonthKey[],
 ): { month: MonthKey; rate: number }[] {
   return months.flatMap((key) => {
     const ofMonth = records.filter((r) => isInMonth(r.date, key));
-    if (ofMonth.length === 0) return [];
-    const present = ofMonth.filter((r) => isPresent(r.status)).length;
-    return [{ month: key, rate: Math.round((present / ofMonth.length) * 100) }];
+    const total = countOf(ofMonth);
+    if (total === 0) return [];
+    const present = countOf(ofMonth.filter((r) => isPresent(r.status)));
+    return [{ month: key, rate: Math.round((present / total) * 100) }];
   });
 }
 

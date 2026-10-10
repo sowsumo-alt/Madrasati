@@ -5,19 +5,27 @@ import { StudentsView, type StudentRow } from "./students-view";
 import { CURRENT_YEAR } from "@/lib/school-year";
 import { buildCatalog, classOptions } from "@/lib/class-catalog";
 import { loadTuitionSettings, studentMoneySummaries, tuitionSummaries } from "@/lib/tuition-data";
+import { lettersOf } from "@/lib/initials";
+import { pageOf } from "@/lib/list-page";
+import { STUDENTS_PAGE_SIZE, filterStudents, parseStudentsParams } from "@/lib/students-query";
 
 export default async function StudentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; new?: string; classe?: string; famille?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const user = await requireRole(ROLES.DIRECTOR);
-  const { q, new: openNew, classe, famille } = await searchParams;
+  const params = await searchParams;
+  const openNew = params.new;
+  // Recherche, filtres et page dans l'adresse : le serveur filtre toute la
+  // liste et n'envoie que la page affichée (photos comprises, pour elle seule).
+  const state = parseStudentsParams(params);
 
   const [students, classes, school, currentYear, allLevels, tuition, tuitionSettings, money] = await Promise.all([
     prisma.student.findMany({
       where: { schoolId: user.schoolId },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+      omit: { photoUrl: true },
       include: {
         classRoom: { select: { name: true } },
         parentLinks: {
@@ -64,7 +72,7 @@ export default async function StudentsPage({
       status: s.status,
       classId: s.classId,
       className: s.classRoom?.name ?? null,
-      photoUrl: s.photoUrl,
+      photoUrl: null,
       placeOfBirth: s.placeOfBirth,
       nationality: s.nationality,
       nni: s.nni,
@@ -87,24 +95,41 @@ export default async function StudentsPage({
     };
   });
 
+  // Classe d'un lien (?classe=…) ou famille (?famille=…) inconnues : ignorées.
+  const classFilter =
+    state.classFilter === "ALL" || state.classFilter === "NONE" || classes.some((c) => c.id === state.classFilter)
+      ? state.classFilter
+      : "ALL";
+  const family = state.family && rows.some((r) => r.parent?.id === state.family) ? state.family : null;
+  const current = { ...state, classFilter, family };
+  const list = pageOf(filterStudents(rows, current), state.page, STUDENTS_PAGE_SIZE);
+  const photos = list.rows.length
+    ? await prisma.student.findMany({
+        where: { schoolId: user.schoolId, id: { in: list.rows.map((r) => r.id) }, photoUrl: { not: null } },
+        select: { id: true, photoUrl: true },
+      })
+    : [];
+  const photoOf = new Map(photos.map((p) => [p.id, p.photoUrl]));
+
   return (
     <StudentsView
-      // Remonte la vue quand la recherche globale change de terme, sinon
-      // l'état local garderait l'ancien filtre.
-      key={`${q ?? ""}|${classe ?? ""}|${famille ?? ""}`}
-      students={rows}
+      state={{ ...current, page: list.page }}
+      students={list.rows.map((r) => ({ ...r, photoUrl: photoOf.get(r.id) ?? null }))}
+      total={list.total}
+      pageCount={list.pageCount}
+      hasStudents={rows.length > 0}
+      letters={lettersOf(rows.map((r) => `${r.firstName} ${r.lastName}`))}
+      // Seuls les élèves actifs comptent : un élève transféré ou diplômé n'a
+      // pas vocation à porter une classe, le signaler serait un faux positif.
+      unassignedCount={rows.filter((r) => r.className == null && r.status === "ACTIVE").length}
+      familyParent={family ? (rows.find((r) => r.parent?.id === family)?.parent ?? null) : null}
       classes={classOptions(classes)}
       catalog={buildCatalog(allLevels)}
       tuitionSettings={tuitionSettings}
       draftKey={`eleve-${user.schoolId}`}
       schoolName={school?.name ?? "Madrasati"}
       currentYearLabel={currentYear?.label ?? null}
-      initialQuery={q ?? ""}
-      // « Voir les élèves » depuis la fiche d'une classe (?classe=<id>).
-      initialClassFilter={classe && classes.some((c) => c.id === classe) ? classe : "ALL"}
       autoOpenNew={openNew === "1"}
-      // Enfants d'une même famille (?famille=<parentId>), depuis sa fiche.
-      initialFamilyFilter={famille && rows.some((r) => r.parent?.id === famille) ? famille : null}
     />
   );
 }

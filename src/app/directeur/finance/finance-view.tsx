@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { flushSync } from "react-dom";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { toast } from "sonner";
 import {
   ChevronRight,
@@ -28,20 +29,34 @@ import type { FeeListFilters } from "@/lib/payments-list";
 import { PAYMENTS_PAGE_SIZE, paymentsParamsOf, type PaymentsListState } from "@/lib/payments-query";
 import { exportElementToPdf } from "@/lib/pdf-export";
 import { useLanguage } from "@/lib/i18n/language-provider";
-import { FeeFormDialog, type FeeEditTarget, type FeeStudentOption } from "./fee-form-dialog";
-import { PaymentDialog } from "./payment-dialog";
+import type { FeeEditTarget, FeeStudentOption } from "./fee-form-dialog";
+import { useOpenedOnce } from "@/lib/use-opened-once";
 import { deleteFee } from "./actions";
 import { openFeesForPayment, paymentRowsForExport } from "./payments-list-actions";
 import { PaymentsToolbar } from "./payments-list/payments-toolbar";
 import { PaymentsTable, type FeeRowActions } from "./payments-list/payments-table";
 import { PaymentsBulkBar } from "./payments-list/payments-bulk-bar";
 import { FeeDetailSheet } from "./payments-list/fee-detail-sheet";
-import { RemindersDialog } from "./payments-list/reminders-dialog";
 import { PaymentsReport } from "./payments-list/payments-report";
 import { FamilyFilterBanner } from "@/components/family/family-filter-banner";
-import { FamilyPaymentDialog } from "../familles/family-view/family-payment-dialog";
 import type { FamilyOpenFee } from "../familles/family-view/types";
-import { TuitionPlanDialog } from "@/components/finance/tuition-plan-dialog";
+
+// Fenêtres chargées au premier clic (next/dynamic) : leur code n'est pas
+// téléchargé avec la page — plus léger en 3G. Voir useOpenedOnce.
+// (Le rapport PDF reste chargé : la capture le cherche aussitôt affiché.)
+const FeeFormDialog = dynamic(() => import("./fee-form-dialog").then((m) => m.FeeFormDialog), { ssr: false });
+const PaymentDialog = dynamic(() => import("./payment-dialog").then((m) => m.PaymentDialog), { ssr: false });
+const RemindersDialog = dynamic(() => import("./payments-list/reminders-dialog").then((m) => m.RemindersDialog), {
+  ssr: false,
+});
+const FamilyPaymentDialog = dynamic(
+  () => import("../familles/family-view/family-payment-dialog").then((m) => m.FamilyPaymentDialog),
+  { ssr: false },
+);
+const TuitionPlanDialog = dynamic(
+  () => import("@/components/finance/tuition-plan-dialog").then((m) => m.TuitionPlanDialog),
+  { ssr: false },
+);
 
 export interface FeeRow {
   id: string;
@@ -155,6 +170,11 @@ export function FinanceView({
   const [remindersOpen, setRemindersOpen] = useState(false);
   const [exportRows, setExportRows] = useState<FeeRow[] | null>(null);
   const [familyPayOpen, setFamilyPayOpen] = useState(false);
+  const feeFormLoaded = useOpenedOnce(feeForm != null);
+  const paymentLoaded = useOpenedOnce(paymentFor != null);
+  const remindersLoaded = useOpenedOnce(remindersOpen);
+  const familyPayLoaded = useOpenedOnce(familyPayOpen);
+  const tuitionLoaded = useOpenedOnce(tuitionFor != null);
 
   // Adresse changée ailleurs (menu « Impayés », retour arrière) : la recherche suit.
   useEffect(() => {
@@ -526,7 +546,7 @@ export function FinanceView({
         )}
       </section>
 
-      {familyFilter && (
+      {familyFilter && familyPayLoaded && (
         <FamilyPaymentDialog
           open={familyPayOpen}
           onOpenChange={setFamilyPayOpen}
@@ -542,6 +562,7 @@ export function FinanceView({
         onRecordPayment={openPayment}
         reminderUrl={reminderUrl}
       />
+      {tuitionLoaded && (
       <TuitionPlanDialog
         studentId={tuitionFor}
         students={students.map((s) => ({
@@ -550,24 +571,31 @@ export function FinanceView({
         }))}
         onOpenChange={(open) => !open && setTuitionFor(null)}
       />
+      )}
+      {feeFormLoaded && (
       <FeeFormDialog
         open={feeForm != null}
         onOpenChange={(open) => !open && setFeeForm(null)}
         students={students}
         editTarget={feeForm?.edit ?? null}
       />
+      )}
+      {paymentLoaded && (
       <PaymentDialog
         open={paymentFor != null}
         onOpenChange={(open) => !open && setPaymentFor(null)}
         fees={paymentFor?.fees ?? []}
         feeId={paymentFor?.feeId ?? null}
       />
+      )}
+      {remindersLoaded && (
       <RemindersDialog
         open={remindersOpen}
         onOpenChange={setRemindersOpen}
         fees={selectedFees}
         reminderUrl={reminderUrl}
       />
+      )}
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         onOpenChange={(open) => !open && setDeleteTarget(null)}

@@ -9,6 +9,7 @@ import {
   scheduleDay,
   startOfWeek,
   topWithOthers,
+  monthlyAttendance,
   weeklyAttendance,
 } from "../src/lib/dashboard-data";
 
@@ -84,4 +85,24 @@ test("au-delà des couleurs disponibles, les petites parts sont regroupées", ()
     { label: "Autres", value: 8 },
   ]);
   assert.deepEqual(topWithOthers(data.slice(0, 2), 3, "Autres"), data.slice(0, 2));
+});
+
+test("présence comptée par la base (jour, statut, nombre) : mêmes taux que ligne par ligne", () => {
+  // Une grande école : 300 présents et 100 absents le lundi, 90 retards et 10 absents le mercredi.
+  const grouped = [
+    { date: d("2026-09-07T00:00:00Z"), status: "PRESENT", count: 300 },
+    { date: d("2026-09-07T00:00:00Z"), status: "ABSENT", count: 100 },
+    { date: d("2026-09-09T00:00:00Z"), status: "LATE", count: 90 },
+    { date: d("2026-09-09T00:00:00Z"), status: "ABSENT", count: 10 },
+  ];
+  const oneByOne = grouped.flatMap((g) => Array.from({ length: g.count }, () => ({ date: g.date, status: g.status })));
+  const week = d("2026-09-07T00:00:00Z");
+  assert.deepEqual(weeklyAttendance(grouped, week), [
+    { dayIndex: 0, rate: 75 },
+    { dayIndex: 2, rate: 90 },
+  ]);
+  assert.deepEqual(weeklyAttendance(grouped, week), weeklyAttendance(oneByOne, week));
+  const months = lastMonthKeys(d("2026-09-13T00:00:00Z"), 1);
+  assert.deepEqual(monthlyAttendance(grouped, months), monthlyAttendance(oneByOne, months));
+  assert.equal(monthlyAttendance(grouped, months)[0].rate, 78); // 390 sur 500
 });
