@@ -5,6 +5,7 @@ import { Toaster } from "sonner";
 import { Providers } from "@/components/providers";
 import { ServiceWorkerRegister } from "@/components/pwa/sw-register";
 import { getLocale, isRtlLocale } from "@/lib/i18n/server";
+import { STYLESHEET_RECOVERY_SCRIPT } from "@/lib/stylesheet-recovery";
 import "./globals.css";
 
 const inter = Inter({
@@ -45,6 +46,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       dir={isRtlLocale(locale) ? "rtl" : "ltr"}
       className={`${inter.variable} h-full antialiased`}
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: STYLESHEET_RECOVERY_SCRIPT }} />
+      </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <Providers initialLocale={locale}>{children}</Providers>
         <Toaster position="top-center" richColors />
