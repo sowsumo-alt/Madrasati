@@ -15,7 +15,9 @@
 //   cause du cache.
 
 // Changer ce nom purge l'ancien cache à l'activation (voir « activate »).
-const CACHE_NAME = "madrasati-shell-v3";
+// v4 : purge des fichiers de style qui auraient été remplacés par une page
+// de l'opérateur (crédit épuisé, réseau coupé) — voir isExpectedType.
+const CACHE_NAME = "madrasati-shell-v4";
 const OFFLINE_URL = "/offline.html";
 
 const PRECACHE_URLS = [
@@ -44,6 +46,17 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+// Un fichier .css ou .js n'est gardé que s'il en est vraiment un. Sans cela,
+// une page HTML renvoyée à sa place par l'opérateur mobile (crédit épuisé,
+// portail Wi-Fi) serait gardée et resservie pour toujours : l'application
+// s'afficherait en texte brut, sans style, même après rechargement.
+function isExpectedType(url, response) {
+  const type = (response.headers.get("content-type") || "").toLowerCase();
+  if (url.pathname.endsWith(".css")) return type.includes("text/css");
+  if (url.pathname.endsWith(".js")) return type.includes("javascript");
+  return true;
+}
+
 self.addEventListener("fetch", (event) => {
   const { request } = event;
 
@@ -62,7 +75,7 @@ self.addEventListener("fetch", (event) => {
             // (404 pendant une mise en ligne, panne du serveur) mise en cache
             // serait resservie pour toujours, et la page qui a besoin de ce
             // fichier ne se chargerait plus jamais sur cet appareil.
-            if (response.ok) {
+            if (response.ok && response.type === "basic" && isExpectedType(url, response)) {
               const copy = response.clone();
               caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
             }
