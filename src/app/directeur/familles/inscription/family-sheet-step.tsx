@@ -316,7 +316,7 @@ export function FamilySheetStep({
                     <button
                       type="button"
                       onClick={() => setSelected(next.key)}
-                      className="text-xs font-semibold text-primary-700 hover:underline"
+                      className="inline-flex min-h-11 items-center text-xs font-semibold text-primary-700 hover:underline sm:min-h-0"
                       data-testid="fiche-next-child"
                     >
                       Enfant suivant : {next.firstName} →
@@ -376,7 +376,7 @@ export function FamilySheetStep({
           <div className="flex gap-2 text-xs">
             <button
               type="button"
-              className="rounded-lg border border-border px-2.5 py-1 hover:bg-surface-muted"
+              className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 hover:bg-surface-muted sm:min-h-0 sm:px-2.5 sm:py-1"
               onClick={() =>
                 patch({
                   months: Object.fromEntries(
@@ -392,7 +392,7 @@ export function FamilySheetStep({
             </button>
             <button
               type="button"
-              className="rounded-lg border border-border px-2.5 py-1 hover:bg-surface-muted"
+              className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 hover:bg-surface-muted sm:min-h-0 sm:px-2.5 sm:py-1"
               onClick={() => patch({ months: {} })}
               data-testid="sheet-check-none"
             >
@@ -433,20 +433,24 @@ export function FamilySheetStep({
                         {state.locked || settled ? (
                           <span className="text-xs font-semibold text-emerald-700">✓</span>
                         ) : (
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={(e) =>
-                              setMonth(m, {
-                                checked: e.target.checked,
-                                paid: "",
-                                date: e.target.checked ? row.date ?? draft.lastDate : undefined,
-                              })
-                            }
-                            aria-label={`${monthLabel(new Date(m))} payé`}
-                            className="h-4 w-4 rounded border-border text-primary-700"
-                            data-testid={`sheet-month-${m.slice(0, 7)}`}
-                          />
+                          // Zone de 44 px autour de la case : sur téléphone, cocher
+                          // le bon mois au doigt sans toucher le voisin.
+                          <label className="inline-flex h-11 w-11 cursor-pointer items-center justify-center">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(e) =>
+                                setMonth(m, {
+                                  checked: e.target.checked,
+                                  paid: "",
+                                  date: e.target.checked ? row.date ?? draft.lastDate : undefined,
+                                })
+                              }
+                              aria-label={`${monthLabel(new Date(m))} payé`}
+                              className="h-6 w-6 rounded border-border text-primary-700"
+                              data-testid={`sheet-month-${m.slice(0, 7)}`}
+                            />
+                          </label>
                         )}
                       </td>
                       <td className="px-2 py-1.5 text-foreground/60">
@@ -549,7 +553,7 @@ export function FamilySheetStep({
                               <button
                                 type="button"
                                 onClick={() => setMonth(m, { ...row, split: undefined })}
-                                className="font-medium text-primary-700 hover:underline"
+                                className="inline-flex min-h-11 items-center font-medium text-primary-700 hover:underline sm:min-h-0"
                               >
                                 Revenir à la répartition proposée
                               </button>

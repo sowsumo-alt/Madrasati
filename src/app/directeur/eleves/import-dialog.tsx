@@ -193,7 +193,8 @@ export function ImportDialog({ open, onOpenChange, classes, catalog }: ImportDia
     errors.sort((a, b) => a.row - b.row);
     // Un nom effacé en cours de correction garde sa ligne dans le tableau ;
     // il bloque seulement l'import tant qu'il reste vide.
-    const blank = ready.filter((s) => !s.firstName || !s.lastName).length;
+    // Un nom de famille vide est permis (élève à un seul nom, signalé) ; un prénom vide, non.
+    const blank = ready.filter((s) => !s.firstName).length;
     return { ready, errors, ignored: preview.ignored, blank };
   }, [preview, edits, taken]);
 

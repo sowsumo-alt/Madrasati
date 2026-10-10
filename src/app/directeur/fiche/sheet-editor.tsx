@@ -176,7 +176,7 @@ export function SheetEditor({
             <p className="text-sm text-foreground/60">{title}</p>
           </div>
         </div>
-        <Link href={backHref} className="inline-flex items-center gap-2 text-sm font-medium text-foreground/55 hover:text-foreground">
+        <Link href={backHref} className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-foreground/55 hover:text-foreground sm:min-h-0">
           <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
           Retour
         </Link>

@@ -432,6 +432,9 @@ export const dictionaries = {
     "error.title": "Cette page n'a pas pu s'afficher.",
     "error.hint": "Rechargez la page. Si l'application vient d'être mise à jour, cela suffit à tout remettre en ordre.",
     "error.reload": "Recharger la page",
+    "notFound.title": "Cette page n'existe pas.",
+    "notFound.hint": "Le lien est peut-être ancien ou mal recopié.",
+    "notFound.back": "Retour au tableau de bord",
 
     "finance.title": "Finance",
     "finance.subtitle": "Suivez les frais de scolarité et les paiements.",
@@ -1712,6 +1715,9 @@ export const dictionaries = {
     "error.title": "This page couldn't be displayed.",
     "error.hint": "Reload the page. If the app was just updated, that's all it takes.",
     "error.reload": "Reload the page",
+    "notFound.title": "This page doesn't exist.",
+    "notFound.hint": "The link may be old or mistyped.",
+    "notFound.back": "Back to the dashboard",
 
     "finance.title": "Finance",
     "finance.subtitle": "Track tuition fees and payments.",
@@ -2990,6 +2996,9 @@ export const dictionaries = {
     "error.title": "تعذّر عرض هذه الصفحة.",
     "error.hint": "أعد تحميل الصفحة. إذا تم تحديث التطبيق للتو، فهذا يكفي لإصلاح الأمر.",
     "error.reload": "إعادة تحميل الصفحة",
+    "notFound.title": "هذه الصفحة غير موجودة.",
+    "notFound.hint": "ربما يكون الرابط قديمًا أو منسوخًا بشكل خاطئ.",
+    "notFound.back": "العودة إلى لوحة القيادة",
 
     "finance.title": "المالية",
     "finance.subtitle": "تابع الرسوم الدراسية والمدفوعات.",

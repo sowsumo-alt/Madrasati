@@ -57,10 +57,12 @@ export function ImagePicker({
   }
 
   return (
-    <div className="flex items-center gap-4">
+    // flex-wrap : sur téléphone, les boutons passent sous un logo large au
+    // lieu de sortir de l'écran.
+    <div className="flex flex-wrap items-center gap-4">
       <div
         className={`flex h-20 shrink-0 items-center justify-center overflow-hidden border border-border ${
-          wide ? "w-60 bg-white p-1" : "w-20 bg-surface-muted"
+          wide ? "w-60 max-w-full bg-white p-1" : "w-20 bg-surface-muted"
         } ${shape === "circle" ? "rounded-full" : "rounded-lg"}`}
       >
         {value ? (

@@ -132,3 +132,47 @@ test("un même NNI deux fois dans le fichier est signalé en erreur", () => {
   assert.equal(preview.students.length, 1);
   assert.equal(preview.errors[0].reason, "NNI déjà présent ligne 2");
 });
+
+test("une date de naissance impossible (31/02) n'est jamais enregistrée à un autre jour", () => {
+  assert.equal(parseBirthDate("31/02/2012"), null);
+  assert.equal(parseBirthDate("2013-02-29"), null);
+  assert.equal(parseBirthDate("31/04/2015"), null);
+  assert.equal(parseBirthDate("29/02/2012"), "2012-02-29");
+  const rows: ImportCell[][] = [
+    ["N°", "Prénoms et Nom", "Lieu et date de naissance"],
+    [1, "Aicha Mint Brahim", "Rosso le 31/02/2012"],
+  ];
+  const [aicha] = buildImportPreview(rows, 0, ["number", "fullName", "birthPlaceDate"]).students;
+  assert.equal(aicha.dateOfBirth, null);
+  assert.equal(aicha.placeOfBirth, "Rosso");
+  assert.deepEqual(aicha.warnings, ["Date de naissance impossible (ex. 31/02), laissée vide"]);
+});
+
+test("le lieu de naissance perd « à » et « née », lettres accentuées comprises", () => {
+  assert.deepEqual(splitBirthPlaceDate("12/03/2012 à Nouakchott"), { place: "Nouakchott", date: "2012-03-12" });
+  assert.equal(splitBirthPlaceDate("Née à Kiffa le 05/11/2014").place, "Kiffa");
+  assert.equal(splitBirthPlaceDate("Atar").place, "Atar");
+});
+
+test("un élève à un seul nom est importé, avec un avertissement", () => {
+  const rows: ImportCell[][] = [
+    ["N°", "Prénoms et Nom"],
+    [1, "Sidi"],
+  ];
+  const preview = buildImportPreview(rows, 0, ["number", "fullName"]);
+  assert.deepEqual(preview.errors, []);
+  assert.equal(preview.students[0].firstName, "Sidi");
+  assert.equal(preview.students[0].lastName, "");
+  assert.deepEqual(preview.students[0].warnings, ["Un seul nom : nom de famille à compléter sur la fiche"]);
+});
+
+test("une formule Excel à la place du nom n'est jamais importée", () => {
+  const rows: ImportCell[][] = [
+    ["N°", "Prénoms et Nom"],
+    [1, '=HYPERLINK("https://piege.example","Cliquez")'],
+    [2, "+Ahmed Salem"],
+  ];
+  const preview = buildImportPreview(rows, 0, ["number", "fullName"]);
+  assert.equal(preview.students.length, 0);
+  assert.deepEqual(preview.errors.map((e) => e.reason), ["Formule Excel à la place du nom", "Formule Excel à la place du nom"]);
+});

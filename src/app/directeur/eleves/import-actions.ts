@@ -17,9 +17,13 @@ import { UserError, asResult } from "@/lib/user-error";
  * corrigé la liste avant d'arriver ici : tout le fichier entre, ou rien.
  */
 
+// Une formule Excel (« =HYPERLINK(…) ») n'est jamais enregistrée comme nom.
+const notFormula = (v: string) => !/^[=+\-@]/.test(v);
+
 const studentSchema = z.object({
-  firstName: z.string().trim().min(1).max(80),
-  lastName: z.string().trim().min(1).max(80),
+  firstName: z.string().trim().min(1).max(80).refine(notFormula, "Nom invalide"),
+  // Vide pour un élève à un seul nom (« Sidi ») : à compléter sur la fiche.
+  lastName: z.string().trim().max(80).refine(notFormula, "Nom invalide"),
   dateOfBirth: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -164,7 +168,7 @@ async function importStudentListUnsafe(input: StudentImportInput) {
                 data: {
                   schoolId,
                   firstName: "Parent",
-                  lastName: s.lastName,
+                  lastName: s.lastName || s.firstName,
                   phone: storedPhone(s.phone),
                 },
                 select: { id: true },

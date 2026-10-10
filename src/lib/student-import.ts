@@ -143,10 +143,16 @@ export function parseBirthDate(value: unknown): string | null {
   return null;
 }
 
+/** Une date qui existe vraiment : « 31/02/2012 » n'en est pas une (elle deviendrait le 2 mars). */
 function isoDate(year: number, month: number, day: number): string | null {
   if (year < 1950 || year > 2100 || month < 1 || month > 12 || day < 1 || day > 31) return null;
+  const d = new Date(Date.UTC(year, month - 1, day));
+  if (d.getUTCMonth() !== month - 1 || d.getUTCDate() !== day) return null;
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
+
+/** Une date écrite dans la cellule (« 31/02/2012 »), lisible ou non. */
+const DATE_TEXT = /\d{1,2}[/.-]\d{1,2}[/.-]\d{4}|\d{4}-\d{1,2}-\d{1,2}/;
 
 /** « Nouakchott le 12/03/2019 », « 12/03/2019 à Kiffa » → lieu et date. */
 export function splitBirthPlaceDate(value: unknown): { place: string | null; date: string | null } {
@@ -155,7 +161,9 @@ export function splitBirthPlaceDate(value: unknown): { place: string | null; dat
   const date = parseBirthDate(text);
   const place = text
     .replace(/\d{1,2}[/.-]\d{1,2}[/.-]\d{4}|\d{4}-\d{1,2}-\d{1,2}|\b(19|20)\d{2}\b/g, " ")
-    .replace(/\b(le|la|a|à|en|vers|né|née|ne|nee)\b/gi, " ")
+    // Mots de liaison retirés, accentués compris (« à », « née ») : \b ne
+    // reconnaît pas les lettres accentuées, d'où les espaces explicites.
+    .replace(/(^|\s)(le|la|a|à|en|vers|né|née|ne|nee)(?=\s|$)/giu, " ")
     .replace(/[,;/()-]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -276,9 +284,12 @@ export function buildImportPreview(
       else preview.ignored.push({ row, reason: "Ligne sans élève", text: line });
       continue;
     }
+    const warnings: string[] = [];
     if (!firstName || !lastName) {
-      preview.errors.push({ row, reason: "Prénom ou nom manquant", text: line });
-      continue;
+      // Un seul nom (« Sidi ») : l'élève est importé, nom de famille à compléter.
+      firstName = firstName || lastName;
+      lastName = "";
+      warnings.push("Un seul nom : nom de famille à compléter sur la fiche");
     }
     // Un nom avec des chiffres (« Total 40 ») n'est pas un élève : on le
     // montre au directeur plutôt que de l'inscrire.
@@ -286,8 +297,12 @@ export function buildImportPreview(
       preview.errors.push({ row, reason: "Nom avec des chiffres (ligne de total ?)", text: line });
       continue;
     }
+    // Une formule Excel (« =HYPERLINK(…) ») n'est pas un nom : signalée, jamais importée.
+    if (/^[=+\-@]/.test(firstName) || /^[=+\-@]/.test(lastName)) {
+      preview.errors.push({ row, reason: "Formule Excel à la place du nom", text: line });
+      continue;
+    }
 
-    const warnings: string[] = [];
     let dateOfBirth = parseBirthDate(cell(r, "dateOfBirth"));
     let placeOfBirth = text(cell(r, "placeOfBirth")) || null;
     const both = cell(r, "birthPlaceDate");
@@ -298,6 +313,8 @@ export function buildImportPreview(
     }
     if (col("dateOfBirth") !== -1 && text(cell(r, "dateOfBirth")) && !dateOfBirth) {
       warnings.push("Date de naissance illisible");
+    } else if (!dateOfBirth && both != null && DATE_TEXT.test(text(both))) {
+      warnings.push("Date de naissance impossible (ex. 31/02), laissée vide");
     }
 
     const rawNni = text(cell(r, "nni"));
