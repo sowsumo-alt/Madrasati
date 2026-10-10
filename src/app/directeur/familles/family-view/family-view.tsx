@@ -32,6 +32,7 @@ import { FamilyPaymentDialog } from "./family-payment-dialog";
 import { AttachStudentDialog, CandidateRow, useAttach } from "./attach-student-dialog";
 import { RenameFamilyDialog } from "./rename-family-dialog";
 import { RemovalDialog } from "../removal-dialog";
+import { FamilyExportButton } from "./family-export-button";
 import type { FamilyPageData } from "./types";
 
 function displayPhone(phone: string) {
@@ -134,6 +135,7 @@ export function FamilyView({ data }: { data: FamilyPageData }) {
             <Link2 className="h-4 w-4" />
             {t("family.attachStudent")}
           </Button>
+          <FamilyExportButton parentId={data.parentId} />
           {/* La fiche papier recopiée ligne par ligne, pour des élèves déjà inscrits. */}
           <Link
             href={`/directeur/fiche?famille=${data.parentId}`}

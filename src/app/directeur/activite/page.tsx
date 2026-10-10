@@ -18,6 +18,7 @@ const ACTION_STYLE: Record<ActivityAction, string> = {
   ENROLL: "bg-primary-50 text-primary-700",
   SHEET: "bg-blue-50 text-blue-700",
   USER: "bg-violet-50 text-violet-700",
+  EXPORT: "bg-slate-100 text-slate-700",
 };
 
 /**

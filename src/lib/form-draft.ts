@@ -16,6 +16,14 @@ import { useEffect, useRef } from "react";
 
 const PREFIX = "madrasati:brouillon:";
 
+/**
+ * Un brouillon contient l'identité d'un enfant (nom, naissance, NNI, parent) :
+ * au-delà de 7 jours il n'est plus repris, et il est effacé à la déconnexion
+ * (signOutAndForget) — sur l'ordinateur partagé d'un secrétariat, la personne
+ * suivante ne retrouve rien.
+ */
+const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
 export interface StoredDraft<T> {
   data: T;
   /** Date de la dernière sauvegarde, en millisecondes. */
@@ -27,7 +35,12 @@ export function loadDraft<T>(key: string): StoredDraft<T> | null {
     const raw = window.localStorage.getItem(PREFIX + key);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as StoredDraft<T>;
-    return parsed && typeof parsed.savedAt === "number" && parsed.data ? parsed : null;
+    if (!parsed || typeof parsed.savedAt !== "number" || !parsed.data) return null;
+    if (Date.now() - parsed.savedAt > MAX_AGE_MS) {
+      window.localStorage.removeItem(PREFIX + key);
+      return null;
+    }
+    return parsed;
   } catch {
     return null;
   }
@@ -39,6 +52,20 @@ export function saveDraft<T>(key: string, data: T) {
   } catch {
     // Stockage plein ou bloqué (navigation privée) : le formulaire marche
     // quand même, sans brouillon.
+  }
+}
+
+/** Efface tous les brouillons de formulaires (déconnexion). */
+export function clearAllDrafts() {
+  try {
+    const keys: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const key = window.localStorage.key(i);
+      if (key?.startsWith(PREFIX)) keys.push(key);
+    }
+    for (const key of keys) window.localStorage.removeItem(key);
+  } catch {
+    // Stockage indisponible : il n'y avait rien à effacer.
   }
 }
 

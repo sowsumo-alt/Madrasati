@@ -101,6 +101,10 @@ export function CommentEditor({
         </div>
       </div>
 
+      {aiEnabled && (
+        <p className="no-print text-xs text-foreground/50">{t("bulletin.aiPrivacy")}</p>
+      )}
+
       {/* Saisie — masquée à l'impression */}
       <div className="no-print grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>

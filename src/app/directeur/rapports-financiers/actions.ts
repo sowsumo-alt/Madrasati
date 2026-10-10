@@ -1,6 +1,7 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
+import { basePrisma, prisma } from "@/lib/prisma";
+import { ACTIVITY_ACTIONS, logActivity } from "@/lib/activity";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { PAYMENT_METHOD_LABELS, type PaymentMethod } from "@/lib/payment-methods";
@@ -29,6 +30,15 @@ export async function financialReportRows(yearId: string, month: string | null) 
       fee: { select: { label: true } },
       student: { select: { firstName: true, lastName: true, classRoom: { select: { name: true } } } },
     },
+  });
+  // Qui a exporté quoi : la liste des élèves et des montants quitte l'application.
+  // Écrit hors de la garde « lecture seule » : un associé en lecture seule peut
+  // exporter, et la trace de son export doit rester.
+  await logActivity(basePrisma, {
+    schoolId: user.schoolId,
+    userId: user.id,
+    action: ACTIVITY_ACTIONS.EXPORT,
+    summary: `Export Excel des encaissements — ${month ? `mois ${month}` : "année entière"} (${payments.length} ligne(s))`,
   });
   return payments.map((p) => ({
     Date: p.paidAt.toISOString().slice(0, 10),

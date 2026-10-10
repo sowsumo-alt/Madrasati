@@ -14,6 +14,7 @@ export const ACTIVITY_ACTIONS = {
   ENROLL: "ENROLL",
   SHEET: "SHEET",
   USER: "USER",
+  EXPORT: "EXPORT",
 } as const;
 export type ActivityAction = (typeof ACTIVITY_ACTIONS)[keyof typeof ACTIVITY_ACTIONS];
 
@@ -25,6 +26,7 @@ export const ACTIVITY_LABELS: Record<ActivityAction, string> = {
   ENROLL: "Inscription",
   SHEET: "Fiche de paiement",
   USER: "Comptes",
+  EXPORT: "Export",
 };
 
 export async function logActivity(

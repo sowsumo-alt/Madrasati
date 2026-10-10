@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect } from "react";
-import { signOut } from "next-auth/react";
 import { useLanguage } from "@/lib/i18n/language-provider";
+import { signOutAndForget } from "@/lib/sign-out";
 
 export function SessionExpired({ loginUrl }: { loginUrl: string }) {
   const { t } = useLanguage();
   useEffect(() => {
-    void signOut({ callbackUrl: loginUrl });
+    void signOutAndForget(loginUrl);
   }, [loginUrl]);
   return (
     <main className="flex min-h-screen items-center justify-center px-4">

@@ -1,8 +1,8 @@
 "use client";
 
-import { signOut } from "next-auth/react";
 import { GraduationCap, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { signOutAndForget } from "@/lib/sign-out";
 
 export function ComingSoon({
   title,
@@ -26,7 +26,7 @@ export function ComingSoon({
       <Button
         variant="secondary"
         className="mt-6"
-        onClick={() => signOut({ callbackUrl: "/login" })}
+        onClick={() => signOutAndForget("/login")}
       >
         <LogOut className="h-4 w-4" />
         Déconnexion

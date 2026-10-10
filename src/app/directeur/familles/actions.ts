@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { UserError, asResult, type ActionResult } from "@/lib/user-error";
 import { assertNnisAvailable } from "@/lib/nni-data";
@@ -100,7 +100,11 @@ export async function enrollFamilyChecked(
   try {
     return await asResult(() => enrollFamily(values, submissionKey));
   } catch (e) {
-    console.error("Inscription de famille échouée", e);
+    // Le type et le code seulement : le message d'erreur de la base peut
+    // reprendre les valeurs saisies (noms, téléphones), qui n'ont rien à faire
+    // dans les journaux du serveur.
+    const code = e instanceof Prisma.PrismaClientKnownRequestError ? e.code : "";
+    console.error("Inscription de famille échouée :", e instanceof Error ? e.name : "erreur", code);
     return {
       ok: false,
       error:

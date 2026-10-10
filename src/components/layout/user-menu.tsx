@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { signOut } from "next-auth/react";
 import { ChevronDown, LogOut, UserRound } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import {
@@ -10,6 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { signOutAndForget } from "@/lib/sign-out";
 
 /**
  * Avatar, nom et rôle de la personne connectée. Le menu rappelle l'école et
@@ -53,7 +53,7 @@ export function UserMenu({
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem
-          onSelect={() => signOut({ callbackUrl: "/login" })}
+          onSelect={() => signOutAndForget("/login")}
           className="text-danger"
         >
           <LogOut className="h-4 w-4" />

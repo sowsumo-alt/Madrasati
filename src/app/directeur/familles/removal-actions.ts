@@ -89,7 +89,8 @@ export async function removeAction(input: z.infer<typeof removeSchema>) {
           action: data.mode === "DELETE" ? ACTIVITY_ACTIONS.DELETE : ACTIVITY_ACTIONS.ARCHIVE,
           summary:
             data.mode === "DELETE"
-              ? `${what} supprimé(e) définitivement : ${preview.name}${preview.payments > 0 ? ` — ${preview.payments} paiement(s) effacé(s)` : ""}`
+              ? // Sans le nom : la suppression définitive efface aussi les noms du journal.
+                `${what} supprimé(e) définitivement${preview.payments > 0 ? ` — ${preview.payments} paiement(s) effacé(s)` : ""}`
               : `${what} archivé(e) : ${preview.name}`,
           amount: data.mode === "DELETE" && preview.paidTotal > 0 ? preview.paidTotal : null,
         });

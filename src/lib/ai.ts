@@ -16,6 +16,7 @@ const SYSTEM_PROMPT = `Tu rédiges l'appréciation trimestrielle d'un bulletin s
 Écris UNE SEULE phrase, courte (25 mots maximum). Retiens l'essentiel : le niveau général, et soit la matière la plus forte, soit celle à travailler. Termine si possible par un conseil bref.
 
 Reste factuel et bienveillant : pas de flatterie, pas de jugement sur l'élève lui-même, pas de promesse sur ses résultats futurs. N'invente aucune donnée absente du relevé.
+L'élève est désigné par un code anonyme : n'écris jamais ce code, dis « l'élève » (en arabe : « التلميذ »).
 
 Fournis ensuite la traduction fidèle de cette même phrase en arabe littéraire.`;
 
@@ -28,7 +29,14 @@ const RESPONSE_SCHEMA = {
   required: ["fr", "ar"],
 } as const;
 
-function formatCard(card: ReportCard) {
+/**
+ * Code anonyme de l'élève dans le texte envoyé à Google : ni son nom, ni son
+ * prénom, ni son identifiant ne quittent Madrasati (données de mineurs).
+ */
+export const AI_STUDENT_CODE = "ELV001";
+
+/** Le relevé envoyé à l'IA : notes, moyennes, rang et assiduité, sous un code anonyme. */
+export function aiPrompt(card: ReportCard) {
   const lines = card.results.map((r) => {
     const own = r.average != null ? r.average.toFixed(2) : "aucune note";
     const cls = r.classAverage != null ? r.classAverage.toFixed(2) : "—";
@@ -36,7 +44,7 @@ function formatCard(card: ReportCard) {
   });
 
   return [
-    `Élève : ${card.student.firstName} ${card.student.lastName}`,
+    `Élève : ${AI_STUDENT_CODE}`,
     `Classe : ${card.className}`,
     `Période : ${card.term}`,
     `Moyenne générale pondérée : ${card.average != null ? `${card.average.toFixed(2)}/20` : "non calculable"}`,
@@ -62,7 +70,7 @@ export async function generateAppreciation(card: ReportCard): Promise<Appreciati
 
   const response = await ai.models.generateContent({
     model: process.env.GEMINI_MODEL || DEFAULT_MODEL,
-    contents: formatCard(card),
+    contents: aiPrompt(card),
     config: {
       systemInstruction: SYSTEM_PROMPT,
       maxOutputTokens: 2048,
@@ -85,8 +93,18 @@ export async function generateAppreciation(card: ReportCard): Promise<Appreciati
     throw new Error("Réponse illisible. Réessayez.");
   }
 
-  const fr = parsed.fr?.trim();
+  const fr = cleanAppreciation(parsed.fr?.trim() ?? "", "fr");
   if (!fr) throw new Error("Réponse incomplète. Réessayez.");
 
-  return { fr, ar: parsed.ar?.trim() ?? "" };
+  return { fr, ar: cleanAppreciation(parsed.ar?.trim() ?? "", "ar") };
+}
+
+/** Si le code anonyme revient malgré la consigne, il devient « l'élève » (« التلميذ »). */
+export function cleanAppreciation(text: string, lang: "fr" | "ar"): string {
+  if (!text.includes(AI_STUDENT_CODE)) return text;
+  if (lang === "ar") return text.split(AI_STUDENT_CODE).join("التلميذ");
+  return text
+    .replace(new RegExp(`^${AI_STUDENT_CODE}`), "L'élève")
+    .split(AI_STUDENT_CODE)
+    .join("l'élève");
 }

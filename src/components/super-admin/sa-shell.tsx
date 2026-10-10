@@ -3,7 +3,6 @@
 import { Suspense, createContext, useContext, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { signOut } from "next-auth/react";
 import { Bell, ChevronDown, LogOut, Menu, Moon, Search, Stamp, Sun, X } from "lucide-react";
 import {
   DropdownMenu,
@@ -14,6 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import { SaSidebar } from "./sa-sidebar";
 import { SA_THEME_COOKIE, type SaTheme } from "./theme";
+import { signOutAndForget } from "@/lib/sign-out";
 
 
 const SaThemeContext = createContext<SaTheme>("dark");
@@ -221,7 +221,7 @@ function SaTopbar({
                   Bloc officiel des bulletins
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => signOut({ callbackUrl: "/super-admin/login" })} className="text-danger">
+              <DropdownMenuItem onSelect={() => signOutAndForget("/super-admin/login")} className="text-danger">
                 <LogOut className="h-4 w-4" />
                 Se déconnecter
               </DropdownMenuItem>

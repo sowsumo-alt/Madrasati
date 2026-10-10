@@ -22,11 +22,29 @@ export async function archiveStudents(tx: Prisma.TransactionClient, schoolId: st
   await reattachFamilySheets(tx, studentIds);
 }
 
+/**
+ * Suppression définitive : le journal d'activité garde la trace (qui, quand,
+ * combien) mais oublie les noms. Chaque nom complet est remplacé, en mot
+ * entier seulement — « Ali Ba » ne touche pas « Ali Bakary ».
+ */
+async function forgetNamesInJournal(tx: Prisma.TransactionClient, schoolId: string, names: string[], replacement: string) {
+  const unique = [...new Set(names.map((n) => n.replace(/\s+/g, " ").trim()))].filter((n) => n.length >= 3);
+  for (const name of unique) {
+    // Expression Postgres : \m et \M bornent un mot entier ; le nom est échappé.
+    const pattern = `\\m${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\M`;
+    await tx.$executeRaw`UPDATE activity_logs SET summary = regexp_replace(summary, ${pattern}, ${replacement}, 'g')
+      WHERE "schoolId" = ${schoolId} AND strpos(summary, ${name}) > 0`;
+  }
+}
+
 export async function deleteStudents(tx: Prisma.TransactionClient, schoolId: string, studentIds: string[]) {
-  const ids = (
-    await tx.student.findMany({ where: { id: { in: studentIds }, schoolId }, select: { id: true } })
-  ).map((s) => s.id);
+  const found = await tx.student.findMany({
+    where: { id: { in: studentIds }, schoolId },
+    select: { id: true, firstName: true, lastName: true },
+  });
+  const ids = found.map((s) => s.id);
   if (ids.length === 0) return { students: 0 };
+  await forgetNamesInJournal(tx, schoolId, found.map((s) => `${s.firstName} ${s.lastName}`), "(élève supprimé)");
 
   // La fiche familiale d'abord : elle passe à un enfant qui reste, s'il y en a.
   await archiveStudents(tx, schoolId, ids);
@@ -57,9 +75,11 @@ export async function deleteStudents(tx: Prisma.TransactionClient, schoolId: str
 export async function deleteFamily(tx: Prisma.TransactionClient, schoolId: string, parentId: string) {
   const parent = await tx.parent.findFirst({
     where: { id: parentId, schoolId },
-    select: { id: true, userId: true, studentLinks: { select: { studentId: true } } },
+    select: { id: true, userId: true, firstName: true, lastName: true, familyName: true, studentLinks: { select: { studentId: true } } },
   });
   if (!parent) return { students: 0 };
+  await forgetNamesInJournal(tx, schoolId, [`${parent.firstName} ${parent.lastName}`], "(parent supprimé)");
+  if (parent.familyName) await forgetNamesInJournal(tx, schoolId, [parent.familyName], "(famille supprimée)");
   // Seuls les enfants qui n'appartiennent à aucune autre famille partent avec elle.
   const childIds = parent.studentLinks.map((l) => l.studentId);
   const shared = await tx.studentParent.findMany({

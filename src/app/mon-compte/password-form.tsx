@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { changeOwnPassword } from "./actions";
 import { PASSWORD_MIN_LENGTH } from "@/lib/account";
-import { signOut } from "next-auth/react";
+import { signOutAndForget } from "@/lib/sign-out";
 
 const schema = z
   .object({
@@ -44,7 +44,7 @@ export function PasswordForm() {
       toast.success("Mot de passe modifié. Reconnectez-vous avec votre nouveau mot de passe.");
       reset({ currentPassword: "", newPassword: "", confirmPassword: "" });
       // Les anciennes sessions sont fermées (celle-ci comprise) : nouvelle connexion.
-      await signOut({ callbackUrl: "/login" });
+      await signOutAndForget("/login");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Une erreur est survenue.");
     }
