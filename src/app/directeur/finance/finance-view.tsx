@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { flushSync } from "react-dom";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -19,17 +19,19 @@ import {
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ListPagination } from "@/components/ui/list-pagination";
-import { AlphabetFilter, matchesLetter } from "@/components/ui/alphabet-filter";
+import { AlphabetFilter } from "@/components/ui/alphabet-filter";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { formatAmount, formatDateIn, formatLongDate, formatLongDateAr, formatMRU } from "@/lib/format";
 import { buildWhatsAppUrl, fillTemplate, schoolSignatureAr, schoolSignatureFr, withArabic } from "@/lib/whatsapp";
 import type { FeeDisplayStatus } from "@/lib/fee-status";
-import { matchesFeeFilters, type FeeListFilters, type PaymentStatusFilter } from "@/lib/payments-list";
+import type { FeeListFilters } from "@/lib/payments-list";
+import { PAYMENTS_PAGE_SIZE, paymentsParamsOf, type PaymentsListState } from "@/lib/payments-query";
 import { exportElementToPdf } from "@/lib/pdf-export";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { FeeFormDialog, type FeeEditTarget, type FeeStudentOption } from "./fee-form-dialog";
 import { PaymentDialog } from "./payment-dialog";
 import { deleteFee } from "./actions";
+import { openFeesForPayment, paymentRowsForExport } from "./payments-list-actions";
 import { PaymentsToolbar } from "./payments-list/payments-toolbar";
 import { PaymentsTable, type FeeRowActions } from "./payments-list/payments-table";
 import { PaymentsBulkBar } from "./payments-list/payments-bulk-bar";
@@ -96,104 +98,103 @@ export interface PaymentsKpis {
   rate: number | null;
 }
 
-const PAGE_SIZE = 10;
-
 export function FinanceView({
-  fees,
+  state,
+  rows,
+  total,
+  pageCount,
+  hasFees,
+  hasUnsettled,
+  letters,
+  classes,
+  family,
   kpis,
   students,
   schoolName,
   reminderTemplate,
   reminderTemplateAr,
-  initialStatus = "ALL",
-  initialFamilyFilter = null,
 }: {
-  fees: FeeRow[];
+  /** Filtres, lettre, famille et page lus dans l'adresse (voir lib/payments-query). */
+  state: PaymentsListState;
+  /** Les lignes de la page affichée seulement. */
+  rows: FeeRow[];
+  /** Nombre de lignes de toute la liste filtrée. */
+  total: number;
+  pageCount: number;
+  /** L'école a-t-elle au moins un frais (sinon : liste vide, pas « aucun résultat ») ? */
+  hasFees: boolean;
+  hasUnsettled: boolean;
+  /** Lettres du filtre A-Z qui ont au moins un élève. */
+  letters: string[];
+  classes: { id: string; name: string }[];
+  /** Famille filtrée (?famille=<parentId>) : son parent et ses frais encore dus. */
+  family: { parent: NonNullable<FeeRow["parent"]>; openFees: FamilyOpenFee[] } | null;
   kpis: PaymentsKpis;
   students: FeeStudentOption[];
   schoolName: string;
   reminderTemplate: string;
   reminderTemplateAr?: string;
-  /** Filtre au premier affichage (voir le lien « Impayés » du menu). */
-  initialStatus?: PaymentStatusFilter;
-  /** Famille présélectionnée (?famille=<parentId>). */
-  initialFamilyFilter?: string | null;
 }) {
   const { t, locale } = useLanguage();
   const router = useRouter();
-  const [filters, setFilters] = useState<FeeListFilters>({
-    query: "",
-    classId: "ALL",
-    status: initialStatus,
-    method: "ALL",
-    from: "",
-    to: "",
-  });
+  const [isNavigating, startNavigation] = useTransition();
+  // La recherche est tapée ici puis envoyée au serveur après une courte pause.
+  const [query, setQuery] = useState(state.filters.query);
+  const pushedQuery = useRef(state.filters.query);
   const [panelOpen, setPanelOpen] = useState(false);
-  const [letter, setLetter] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
-  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  // Sélection gardée d'une page à l'autre : la ligne entière, pour les rappels et l'export.
+  const [selected, setSelected] = useState<Map<string, FeeRow>>(() => new Map());
   const [detailId, setDetailId] = useState<string | null>(null);
   const [feeForm, setFeeForm] = useState<{ edit: FeeEditTarget | null } | null>(null);
   // "" : la fenêtre est ouverte et le directeur choisit l'élève.
   const [tuitionFor, setTuitionFor] = useState<string | null>(null);
-  const [paymentFor, setPaymentFor] = useState<{ feeId: string | null } | null>(null);
+  const [paymentFor, setPaymentFor] = useState<{ feeId: string | null; fees: FeeRow[] } | null>(null);
+  const [loadingPayment, setLoadingPayment] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<FeeRow | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [remindersOpen, setRemindersOpen] = useState(false);
   const [exportRows, setExportRows] = useState<FeeRow[] | null>(null);
-  const [familyFilter, setFamilyFilter] = useState<string | null>(initialFamilyFilter);
   const [familyPayOpen, setFamilyPayOpen] = useState(false);
 
-  const classes = useMemo(() => {
-    const names = new Map<string, string>();
-    for (const f of fees) {
-      if (f.student.classId && f.student.className) names.set(f.student.classId, f.student.className);
+  // Adresse changée ailleurs (menu « Impayés », retour arrière) : la recherche suit.
+  useEffect(() => {
+    if (state.filters.query !== pushedQuery.current) {
+      pushedQuery.current = state.filters.query;
+      setQuery(state.filters.query);
     }
-    return [...names.entries()]
-      .map(([id, name]) => ({ id, name }))
-      .sort((a, b) => a.name.localeCompare(b.name, "fr"));
-  }, [fees]);
+  }, [state.filters.query]);
 
-  const filtered = useMemo(
-    () =>
-      fees.filter(
-        (f) =>
-          matchesFeeFilters(f, filters) &&
-          matchesLetter(`${f.student.firstName} ${f.student.lastName}`, letter) &&
-          (!familyFilter || f.parent?.id === familyFilter),
-      ),
-    [fees, filters, letter, familyFilter],
-  );
+  /** Nouvel état de la liste : l'adresse change, le serveur renvoie la page. */
+  function navigate(next: PaymentsListState) {
+    pushedQuery.current = next.filters.query;
+    const qs = paymentsParamsOf(next);
+    startNavigation(() => router.replace(`/directeur/finance${qs ? `?${qs}` : ""}`, { scroll: false }));
+  }
 
-  // Famille affichée : son parent, et ses frais encore dus pour le paiement
-  // familial (un seul versement, un seul reçu).
-  const familyParent = familyFilter
-    ? (fees.find((f) => f.parent?.id === familyFilter)?.parent ?? null)
-    : null;
-  const familyOpenFees: FamilyOpenFee[] = familyFilter
-    ? fees
-        .filter((f) => f.parent?.id === familyFilter && f.remaining > 0)
-        .map((f) => ({
-          feeId: f.id,
-          studentId: f.student.id,
-          studentName: `${f.student.firstName} ${f.student.lastName}`,
-          className: f.student.className,
-          label: f.label,
-          remaining: f.remaining,
-        }))
-    : [];
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const currentPage = Math.min(page, pageCount);
-  const pageRows = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-  const selectedFees = fees.filter((f) => selected.has(f.id));
-  const detailFee = fees.find((f) => f.id === detailId) ?? null;
-  const hasUnsettled = fees.some((f) => f.remaining > 0);
+  useEffect(() => {
+    if (query === pushedQuery.current) return;
+    const timer = setTimeout(() => navigate({ ...state, filters: { ...state.filters, query }, page: 1 }), 350);
+    return () => clearTimeout(timer);
+    // navigate et state sont relus à chaque frappe ; seule la saisie déclenche.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]);
+
+  const filters: FeeListFilters = { ...state.filters, query };
+  const currentPage = state.page;
+  const pageRows = rows;
+  const selectedFees = [...selected.values()];
+  const detailFee = rows.find((f) => f.id === detailId) ?? selected.get(detailId ?? "") ?? null;
+  const familyFilter = family ? state.family : null;
+  const familyParent = family?.parent ?? null;
+  const familyOpenFees = family?.openFees ?? [];
 
   /** Tout changement de filtre ramène à la première page. */
   function updateFilters(patch: Partial<FeeListFilters>) {
-    setFilters((prev) => ({ ...prev, ...patch }));
-    setPage(1);
+    if ("query" in patch) {
+      setQuery(patch.query ?? "");
+      if (Object.keys(patch).length === 1) return;
+    }
+    navigate({ ...state, filters: { ...state.filters, query, ...patch }, page: 1 });
   }
 
   const schoolFr = schoolSignatureFr(schoolName);
@@ -226,18 +227,19 @@ export function FinanceView({
 
   function toggleRow(id: string) {
     setSelected((prev) => {
-      const next = new Set(prev);
+      const next = new Map(prev);
+      const row = rows.find((f) => f.id === id);
       if (next.has(id)) next.delete(id);
-      else next.add(id);
+      else if (row) next.set(id, row);
       return next;
     });
   }
 
   function togglePage(checked: boolean) {
     setSelected((prev) => {
-      const next = new Set(prev);
+      const next = new Map(prev);
       for (const f of pageRows) {
-        if (checked) next.add(f.id);
+        if (checked) next.set(f.id, f);
         else next.delete(f.id);
       }
       return next;
@@ -259,9 +261,26 @@ export function FinanceView({
     });
   }
 
-  function openPayment(fee: FeeRow | null) {
+  /**
+   * La fenêtre de paiement a besoin des frais encore dus (ceux de l'élève,
+   * ou de toute l'école pour « Nouveau paiement ») : chargés à la demande,
+   * puis la fenêtre s'ouvre — jamais de montant saisi remplacé en cours de route.
+   */
+  async function openPayment(fee: FeeRow | null) {
     setDetailId(null);
-    setPaymentFor({ feeId: fee?.id ?? null });
+    if (loadingPayment) return;
+    setLoadingPayment(true);
+    const wait = toast.loading(t("common.loading"));
+    try {
+      const open = await openFeesForPayment(fee?.student.id);
+      const fees = fee && !open.some((f) => f.id === fee.id) ? [fee, ...open] : open;
+      setPaymentFor({ feeId: fee?.id ?? null, fees });
+    } catch {
+      toast.error(t("common.error"));
+    } finally {
+      toast.dismiss(wait);
+      setLoadingPayment(false);
+    }
   }
 
   const actions: FeeRowActions = {
@@ -270,10 +289,7 @@ export function FinanceView({
     onRecordPayment: openPayment,
     onDelete: setDeleteTarget,
     reminderUrl,
-    onFamily: (parentId) => {
-      setFamilyFilter(parentId);
-      setPage(1);
-    },
+    onFamily: (parentId) => navigate({ ...state, family: parentId, page: 1 }),
   };
 
   /**
@@ -288,7 +304,7 @@ export function FinanceView({
       await deleteFee(deleteTarget.id);
       toast.success(t("finance.feeDeleted"));
       setSelected((prev) => {
-        const next = new Set(prev);
+        const next = new Map(prev);
         next.delete(deleteTarget.id);
         return next;
       });
@@ -302,13 +318,21 @@ export function FinanceView({
   }
 
   /**
-   * Export PDF de lignes données : toute la liste filtrée, ou la sélection.
-   * Le document n'est rendu, hors écran, que le temps de la capture — flushSync
-   * l'écrit dans la page avant que la capture ne le cherche.
+   * Export PDF de lignes données : toute la liste filtrée (demandée au serveur
+   * à ce moment-là), ou la sélection. Le document n'est rendu, hors écran, que
+   * le temps de la capture — flushSync l'écrit dans la page avant la capture.
    */
-  async function exportPdf(rows: FeeRow[], suffix: string) {
-    if (rows.length === 0 || exportRows) return;
-    flushSync(() => setExportRows(rows));
+  async function exportPdf(source: FeeRow[] | "filtered", suffix: string) {
+    if (exportRows) return;
+    let list: FeeRow[];
+    try {
+      list = source === "filtered" ? await paymentRowsForExport(paymentsParamsOf({ ...state, filters, page: 1 })) : source;
+    } catch {
+      toast.error(t("pdf.failed"));
+      return;
+    }
+    if (list.length === 0) return;
+    flushSync(() => setExportRows(list));
     try {
       const element = document.getElementById("payments-report");
       if (!element) throw new Error("report missing");
@@ -328,8 +352,8 @@ export function FinanceView({
       ? t("finance.collectedThisMonth").replace("{amount}", formatAmount(kpis.collectedByMonth[lastMonth] ?? 0))
       : `${change > 0 ? "+" : ""}${change}% ${t("finance.thisMonthShort")}`;
   const paymentsThisMonth = kpis.paymentsByMonth[kpis.paymentsByMonth.length - 1] ?? 0;
-  const from = (currentPage - 1) * PAGE_SIZE + 1;
-  const to = Math.min(currentPage * PAGE_SIZE, filtered.length);
+  const from = (currentPage - 1) * PAYMENTS_PAGE_SIZE + 1;
+  const to = Math.min(currentPage * PAYMENTS_PAGE_SIZE, total);
 
   return (
     <div className="space-y-5">
@@ -356,8 +380,8 @@ export function FinanceView({
         <div className="flex flex-wrap gap-2">
           <Button
             variant="secondary"
-            onClick={() => exportPdf(filtered, "liste")}
-            disabled={exportRows != null || filtered.length === 0}
+            onClick={() => exportPdf("filtered", "liste")}
+            disabled={exportRows != null || total === 0}
           >
             {exportRows ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
             {t("finance.exportPdf")}
@@ -373,7 +397,7 @@ export function FinanceView({
           <Button
             className="shadow-sm"
             onClick={() => openPayment(null)}
-            disabled={!hasUnsettled}
+            disabled={!hasUnsettled || loadingPayment}
             title={hasUnsettled ? undefined : t("finance.nothingToCollect")}
           >
             <Plus className="h-4 w-4" />
@@ -437,10 +461,7 @@ export function FinanceView({
           parentId={familyFilter}
           parent={familyParent}
           clearLabelKey="family.clearPayments"
-          onClear={() => {
-            setFamilyFilter(null);
-            setPage(1);
-          }}
+          onClear={() => navigate({ ...state, family: null, page: 1 })}
           actions={
             <Button size="sm" className="h-9" onClick={() => setFamilyPayOpen(true)} disabled={familyOpenFees.length === 0}>
               <HandCoins className="h-4 w-4" />
@@ -459,33 +480,33 @@ export function FinanceView({
       />
 
       <AlphabetFilter
-        names={fees.map((f) => `${f.student.firstName} ${f.student.lastName}`)}
-        value={letter}
-        onChange={(value) => {
-          setLetter(value);
-          setPage(1);
-        }}
+        names={letters}
+        value={state.letter}
+        onChange={(value) => navigate({ ...state, letter: value, page: 1 })}
       />
 
-      <section className="overflow-hidden rounded-2xl border border-border/80 bg-surface shadow-soft">
+      <section
+        className={`overflow-hidden rounded-2xl border border-border/80 bg-surface shadow-soft transition-opacity ${isNavigating ? "opacity-60" : ""}`}
+        aria-busy={isNavigating}
+      >
         {selected.size > 0 && (
           <PaymentsBulkBar
             count={selected.size}
             exporting={exportRows != null}
             onRemind={() => setRemindersOpen(true)}
             onExport={() => exportPdf(selectedFees, "selection")}
-            onClear={() => setSelected(new Set())}
+            onClear={() => setSelected(new Map())}
           />
         )}
-        {filtered.length === 0 ? (
+        {rows.length === 0 ? (
           <div className="px-5 py-16 text-center text-sm text-foreground/50">
-            {fees.length === 0 ? t("finance.emptyList") : t("finance.noMatch")}
+            {!hasFees ? t("finance.emptyList") : t("finance.noMatch")}
           </div>
         ) : (
           <>
             <PaymentsTable
               rows={pageRows}
-              selected={selected}
+              selected={new Set(selected.keys())}
               onToggleRow={toggleRow}
               onTogglePage={togglePage}
               actions={actions}
@@ -496,10 +517,10 @@ export function FinanceView({
               summary={t("finance.showing")
                 .replace("{from}", String(from))
                 .replace("{to}", String(to))
-                .replace("{total}", String(filtered.length))}
+                .replace("{total}", String(total))}
               previousLabel={t("students.previousPage")}
               nextLabel={t("students.nextPage")}
-              onPageChange={setPage}
+              onPageChange={(page) => navigate({ ...state, filters, page })}
             />
           </>
         )}
@@ -538,7 +559,7 @@ export function FinanceView({
       <PaymentDialog
         open={paymentFor != null}
         onOpenChange={(open) => !open && setPaymentFor(null)}
-        fees={fees}
+        fees={paymentFor?.fees ?? []}
         feeId={paymentFor?.feeId ?? null}
       />
       <RemindersDialog

@@ -1,13 +1,11 @@
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
-import { loadDueRule } from "@/lib/due-rule-data";
-import { effectiveDueDate, payByDate } from "@/lib/due-rule";
 import { FEATURES, schoolHasFeature } from "@/lib/plans";
-import { feeDisplayStatus, remainingOf } from "@/lib/fee-status";
-import { collectionRate, daysOverdue, feeListDay } from "@/lib/payments-list";
-import { isInMonth, lastMonthKeys, monthlySums, percentChange } from "@/lib/dashboard-data";
-import { FinanceView, type FeeRow, type PaymentsKpis } from "./finance-view";
+import { lettersOf } from "@/lib/initials";
+import { paginatePayments, parsePaymentsParams } from "@/lib/payments-query";
+import { FinanceView } from "./finance-view";
+import { loadPaymentsData, withPhotos } from "./payments-data";
 
 const DEFAULT_REMINDER =
   "Bonjour {parentName},\n\nNous vous rappelons que des frais de scolarité de {amount} MRU concernant {studentName} sont en attente de paiement, avec échéance au {date}. Merci de bien vouloir régulariser votre situation.\n\n{schoolName}";
@@ -17,56 +15,19 @@ const DEFAULT_REMINDER_AR =
 export default async function FinancePage({
   searchParams,
 }: {
-  searchParams: Promise<{ statut?: string; famille?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const user = await requireRole(ROLES.DIRECTOR);
-  const { statut, famille } = await searchParams;
-  // Statuts, retards et tendances sont calculés ici, au rendu serveur : lus
-  // dans le navigateur, un frais échu à minuit pouvait changer de badge entre
-  // le HTML reçu et l'hydratation.
-  const now = new Date();
+  // Filtres et page dans l'adresse : le serveur calcule toute la liste avec
+  // les mêmes règles, mais n'envoie au téléphone que la page affichée.
+  const state = parsePaymentsParams(await searchParams);
 
-  const [fees, students, school, template] = await Promise.all([
-    prisma.fee.findMany({
-      where: { schoolId: user.schoolId },
-      include: {
-        student: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            photoUrl: true,
-            classId: true,
-            classRoom: { select: { name: true } },
-            parentLinks: {
-              where: { isPrimary: true },
-              take: 1,
-              select: {
-                parent: {
-                  select: {
-                    id: true,
-                    firstName: true,
-                    lastName: true,
-                    phone: true,
-                    relationship: true,
-                    familyName: true,
-                    _count: { select: { studentLinks: true } },
-                  },
-                },
-              },
-            },
-          },
-        },
-        payments: {
-          select: { id: true, amount: true, method: true, receiptNumber: true, paidAt: true },
-          orderBy: { paidAt: "asc" },
-        },
-      },
-    }),
+  const [{ rows, kpis }, students, school, template] = await Promise.all([
+    loadPaymentsData(user.schoolId),
     prisma.student.findMany({
       where: { schoolId: user.schoolId, status: "ACTIVE" },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-      include: { classRoom: { select: { name: true } } },
+      select: { id: true, firstName: true, lastName: true, classRoom: { select: { name: true } } },
     }),
     prisma.school.findUnique({ where: { id: user.schoolId }, select: { name: true, plan: true, subscriptionStatus: true } }),
     prisma.messageTemplate.findFirst({
@@ -76,115 +37,50 @@ export default async function FinancePage({
   ]);
 
   const bilingual = schoolHasFeature(school, FEATURES.BILINGUAL_MESSAGES);
-  const dueRule = await loadDueRule(user.schoolId);
+  // Famille d'un lien ?famille=<parentId> : ignorée si elle n'a aucun frais ici.
+  const familyRows = state.family ? rows.filter((r) => r.parent?.id === state.family) : [];
+  const family = familyRows.length > 0 ? state.family : null;
+  const list = paginatePayments(rows, { ...state, family });
 
-  const rows: FeeRow[] = fees
-    .map((f) => {
-      const totalPaid = f.payments.reduce((sum, p) => sum + p.amount, 0);
-      // Statut et retard selon le jour limite et la tolérance de l'école.
-      const dueDate = effectiveDueDate(f, dueRule);
-      const amounts = { amount: f.amount, totalPaid, dueDate };
-      const linked = f.student.parentLinks[0]?.parent ?? null;
-      const parent = linked
-        ? {
-            id: linked.id,
-            firstName: linked.firstName,
-            lastName: linked.lastName,
-            phone: linked.phone,
-            relationship: linked.relationship,
-            familyName: linked.familyName,
-            familySize: linked._count.studentLinks,
-          }
-        : null;
-      return {
-        id: f.id,
-        label: f.label,
-        amount: f.amount,
-        // L'échéance annoncée : le jour limite de l'école.
-        dueDate: payByDate(f, dueRule).toISOString(),
-        totalPaid,
-        remaining: remainingOf(amounts),
-        tuitionPlanId: f.tuitionPlanId,
-        isDue: dueDate <= now,
-        status: feeDisplayStatus(amounts, now),
-        overdueDays: daysOverdue(amounts, now),
-        student: {
-          id: f.student.id,
-          firstName: f.student.firstName,
-          lastName: f.student.lastName,
-          photoUrl: f.student.photoUrl,
-          classId: f.student.classId,
-          className: f.student.classRoom?.name ?? null,
-        },
-        parent,
-        payments: f.payments.map((p) => ({
-          id: p.id,
-          receiptNumber: p.receiptNumber,
-          amount: p.amount,
-          method: p.method,
-          paidAt: p.paidAt.toISOString(),
-        })),
-      };
-    })
-    // Les mouvements les plus récents en tête : dernier paiement reçu, ou
-    // échéance pour un frais encore sans versement. Les échéances à venir,
-    // jamais payées, passent en dessous, de la plus proche à la plus
-    // lointaine : en tête, juin 2027 faisait encaisser juin avant octobre.
-    .sort((a, b) => {
-      const upcomingA = !a.isDue && a.payments.length === 0;
-      const upcomingB = !b.isDue && b.payments.length === 0;
-      if (upcomingA !== upcomingB) return upcomingA ? 1 : -1;
-      if (upcomingA) return a.dueDate.localeCompare(b.dueDate);
-      return feeListDay(b).localeCompare(feeListDay(a));
-    });
-
-  // — Tuiles : argent reçu mois par mois sur six mois, et recouvrement global.
-  const months = lastMonthKeys(now, 6);
-  const payments = fees.flatMap((f) => f.payments);
-  const collectedByMonth = monthlySums(
-    payments.map((p) => ({ at: p.paidAt, amount: p.amount })),
-    months,
-  );
-  const paymentsByMonth = months.map(
-    (key) => payments.filter((p) => isInMonth(p.paidAt, key)).length,
-  );
-  const billed = rows.reduce((sum, r) => sum + r.amount, 0);
-  const collected = rows.reduce((sum, r) => sum + r.totalPaid, 0);
-  const last = months.length - 1;
-
-  const kpis: PaymentsKpis = {
-    collected,
-    collectedByMonth,
-    collectedChange: percentChange(collectedByMonth[last] ?? 0, collectedByMonth[last - 1] ?? 0),
-    // Reste dû : les échéances arrivées seulement. Les mois à venir d'une
-    // formule de paiement ne sont pas encore dus.
-    outstanding: rows.filter((r) => r.isDue).reduce((sum, r) => sum + r.remaining, 0),
-    lateCount: rows.filter((r) => r.overdueDays > 0).length,
-    paymentCount: payments.length,
-    paymentsByMonth,
-    billed,
-    rate: collectionRate(billed, collected),
-  };
-
-  const studentOptions = students.map((s) => ({
-    id: s.id,
-    firstName: s.firstName,
-    lastName: s.lastName,
-    className: s.classRoom?.name ?? null,
-  }));
+  const classNames = new Map<string, string>();
+  for (const r of rows) if (r.student.classId && r.student.className) classNames.set(r.student.classId, r.student.className);
 
   return (
     <FinanceView
-      // « Paiements » et « Impayés » du menu ouvrent ce même écran, chacun
-      // avec son filtre : la clé remonte la vue quand l'adresse change, sans
-      // quoi le filtre du premier affichage restait en place.
-      key={`${statut ?? "tous"}|${famille ?? ""}`}
-      initialStatus={statut === "impayes" ? "UNPAID" : "ALL"}
-      // Frais d'une même famille (?famille=<parentId>), depuis sa fiche.
-      initialFamilyFilter={famille && rows.some((r) => r.parent?.id === famille) ? famille : null}
-      fees={rows}
+      state={{ ...state, family, page: list.page }}
+      rows={await withPhotos(user.schoolId, list.rows)}
+      total={list.total}
+      pageCount={list.pageCount}
+      hasFees={rows.length > 0}
+      hasUnsettled={rows.some((r) => r.remaining > 0)}
+      letters={lettersOf(rows.map((r) => `${r.student.firstName} ${r.student.lastName}`))}
+      classes={[...classNames.entries()]
+        .map(([id, name]) => ({ id, name }))
+        .sort((a, b) => a.name.localeCompare(b.name, "fr"))}
+      family={
+        family
+          ? {
+              parent: familyRows[0].parent!,
+              openFees: familyRows
+                .filter((f) => f.remaining > 0)
+                .map((f) => ({
+                  feeId: f.id,
+                  studentId: f.student.id,
+                  studentName: `${f.student.firstName} ${f.student.lastName}`,
+                  className: f.student.className,
+                  label: f.label,
+                  remaining: f.remaining,
+                })),
+            }
+          : null
+      }
       kpis={kpis}
-      students={studentOptions}
+      students={students.map((s) => ({
+        id: s.id,
+        firstName: s.firstName,
+        lastName: s.lastName,
+        className: s.classRoom?.name ?? null,
+      }))}
       schoolName={school?.name ?? "Madrasati"}
       reminderTemplate={template?.body ?? DEFAULT_REMINDER}
       reminderTemplateAr={bilingual ? (template?.bodyAr ?? DEFAULT_REMINDER_AR) : undefined}
