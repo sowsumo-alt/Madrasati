@@ -12,6 +12,7 @@ import { partForKind, type Formula } from "@/lib/grading-config";
 import { currentGradingConfig } from "@/lib/grading-config-data";
 import { examKindOf, formulaFor } from "@/lib/report-card-compute";
 import { TERMS } from "@/app/directeur/examens/schema";
+import { teachesSubject } from "@/lib/subject-ownership";
 
 export interface GradeSheetColumn {
   id: string;
@@ -57,7 +58,8 @@ export interface GradeSheetData {
  * la moyenne de ses devoirs en voit un seul.
  *
  * `teacherId` renseigné : la vue d'un enseignant, limitée aux matières qu'il
- * enseigne — toutes celles de la classe dont il est professeur principal.
+ * enseigne (professeur principal compris : il n'a en plus que les matières
+ * confiées à personne, voir lib/subject-ownership.ts).
  */
 export async function loadGradeSheet(options: {
   schoolId: string;
@@ -137,9 +139,11 @@ export async function loadGradeSheet(options: {
   };
   if (!selected) return empty;
 
-  const teachesAll = !teacherId || selected.mainTeacherId === teacherId;
+  // Un enseignant n'a que ses matières (lib/subject-ownership.ts) ; le directeur, toutes.
+  const owns = (cs: { teacherId: string | null } | undefined) =>
+    !teacherId || teachesSubject(teacherId, cs, selected.mainTeacherId);
   const subjects = selected.classSubjects
-    .filter((cs) => cs.subject.isActive && (teachesAll || cs.teacherId === teacherId))
+    .filter((cs) => cs.subject.isActive && owns(cs))
     .map((cs) => ({
       id: cs.subjectId,
       name: cs.subject.name,
@@ -199,6 +203,6 @@ export async function loadGradeSheet(options: {
     students,
     parts: partsOf(columnsByPart),
     grades,
-    canAddColumn: teachesAll || classSubject?.teacherId === teacherId,
+    canAddColumn: owns(classSubject),
   };
 }

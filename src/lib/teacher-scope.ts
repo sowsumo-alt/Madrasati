@@ -1,6 +1,7 @@
 import { CURRENT_YEAR } from "@/lib/school-year";
 import { prisma } from "@/lib/prisma";
 import { ROLES } from "@/lib/roles";
+import { teachesSubject } from "@/lib/subject-ownership";
 
 /**
  * Périmètre d'un enseignant : les classes qu'il a le droit de voir et de
@@ -79,12 +80,10 @@ export async function assertClassAccess(
 }
 
 /**
- * Notes d'une matière : le directeur, l'enseignant à qui cette matière est
- * confiée dans cette classe, ou le professeur principal de la classe (même
- * règle que la grille de saisie, lib/grade-sheet-data.ts : l'instituteur du
- * Fondamental enseigne toutes les matières de sa classe). Enseigner une autre
- * matière dans la classe ne suffit plus : le professeur d'arabe d'une 1AS ne
- * modifie pas les notes de mathématiques de son collègue.
+ * Notes d'une matière : le directeur, ou l'enseignant à qui cette matière est
+ * confiée dans cette classe. Le professeur principal n'a que les matières
+ * confiées à personne (lib/subject-ownership.ts) : ni lui ni le professeur
+ * d'arabe d'une 1AS ne modifient les notes de mathématiques d'un collègue.
  */
 export async function assertSubjectAccess(
   user: { id: string; role: string; schoolId: string },
@@ -94,17 +93,41 @@ export async function assertSubjectAccess(
   await assertClassAccess(user, classId);
   if (user.role === ROLES.DIRECTOR) return;
 
-  const [own, principal] = await Promise.all([
-    prisma.classSubject.findFirst({
-      where: { classId, subjectId, teacher: { userId: user.id, schoolId: user.schoolId } },
-      select: { id: true },
-    }),
-    prisma.classRoom.findFirst({
-      where: { id: classId, schoolId: user.schoolId, mainTeacher: { userId: user.id } },
-      select: { id: true },
-    }),
+  const [me, classSubject, classRoom] = await Promise.all([
+    prisma.teacher.findFirst({ where: { userId: user.id, schoolId: user.schoolId }, select: { id: true } }),
+    prisma.classSubject.findFirst({ where: { classId, subjectId }, select: { teacherId: true } }),
+    prisma.classRoom.findFirst({ where: { id: classId, schoolId: user.schoolId }, select: { mainTeacherId: true } }),
   ]);
-  if (!own && !principal) {
+  if (!me || !teachesSubject(me.id, classSubject, classRoom?.mainTeacherId ?? null)) {
     throw new Error("Cette matière est confiée à un collègue : seul son professeur, ou la direction, peut en saisir les notes.");
   }
+}
+
+/**
+ * Ce qu'un enseignant voit des notes de ses classes : seulement ses matières
+ * (et, s'il est professeur principal, celles confiées à personne) — jamais les
+ * examens et les notes d'un collègue. Même règle que la saisie
+ * (assertSubjectAccess, lib/subject-ownership.ts).
+ */
+export async function teacherSubjectAccess(teacherId: string, classIds: string[]) {
+  const [classes, classSubjects] = await Promise.all([
+    prisma.classRoom.findMany({ where: { id: { in: classIds } }, select: { id: true, mainTeacherId: true } }),
+    prisma.classSubject.findMany({
+      where: { classId: { in: classIds } },
+      select: { classId: true, subjectId: true, teacherId: true },
+    }),
+  ]);
+  const mainOf = new Map(classes.map((c) => [c.id, c.mainTeacherId]));
+  const allows = (classId: string, subjectId: string) =>
+    teachesSubject(
+      teacherId,
+      classSubjects.find((cs) => cs.classId === classId && cs.subjectId === subjectId),
+      mainOf.get(classId) ?? null,
+    );
+  const own = classSubjects.filter((cs) => allows(cs.classId, cs.subjectId));
+  return {
+    /** Examens visibles (une liste vide ne laisse rien passer). */
+    examWhere: { OR: own.map((cs) => ({ classId: cs.classId, subjectId: cs.subjectId })) },
+    allows,
+  };
 }

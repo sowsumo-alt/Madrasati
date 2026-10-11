@@ -1,7 +1,7 @@
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
-import { getTeacherScope } from "@/lib/teacher-scope";
+import { getTeacherScope, teacherSubjectAccess } from "@/lib/teacher-scope";
 import { FEATURES, schoolHasFeature } from "@/lib/plans";
 import { ExamsView } from "@/app/directeur/examens/exams-view";
 import type { ExamClassOption } from "@/app/directeur/examens/exam-form-dialog";
@@ -16,10 +16,13 @@ export default async function TeacherGradesPage({
   const { exam: initialExamId } = await searchParams;
   const scope = await getTeacherScope(user.id, user.schoolId);
   const classIds = scope?.currentClassIds ?? [];
+  // Ses matières seulement (toutes, dans une classe dont il est le professeur
+  // principal) : les examens et les notes d'un collègue ne lui sont pas montrés.
+  const access = await teacherSubjectAccess(scope?.teacher.id ?? "", classIds);
 
   const [exams, classes, students, school] = await Promise.all([
     prisma.exam.findMany({
-      where: { schoolId: user.schoolId, classId: { in: classIds } },
+      where: { schoolId: user.schoolId, classId: { in: classIds }, ...access.examWhere },
       orderBy: [{ date: "desc" }, { startMinutes: "asc" }],
       include: EXAM_ROW_INCLUDE,
     }),
@@ -55,7 +58,7 @@ export default async function TeacherGradesPage({
   const classOptions: ExamClassOption[] = classes.map((c) => ({
     id: c.id,
     name: c.name,
-    subjects: c.classSubjects.map((cs) => ({
+    subjects: c.classSubjects.filter((cs) => access.allows(c.id, cs.subject.id)).map((cs) => ({
       id: cs.subject.id,
       name: cs.subject.name,
       coefficient: cs.coefficientOverride ?? cs.subject.coefficient,
