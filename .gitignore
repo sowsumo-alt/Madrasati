@@ -23,6 +23,8 @@
 # misc
 .DS_Store
 *.pem
+# Seule exception : la clé PUBLIQUE des sauvegardes (la privée reste hors du dépôt).
+!scripts/backup/cle-publique.pem
 
 # debug
 npm-debug.log*
