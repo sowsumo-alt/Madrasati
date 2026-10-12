@@ -16,6 +16,7 @@ import type { FeeRow } from "../finance-view";
 import { FeeStatusBadge, overdueText } from "./fee-status-badge";
 import { parentLine } from "./parent-line";
 import { CancelReceiptButton } from "../recus/cancel-receipt-button";
+import { CorrectPaymentButton } from "../recus/correct-payment-button";
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -192,6 +193,8 @@ export function FeeDetailSheet({
                         >
                           <Receipt className="h-4 w-4" />
                         </Link>
+                        {/* Corriger (reçu seul) : nouveau reçu au bon montant, l'ancien reste marqué « ANNULÉ ». */}
+                        {!p.familyPaymentId && <CorrectPaymentButton compact payment={p} />}
                         {/* Annuler : le reçu reste, marqué « ANNULÉ », et le mois redevient à payer. */}
                         <CancelReceiptButton
                           compact

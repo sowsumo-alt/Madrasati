@@ -95,7 +95,9 @@ export function PaymentDialog({
   const planLeft = planOpen?.reduce((sum, f) => sum + f.remaining, 0) ?? null;
   const typedAmount = Number(watch("amount")) || 0;
   const allocation = planOpen && typedAmount > 0 ? allocateOldestFirst(planOpen, typedAmount) : null;
-  const tooMuch = planLeft != null && typedAmount > planLeft;
+  // Ce qui reste à payer : sur l'année pour une formule, sur ce frais sinon.
+  const left = planLeft ?? (fee ? fee.remaining : null);
+  const tooMuch = left != null && typedAmount > left;
 
   /** Montant proposé : ce qui reste sur le mois à régler en premier. */
   function suggestedAmount(target: FeeRow | undefined) {
@@ -145,6 +147,10 @@ export function PaymentDialog({
     if (!fee || tooMuch) return;
     try {
       const result = await recordPayment(fee.id, values, submission.keyFor(fee.id));
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
       submission.done(fee.id);
       // Un court accusé de réception visuel avant de fermer : sans lui, le
       // paiement disparaît de l'écran si vite que rien ne confirme qu'il a
@@ -292,9 +298,13 @@ export function PaymentDialog({
                       .join(" · ")}
                   </p>
                 )}
-                {tooMuch && planLeft != null && (
+                {tooMuch && left != null && (
                   <p className="mt-1.5 text-xs font-medium text-danger" data-testid="payment-too-much">
-                    Plus que ce qui reste à payer pour l&apos;année ({formatMRU(planLeft)}).
+                    {left <= 0
+                      ? "Ce frais est déjà entièrement payé."
+                      : planLeft != null
+                        ? `Plus que ce qui reste à payer pour l'année (${formatMRU(left)}).`
+                        : `Plus que ce qui reste à payer pour ce frais (${formatMRU(left)}). Vérifiez le nombre de zéros.`}
                   </p>
                 )}
               </FormField>

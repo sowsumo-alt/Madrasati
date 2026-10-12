@@ -9,6 +9,7 @@ import { generateReceiptNumber, runWithReceipt } from "@/lib/receipts";
 import { recordGroupedPayment } from "@/lib/tuition-plan";
 import { allocateOldestFirst } from "@/lib/tuition";
 import { formatMRU } from "@/lib/format";
+import { UserError, asResult } from "@/lib/user-error";
 import {
   feeEditSchema,
   feeSchema,
@@ -91,7 +92,17 @@ export async function updateFee(feeId: string, values: FeeEditValues) {
   revalidatePath("/directeur");
 }
 
+/**
+ * Encaisser un frais. Le montant ne peut jamais dépasser ce qui reste à payer :
+ * une faute de frappe (« 10 000 » pour « 1 000 ») faussait sinon l'argent perçu
+ * sans que personne ne s'en aperçoive. Les refus reviennent en clair au
+ * formulaire (voir asResult).
+ */
 export async function recordPayment(feeId: string, values: PaymentFormValues, submissionKey?: string) {
+  return asResult(() => recordPaymentUnsafe(feeId, values, submissionKey));
+}
+
+async function recordPaymentUnsafe(feeId: string, values: PaymentFormValues, submissionKey?: string) {
   const user = await requireRole(ROLES.DIRECTOR);
   const data = paymentSchema.parse(values);
 
@@ -122,7 +133,7 @@ export async function recordPayment(feeId: string, values: PaymentFormValues, su
       );
       const covered = parts.reduce((sum, p) => sum + p.amount, 0);
       if (covered < data.amount) {
-        throw new Error(
+        throw new UserError(
           `Le montant dépasse ce qui reste à payer pour l'année (${formatMRU(covered)}).`,
         );
       }
@@ -155,6 +166,18 @@ export async function recordPayment(feeId: string, values: PaymentFormValues, su
   // réalité soldé. Le réessai sur collision de numéro est mutualisé dans
   // runWithReceipt, partagé avec l'inscription et la réinscription.
   const paymentId = await runWithReceipt(user.schoolId, async (tx, attempt) => {
+    // Reste dû relu sous le verrou des reçus : deux encaissements simultanés
+    // ne peuvent pas dépasser ensemble le montant du frais.
+    const before = await tx.payment.aggregate({ where: { feeId: fee.id }, _sum: { amount: true } });
+    const left = fee.amount - (before._sum.amount ?? 0);
+    if (data.amount > left) {
+      throw new UserError(
+        left > 0
+          ? `Le montant dépasse ce qui reste à payer pour ce frais (${formatMRU(left)}).`
+          : "Ce frais est déjà entièrement payé.",
+      );
+    }
+
     const receiptNumber = await generateReceiptNumber(tx, user.schoolId, attempt);
 
     const payment = await tx.payment.create({

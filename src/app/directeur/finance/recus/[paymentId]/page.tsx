@@ -30,6 +30,7 @@ import {
 } from "@/lib/whatsapp";
 import { markReceiptsPrinted } from "../../actions";
 import { CancelReceiptButton } from "../cancel-receipt-button";
+import { CorrectPaymentButton } from "../correct-payment-button";
 import { CancelledReceiptView } from "../cancelled-receipt";
 import { ReceiptDateButton } from "../receipt-date-button";
 
@@ -274,6 +275,15 @@ export default async function ReceiptPage({
           <PrintButton
             label={partner ? "Imprimer les 2 reçus" : t("finance.printReceipt")}
             onUse={markReceiptsPrinted.bind(null, printedIds)}
+          />
+          <CorrectPaymentButton
+            payment={{
+              id: payment.id,
+              amount: payment.amount,
+              method: payment.method,
+              paidAt: payment.paidAt.toISOString(),
+              receiptNumber: payment.receiptNumber,
+            }}
           />
           <CancelReceiptButton target={{ paymentId: payment.id }} amountLabel={formatMoney(payment.amount, unit)} />
         </div>
