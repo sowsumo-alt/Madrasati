@@ -1,0 +1,54 @@
+# Sauvegarde de la base de production, chaque nuit.
+# Copie complète (pg_dump) faite avec un accès en LECTURE SEULE, vérifiée,
+# puis chiffrée avec la clé publique scripts/backup/cle-publique.pem : seule la
+# clé privée, gardée hors de GitHub, permet de la relire. Gardée 35 jours.
+# Restauration : docs/sauvegardes.md. Un échec est signalé par e-mail par GitHub.
+name: Sauvegarde de la base
+
+on:
+  schedule:
+    - cron: "0 2 * * *" # 2 h UTC, chaque nuit
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency: sauvegarde
+
+jobs:
+  sauvegarde:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Client PostgreSQL 18 (même version que la base)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq postgresql-client-18
+
+      - name: Copie de la base
+        env:
+          DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+        run: |
+          echo "DATE=$(date -u +%Y-%m-%d)" >> "$GITHUB_ENV"
+          /usr/lib/postgresql/18/bin/pg_dump --format=custom --no-owner --no-privileges \
+            --dbname="$DATABASE_URL" --file=base.dump
+          # Contrôle : la copie se relit et contient bien toutes les tables.
+          tables=$(/usr/lib/postgresql/18/bin/pg_restore --list base.dump | grep -c " TABLE DATA ")
+          echo "Tables copiées : $tables — taille : $(du -h base.dump | cut -f1)"
+          test "$tables" -ge 35
+
+      - name: Chiffrement
+        run: |
+          node scripts/backup/encrypt.mjs base.dump scripts/backup/cle-publique.pem "madrasati-$DATE.sauvegarde"
+          rm base.dump
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sauvegarde-${{ env.DATE }}-${{ github.run_number }}
+          path: madrasati-*.sauvegarde
+          retention-days: 35
+          if-no-files-found: error
