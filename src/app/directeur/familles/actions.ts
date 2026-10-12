@@ -19,6 +19,7 @@ import {
   type FamilyEnrollmentValues,
   type FamilyPaymentValues,
 } from "./schema";
+import { assignMatricules } from "@/lib/student-number";
 
 function revalidateFamilyPages(parentId?: string) {
   revalidatePath("/directeur/eleves");
@@ -200,10 +201,16 @@ export async function enrollFamily(values: FamilyEnrollmentValues, submissionKey
     // — Les enfants : des élèves ordinaires, rattachés à la famille.
     const now = new Date();
     const children: { studentId: string }[] = [];
-    for (const child of data.children) {
+    const matricules = await assignMatricules(
+      tx,
+      user.schoolId,
+      data.children.map(() => ({ enrollmentDate: now })),
+    );
+    for (const [index, child] of data.children.entries()) {
       const student = await tx.student.create({
         data: {
           schoolId: user.schoolId,
+          matricule: matricules[index],
           firstName: child.firstName,
           lastName: child.lastName,
           dateOfBirth: child.dateOfBirth ? new Date(child.dateOfBirth) : null,

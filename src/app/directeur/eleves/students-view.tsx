@@ -57,6 +57,8 @@ export interface StudentRow {
   nationality: string | null;
   nni: string | null;
   rimNumber: string | null;
+  /** « 2026-0042 » : donné à l'inscription, modifiable. */
+  matricule: string | null;
   motherName: string | null;
   /** Formule de paiement des frais de scolarité ; null si aucune. */
   tuition: TuitionSummary | null;
@@ -93,6 +95,7 @@ function toEditTarget(s: StudentRow): StudentEditTarget {
     nationality: s.nationality,
     nni: s.nni,
     rimNumber: s.rimNumber,
+    matricule: s.matricule,
     motherName: s.motherName,
     enrollmentDate: s.enrollmentDate.slice(0, 10),
     parentName: s.parent ? joinFullName(s.parent.firstName, s.parent.lastName) : "",

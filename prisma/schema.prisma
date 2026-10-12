@@ -362,6 +362,9 @@ model Student {
   // N° RIM : identifiant administratif de l'élève tenu par les écoles, à côté
   // du NNI. Texte libre, facultatif.
   rimNumber      String?
+  // Matricule : « 2026-0042 » (année d'inscription, rang dans l'école), donné
+  // automatiquement à l'inscription, modifiable, unique dans l'école.
+  matricule      String?
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
 
@@ -380,6 +383,7 @@ model Student {
   @@index([schoolId])
   @@index([classId])
   @@index([schoolId, nni])
+  @@unique([schoolId, matricule])
   @@map("students")
 }
 

@@ -24,6 +24,7 @@ export const IMPORT_FIELDS = [
   "gender",
   "nni",
   "rimNumber",
+  "matricule",
   "nationality",
   "phone",
   "className",
@@ -42,6 +43,7 @@ export const IMPORT_FIELD_LABELS: Record<ImportField, string> = {
   gender: "Genre",
   nni: "NNI",
   rimNumber: "N° RIM",
+  matricule: "Matricule",
   nationality: "Nationalité",
   phone: "Téléphone du parent",
   className: "Classe",
@@ -72,7 +74,8 @@ const HEADER_RULES: [ImportField, RegExp][] = [
   ["rimNumber", /\b(rim|n rim|numero rim)\b/],
   ["nationality", /\b(nationalite|nation)\b/],
   ["className", /^(classe|class|niveau)$/],
-  ["number", /^(n|no|num|numero|n ordre|matricule|ordre|nr)$/],
+  ["matricule", /^(matricule|n matricule|numero matricule|mle)$/],
+  ["number", /^(n|no|num|numero|n ordre|ordre|nr)$/],
 ];
 
 /**
@@ -222,6 +225,8 @@ export interface ImportedStudent {
   gender: "M" | "F" | null;
   nni: string | null;
   rimNumber: string | null;
+  /** Matricule repris du fichier ; null = attribué automatiquement. */
+  matricule: string | null;
   nationality: string | null;
   phone: string | null;
   className: string | null;
@@ -256,6 +261,7 @@ export function buildImportPreview(
   const text = (value: ImportCell) =>
     value instanceof Date ? value.toLocaleDateString("fr-FR") : String(value ?? "").trim();
   const seenNni = new Map<string, number>();
+  const seenMatricule = new Map<string, number>();
 
   for (let i = headerRow + 1; i < rows.length; i++) {
     const r = rows[i] ?? [];
@@ -333,6 +339,16 @@ export function buildImportPreview(
       }
     }
 
+    const matricule = text(cell(r, "matricule")) || null;
+    if (matricule) {
+      const first = seenMatricule.get(matricule);
+      if (first != null) {
+        preview.errors.push({ row, reason: `Matricule déjà présent ligne ${first}`, text: line });
+        continue;
+      }
+      seenMatricule.set(matricule, row);
+    }
+
     const nationalityRaw = text(cell(r, "nationality"));
     const nationality = /^rim$/i.test(nationalityRaw) ? "Mauritanienne" : nationalityRaw || null;
     const phoneDigits = text(cell(r, "phone")).replace(/\D/g, "");
@@ -346,6 +362,7 @@ export function buildImportPreview(
       gender: parseGender(cell(r, "gender")),
       nni,
       rimNumber: text(cell(r, "rimNumber")) || null,
+      matricule,
       nationality,
       phone: phoneDigits.length >= 8 ? phoneDigits : null,
       className: text(cell(r, "className")) || null,

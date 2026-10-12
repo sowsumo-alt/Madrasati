@@ -217,6 +217,7 @@ export function ImportDialog({ open, onOpenChange, classes, catalog }: ImportDia
           gender: s.gender,
           nni: s.nni,
           rimNumber: s.rimNumber,
+          matricule: s.matricule,
           nationality: s.nationality,
           phone: s.phone,
           className: s.className,

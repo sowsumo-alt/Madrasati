@@ -95,6 +95,11 @@ export function StandardReportCard({
               />
             )}
             {card.student.firstName} {card.student.lastName}
+            {card.student.matricule && (
+              <span className="text-xs font-normal text-foreground/55" dir="ltr">
+                {card.student.matricule}
+              </span>
+            )}
           </p>
         </div>
         <div>

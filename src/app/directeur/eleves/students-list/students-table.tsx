@@ -153,9 +153,11 @@ export function StudentsTable({
                       <span className="block truncate font-semibold text-foreground transition-colors group-hover:text-primary-700">
                         {fullName}
                       </span>
-                      {s.gender && (
+                      {(s.gender || s.matricule) && (
                         <span className="block text-xs text-foreground/50">
-                          {t(`students.gender.${s.gender}` as TranslationKey)}
+                          {s.matricule && <span dir="ltr">{s.matricule}</span>}
+                          {s.matricule && s.gender && " · "}
+                          {s.gender && t(`students.gender.${s.gender}` as TranslationKey)}
                         </span>
                       )}
                     </span>

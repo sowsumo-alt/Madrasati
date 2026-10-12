@@ -10,6 +10,7 @@ import { assertNnisAvailable } from "@/lib/nni-data";
 import { isValidNni, normalizeNni } from "@/lib/nni";
 import { createClassWithSubjects } from "@/lib/class-setup";
 import { UserError, asResult } from "@/lib/user-error";
+import { assignMatricules } from "@/lib/student-number";
 
 /**
  * Import d'une liste d'élèves lue dans un fichier Excel (voir
@@ -35,6 +36,7 @@ const studentSchema = z.object({
     .nullable()
     .refine((v) => v == null || isValidNni(v), "NNI invalide"),
   rimNumber: z.string().trim().max(30).nullable(),
+  matricule: z.string().trim().max(30).nullable().optional(),
   nationality: z.string().trim().max(40).nullable(),
   phone: z.string().trim().max(20).nullable(),
   className: z.string().trim().max(60).nullable(),
@@ -133,13 +135,21 @@ async function importStudentListUnsafe(input: StudentImportInput) {
       let parentsCreated = 0;
       let parentsLinked = 0;
 
-      for (const s of students) {
+      const today = new Date();
+      const matricules = await assignMatricules(
+        tx,
+        schoolId,
+        students.map((s) => ({ enrollmentDate: today, wanted: s.matricule })),
+      );
+      for (const [index, s] of students.entries()) {
         // Une colonne « Classe » dans le fichier l'emporte ; sinon la classe
         // choisie pour tout le fichier.
         const own = s.className ? classes.find((c) => sameName(c.name, s.className!)) : null;
         const student = await tx.student.create({
           data: {
             schoolId,
+            matricule: matricules[index],
+            enrollmentDate: today,
             firstName: s.firstName,
             lastName: s.lastName,
             dateOfBirth: s.dateOfBirth ? new Date(`${s.dateOfBirth}T00:00:00Z`) : null,

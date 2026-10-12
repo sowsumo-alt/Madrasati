@@ -70,6 +70,13 @@
 .studentInfo > div:last-child {
   border-right: none;
 }
+.studentInfo .matricule {
+  display: block;
+  margin-top: 2px;
+  font-size: 10px;
+  font-style: normal;
+  color: #4b5563;
+}
 .studentInfo span {
   color: #6b7280;
   display: block;

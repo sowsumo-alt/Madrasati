@@ -16,6 +16,7 @@ import { CURRENT_YEAR } from "@/lib/school-year";
 import { assertNnisAvailable, nniConflict } from "@/lib/nni-data";
 import { storedNni } from "@/lib/nni";
 import { ACTIVITY_ACTIONS, logActivity } from "@/lib/activity";
+import { assertMatriculeFree, assignMatricules, cleanMatricule } from "@/lib/student-number";
 
 /** Compare deux noms en ignorant casse, accents composés et espaces multiples. */
 function normalizeName(value: string) {
@@ -120,12 +121,15 @@ async function createStudentWithSheet(values: StudentFormValues, sheetInput?: Fa
   // l'élève, son parent et le paiement — et le directeur ne voyait qu'un
   // « Une erreur est survenue » sans savoir ce qui avait été enregistré.
   const result = await runWithReceipt(user.schoolId, async (tx, attempt) => {
+    // Le jour même si le champ a été vidé : l'inscription se fait sur place.
+    const enrollmentDate = data.enrollmentDate ? new Date(data.enrollmentDate) : new Date();
+    const [matricule] = await assignMatricules(tx, user.schoolId, [{ enrollmentDate, wanted: data.matricule }]);
     const student = await tx.student.create({
       data: {
         schoolId: user.schoolId,
         ...studentFields(data),
-        // Le jour même si le champ a été vidé : l'inscription se fait sur place.
-        enrollmentDate: data.enrollmentDate ? new Date(data.enrollmentDate) : new Date(),
+        enrollmentDate,
+        matricule,
       },
     });
 
@@ -223,7 +227,15 @@ async function createStudentWithSheet(values: StudentFormValues, sheetInput?: Fa
   return result;
 }
 
+/** Refus lisibles (matricule déjà pris…) renvoyés au formulaire, voir asResult. */
 export async function updateStudent(studentId: string, values: StudentFormValues) {
+  return asResult(async () => {
+    await updateStudentUnsafe(studentId, values);
+    return {};
+  });
+}
+
+async function updateStudentUnsafe(studentId: string, values: StudentFormValues) {
   const user = await requireRole(ROLES.DIRECTOR);
   const data = studentSchema.parse(values);
 
@@ -241,10 +253,17 @@ export async function updateStudent(studentId: string, values: StudentFormValues
     if (!cls) throw new Error("Classe introuvable.");
   }
 
+  // Matricule effacé dans le formulaire : l'ancien est gardé, jamais perdu.
+  const matricule = cleanMatricule(data.matricule) ?? existing.matricule;
+  if (matricule && matricule !== existing.matricule) {
+    await assertMatriculeFree(prisma, user.schoolId, matricule, studentId);
+  }
+
   await prisma.student.update({
     where: { id: studentId },
     data: {
       ...studentFields(data),
+      matricule,
       ...(data.enrollmentDate ? { enrollmentDate: new Date(data.enrollmentDate) } : {}),
     },
   });

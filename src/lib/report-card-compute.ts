@@ -68,7 +68,7 @@ export type ReportCardSubject = SubjectResult & {
 };
 
 export interface ReportCard {
-  student: { id: string; firstName: string; lastName: string };
+  student: { id: string; firstName: string; lastName: string; matricule?: string | null };
   className: string;
   term: string;
   /** Niveau reconnu de la classe ; null s'il ne suit pas la nomenclature. */
@@ -112,7 +112,7 @@ export interface ReportCardInput {
     /** Absent : la matière est considérée active. */
     active?: boolean;
   }[];
-  students: { id: string; firstName: string; lastName: string }[];
+  students: { id: string; firstName: string; lastName: string; matricule?: string | null }[];
   exams: ReportCardExam[];
   attendance: Map<string, ReportCardAttendance>;
   /** Règle de l'école ; le modèle par défaut si elle n'en a pas défini. */

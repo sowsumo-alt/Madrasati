@@ -71,6 +71,7 @@ export interface StudentEditTarget {
   nationality: string | null;
   nni: string | null;
   rimNumber: string | null;
+  matricule: string | null;
   motherName: string | null;
   enrollmentDate: string | null;
   parentName: string;
@@ -106,6 +107,7 @@ function newStudentValues(): StudentFormValues {
     nationality: DEFAULT_NATIONALITY,
     nni: "",
     rimNumber: "",
+    matricule: "",
     classId: "",
     status: "ACTIVE",
     enrollmentDate: new Date().toISOString().slice(0, 10),
@@ -230,6 +232,7 @@ export function StudentFormDialog({
               nationality: editTarget.nationality ?? "",
               nni: editTarget.nni ?? "",
               rimNumber: editTarget.rimNumber ?? "",
+              matricule: editTarget.matricule ?? "",
               classId: editTarget.classId ?? "",
               status: editTarget.status as StudentFormValues["status"],
               enrollmentDate: editTarget.enrollmentDate ?? "",
@@ -280,7 +283,11 @@ export function StudentFormDialog({
       }
 
       if (isEdit && editTarget) {
-        await updateStudent(editTarget.id, values);
+        const updated = await updateStudent(editTarget.id, values);
+        if (!updated.ok) {
+          toast.error(updated.error);
+          return;
+        }
         toast.success(t("students.updatedSuccess"));
       } else {
         if (sheetErrorsList.length > 0) {
@@ -501,6 +508,22 @@ export function StudentFormDialog({
                   maxLength={30}
                   dir="ltr"
                   {...register("rimNumber")}
+                />
+              </FormField>
+              <FormField
+                label={t("students.matricule")}
+                htmlFor="matricule"
+                hint={editTarget ? t("students.matriculeEditHint") : t("students.matriculeHint")}
+              >
+                <IconInput
+                  icon={IdCard}
+                  id="matricule"
+                  autoComplete="off"
+                  maxLength={30}
+                  dir="ltr"
+                  placeholder={editTarget ? undefined : t("students.matriculeAuto")}
+                  {...register("matricule")}
+                  data-testid="student-matricule"
                 />
               </FormField>
             </FormSection>

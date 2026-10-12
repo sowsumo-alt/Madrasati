@@ -77,6 +77,7 @@ export default async function StudentsPage({
       nationality: s.nationality,
       nni: s.nni,
       rimNumber: s.rimNumber,
+      matricule: s.matricule,
       motherName: s.motherName,
       tuition: tuition.get(s.id) ?? null,
       money: money.get(s.id) ?? null,

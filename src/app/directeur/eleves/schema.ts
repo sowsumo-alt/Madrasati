@@ -23,6 +23,8 @@ export const studentSchema = z
     nni: optionalNniSchema,
     /** N° RIM : identifiant administratif de l'élève, facultatif. */
     rimNumber: optionalText(30),
+    /** Matricule : vide à l'inscription = attribué automatiquement (lib/student-number). */
+    matricule: optionalText(30),
     // Obligatoire : un élève sans classe n'apparaît dans aucun appel, aucun
     // bulletin et aucune liste de classe — le directeur perd sa trace sans
     // qu'aucun écran ne le signale.

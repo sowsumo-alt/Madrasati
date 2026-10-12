@@ -43,7 +43,7 @@ export async function buildReportCards(
     prisma.student.findMany({
       where: { schoolId, classId, status: "ACTIVE" },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-      select: { id: true, firstName: true, lastName: true },
+      select: { id: true, firstName: true, lastName: true, matricule: true },
     }),
     prisma.exam.findMany({
       // Toute l'année : un bulletin cumulatif reprend les compositions des

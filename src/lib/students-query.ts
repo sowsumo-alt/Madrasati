@@ -34,6 +34,7 @@ export interface StudentsListState {
 export interface StudentListItem {
   firstName: string;
   lastName: string;
+  matricule?: string | null;
   status: string;
   classId: string | null;
   className: string | null;
@@ -76,7 +77,10 @@ export function filterStudents<T extends StudentListItem>(students: T[], state: 
   const q = state.query.trim().toLowerCase();
   return students.filter((s) => {
     const matchesQuery =
-      !q || `${s.firstName} ${s.lastName}`.toLowerCase().includes(q) || (s.className ?? "").toLowerCase().includes(q);
+      !q ||
+      `${s.firstName} ${s.lastName}`.toLowerCase().includes(q) ||
+      (s.className ?? "").toLowerCase().includes(q) ||
+      (s.matricule ?? "").toLowerCase().includes(q);
     const matchesStatus = state.status === "ALL" || s.status === state.status;
     const matchesClass =
       state.classFilter === "ALL" ||

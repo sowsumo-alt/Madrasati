@@ -110,6 +110,9 @@ export function StudentProfileSheet({
                 <Row label={t("students.nni")}>
                   {student.nni ? <span dir="ltr">{student.nni}</span> : empty}
                 </Row>
+                <Row label={t("students.matricule")}>
+                  {student.matricule ? <span dir="ltr">{student.matricule}</span> : empty}
+                </Row>
                 <Row label={t("students.rimNumber")}>
                   {student.rimNumber ? <span dir="ltr">{student.rimNumber}</span> : empty}
                 </Row>

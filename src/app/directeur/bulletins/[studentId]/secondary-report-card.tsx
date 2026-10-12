@@ -144,6 +144,7 @@ export function SecondaryReportCard({
           <strong>
             {card.student.firstName} {card.student.lastName}
           </strong>
+          {card.student.matricule && <em className={styles.matricule}>Matricule {card.student.matricule}</em>}
         </div>
         <div>
           <span>Classe</span>

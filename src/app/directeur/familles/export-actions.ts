@@ -58,6 +58,7 @@ export async function familyDataExport(parentId: string) {
       ],
       Enfants: students.map((s) => ({
         Élève: `${s.firstName} ${s.lastName}`.trim(),
+        Matricule: s.matricule,
         Classe: s.classRoom?.name ?? "",
         Statut: s.status,
         Genre: s.gender,
