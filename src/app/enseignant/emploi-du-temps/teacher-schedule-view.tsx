@@ -20,7 +20,11 @@ const DAYS = [
   { value: 3, label: "Mercredi" },
   { value: 4, label: "Jeudi" },
   { value: 5, label: "Vendredi" },
+  { value: 6, label: "Samedi" },
+  { value: 7, label: "Dimanche" },
 ];
+/** Colonnes de la semaine sur grand écran : 5, 6 ou 7 jours. */
+const DAY_COLUMNS: Record<number, string> = { 5: "lg:grid-cols-5", 6: "lg:grid-cols-6", 7: "lg:grid-cols-7" };
 
 export interface TeacherScheduleSlot {
   id: string;
@@ -52,6 +56,8 @@ export function TeacherScheduleView({
   const { t } = useLanguage();
   const router = useRouter();
   const [formOpen, setFormOpen] = useState(false);
+  // Samedi et dimanche seulement s'il y a cours : pas de colonne vide.
+  const shownDays = DAYS.filter((d) => d.value <= 5 || slots.some((s) => s.dayOfWeek === d.value));
   const [confirmTarget, setConfirmTarget] = useState<TeacherScheduleSlot | null>(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
 
@@ -91,8 +97,8 @@ export function TeacherScheduleView({
       {slots.length === 0 ? (
         <div className="rounded-xl border border-border bg-surface px-5 py-16 text-center text-sm text-foreground/50">{t("schedule.noCourse")}</div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          {DAYS.map((day) => {
+        <div className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${DAY_COLUMNS[shownDays.length]}`}>
+          {shownDays.map((day) => {
             const daySlots = slots.filter((s) => s.dayOfWeek === day.value);
             return (
               <div key={day.value} className="rounded-xl border border-border bg-surface p-3">

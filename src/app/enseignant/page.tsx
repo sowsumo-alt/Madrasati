@@ -9,7 +9,7 @@ import { StatTile } from "@/components/ui/stat-tile";
 import { formatDate } from "@/lib/format";
 import { getTranslations } from "@/lib/i18n/server";
 
-const DAY_LABELS = ["", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"];
+const DAY_LABELS = ["", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 
 function minutesToTime(minutes: number) {
   const h = Math.floor(minutes / 60).toString().padStart(2, "0");
@@ -33,7 +33,8 @@ export default async function TeacherHome() {
   }
 
   const jsDay = new Date().getDay(); // 0 = dimanche
-  const todayDow = jsDay >= 1 && jsDay <= 5 ? jsDay : null;
+  // 1 = lundi … 7 = dimanche : les cours du samedi et du dimanche comptent aussi.
+  const todayDow = jsDay === 0 ? 7 : jsDay;
 
   const [classes, studentCount, upcomingExams, todaySlots] = await Promise.all([
     prisma.classRoom.findMany({

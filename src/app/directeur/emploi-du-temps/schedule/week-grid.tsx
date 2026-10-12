@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { formatDateIn } from "@/lib/format";
 import { isoDay, minutesToTime } from "@/lib/dashboard-data";
-import { addWeeks, displayedWeekStart, schoolDays, timeRows } from "@/lib/schedule";
+import { addWeeks, timeRows, weekDates } from "@/lib/schedule";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { cn } from "@/lib/utils";
 import type { ScheduleEvent, SlotRow } from "../schedule-view";
@@ -21,13 +21,16 @@ const navButton =
   "flex h-9 w-9 items-center justify-center rounded-lg border border-border text-foreground/60 transition-colors hover:bg-surface-muted";
 
 /**
- * Grille de la semaine : les plages horaires en lignes, du lundi au vendredi
- * en colonnes. Les jours portent leur date, et signalent jours fériés et
- * examens de la semaine affichée.
+ * Grille de la semaine : les plages horaires en lignes, du lundi au dimanche
+ * en colonnes. Samedi et dimanche restent étroits tant qu'aucun cours n'y est
+ * placé : une école qui ne travaille pas le week-end garde une grille lisible,
+ * une école qui y fait cours clique simplement dans la case. Les jours portent
+ * leur date, et signalent jours fériés et examens de la semaine affichée.
  */
 export function WeekGrid({
   weekStart,
   onWeekChange,
+  currentMonday,
   todayIso,
   slots,
   exams,
@@ -41,6 +44,8 @@ export function WeekGrid({
   /** Lundi de la semaine affichée (UTC). */
   weekStart: Date;
   onWeekChange: (monday: Date) => void;
+  /** Semaine du bouton « Aujourd'hui » (voir displayedWeekStart). */
+  currentMonday: Date;
   todayIso: string;
   slots: SlotRow[];
   exams: ScheduleEvent[];
@@ -52,16 +57,19 @@ export function WeekGrid({
   onRemove: (slot: SlotRow) => void;
 }) {
   const { t, locale } = useLanguage();
-  const days = schoolDays(weekStart);
+  const days = weekDates(weekStart);
   const rows = timeRows(slots);
-  const friday = days[4];
-  const currentMonday = displayedWeekStart(new Date(`${todayIso}T00:00:00.000Z`));
+  const lastDay = days[days.length - 1];
   const isCurrentWeek = isoDay(currentMonday) === isoDay(weekStart);
+  // Samedi et dimanche : pleine largeur dès qu'un cours y est placé.
+  const used = new Set(slots.map((s) => s.dayOfWeek));
+  const weekend = (day: number) => (used.has(day) ? "minmax(0,1fr)" : "minmax(0,0.55fr)");
+  const columns = `7rem repeat(5,minmax(0,1fr)) ${weekend(6)} ${weekend(7)}`;
 
-  const sameMonth = weekStart.getUTCMonth() === friday.getUTCMonth();
+  const sameMonth = weekStart.getUTCMonth() === lastDay.getUTCMonth();
   const title = t("schedule.weekOf")
     .replace("{from}", formatDateIn(locale, weekStart, sameMonth ? { day: "numeric" } : { day: "numeric", month: "long" }))
-    .replace("{to}", formatDateIn(locale, friday, { day: "numeric", month: "long", year: "numeric" }));
+    .replace("{to}", formatDateIn(locale, lastDay, { day: "numeric", month: "long", year: "numeric" }));
 
   return (
     <section className="overflow-hidden rounded-2xl border border-border/80 bg-surface shadow-soft">
@@ -104,7 +112,7 @@ export function WeekGrid({
         </p>
       ) : (
         <div className="overflow-x-auto">
-          <div className="grid min-w-[58rem] grid-cols-[7rem_repeat(5,minmax(0,1fr))]">
+          <div className="grid min-w-[66rem]" style={{ gridTemplateColumns: columns }}>
             <div className="sticky start-0 z-10 flex items-center justify-center border-b border-e border-border bg-surface-muted px-2 py-3 text-xs font-semibold text-foreground/60">
               {t("schedule.time")}
             </div>
@@ -118,12 +126,12 @@ export function WeekGrid({
                   key={iso}
                   className={cn(
                     "border-b border-border px-2 py-2.5 text-center",
-                    i < 4 && "border-e",
+                    i < days.length - 1 && "border-e",
                     isToday ? "bg-primary-50" : "bg-surface-muted/60",
                   )}
                 >
                   <p className={cn("text-sm font-semibold capitalize", isToday ? "text-primary-800" : "text-foreground")}>
-                    {formatDateIn(locale, date, { weekday: "long" })}
+                    {formatDateIn(locale, date, { weekday: i >= 5 && !used.has(i + 1) ? "short" : "long" })}
                   </p>
                   <p className="text-xs text-foreground/50">
                     {formatDateIn(locale, date, { day: "numeric", month: "long" })}
@@ -179,7 +187,7 @@ export function WeekGrid({
                       key={iso}
                       className={cn(
                         "space-y-1.5 border-b border-border p-1.5",
-                        i < 4 && "border-e",
+                        i < days.length - 1 && "border-e",
                         isHoliday && "bg-accent-50/30",
                       )}
                     >

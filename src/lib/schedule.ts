@@ -34,6 +34,24 @@ export function schoolDays(monday: Date): Date[] {
   return Array.from({ length: 5 }, (_, i) => new Date(monday.getTime() + i * DAY_MS));
 }
 
+/** Les sept jours de la semaine, du lundi `monday` au dimanche. */
+export function weekDates(monday: Date): Date[] {
+  return Array.from({ length: 7 }, (_, i) => new Date(monday.getTime() + i * DAY_MS));
+}
+
+/** Jours d'un créneau : 1 = lundi … 7 = dimanche. */
+export const WEEK_DAYS = [1, 2, 3, 4, 5, 6, 7] as const;
+
+/**
+ * Jours de cours d'une école : du lundi au vendredi, plus le samedi et le
+ * dimanche dès qu'un cours y est placé. Une école qui ne travaille pas le
+ * week-end n'a donc aucune colonne vide à regarder.
+ */
+export function classDays(slots: { dayOfWeek: number }[]): number[] {
+  const used = new Set(slots.map((s) => s.dayOfWeek));
+  return [1, 2, 3, 4, 5, ...[6, 7].filter((d) => used.has(d))];
+}
+
 export function addWeeks(monday: Date, weeks: number): Date {
   return new Date(monday.getTime() + weeks * 7 * DAY_MS);
 }
@@ -45,16 +63,17 @@ export function isoWeekday(date: Date): number {
 }
 
 /**
- * Lundi de la semaine à afficher : la semaine en cours du lundi au vendredi,
- * la suivante le samedi et le dimanche — le week-end, c'est la semaine qui
- * vient que l'on consulte.
+ * Lundi de la semaine à afficher : la semaine en cours tant qu'il reste un
+ * jour de cours aujourd'hui ou plus tard, sinon la suivante. Sans cours le
+ * week-end, c'est la semaine qui vient que l'on consulte le samedi et le
+ * dimanche ; une école qui fait cours le samedi voit encore la sienne.
  */
-export function displayedWeekStart(today: Date): Date {
+export function displayedWeekStart(today: Date, days: readonly number[] = [1, 2, 3, 4, 5]): Date {
   const weekday = isoWeekday(today);
   const monday = new Date(
     Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - (weekday - 1)),
   );
-  return weekday >= 6 ? addWeeks(monday, 1) : monday;
+  return days.some((d) => d >= weekday) ? monday : addWeeks(monday, 1);
 }
 
 /**

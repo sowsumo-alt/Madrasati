@@ -54,7 +54,7 @@ export async function createSlot(values: SlotFormValues) {
   revalidatePath("/enseignant/emploi-du-temps");
 }
 
-const DAY_LABELS = ["", "lundi", "mardi", "mercredi", "jeudi", "vendredi"];
+const DAY_LABELS = ["", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"];
 
 function formatMinutes(m: number) {
   return `${String(Math.floor(m / 60)).padStart(2, "0")}h${String(m % 60).padStart(2, "0")}`;

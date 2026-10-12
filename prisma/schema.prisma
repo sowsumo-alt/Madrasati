@@ -318,7 +318,7 @@ model ClassSubject {
   @@map("class_subjects")
 }
 
-// Créneau d'emploi du temps. dayOfWeek : 1 = lundi ... 5 = vendredi.
+// Créneau d'emploi du temps. dayOfWeek : 1 = lundi ... 7 = dimanche.
 // startMinutes/endMinutes = minutes depuis minuit (ex: 8h00 = 480).
 model ScheduleSlot {
   id             String       @id @default(cuid())

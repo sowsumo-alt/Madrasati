@@ -9,7 +9,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { PrintButton } from "@/components/ui/print-button";
 import { PdfButton } from "@/components/ui/pdf-button";
 import { startOfWeek } from "@/lib/dashboard-data";
-import { displayedWeekStart } from "@/lib/schedule";
+import { classDays, displayedWeekStart } from "@/lib/schedule";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { SlotFormDialog, type SlotSubjectOption } from "./slot-form-dialog";
 import { deleteSlot } from "./actions";
@@ -81,9 +81,13 @@ export function ScheduleView({
   );
   const [teacherFilter, setTeacherFilter] = useState("ALL");
   const [view, setView] = useState<ScheduleViewMode>("week");
-  const [weekStart, setWeekStart] = useState(() =>
-    displayedWeekStart(new Date(`${todayIso}T00:00:00.000Z`)),
+  // Semaine en cours tant qu'il reste un jour de cours de l'école (samedi ou
+  // dimanche compris quand l'école y fait cours), sinon la suivante.
+  const currentMonday = useMemo(
+    () => displayedWeekStart(new Date(`${todayIso}T00:00:00.000Z`), classDays(slots)),
+    [todayIso, slots],
   );
+  const [weekStart, setWeekStart] = useState(currentMonday);
   const [monthCursor, setMonthCursor] = useState(() => ({
     year: Number(todayIso.slice(0, 4)),
     month: Number(todayIso.slice(5, 7)) - 1,
@@ -291,6 +295,7 @@ export function ScheduleView({
           <WeekGrid
             weekStart={weekStart}
             onWeekChange={setWeekStart}
+            currentMonday={currentMonday}
             todayIso={todayIso}
             slots={visibleSlots}
             exams={visibleExams}

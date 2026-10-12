@@ -104,7 +104,8 @@ export function MonthCalendar({
           {cells.map(({ date, inMonth }, index) => {
             const iso = isoDay(date);
             const weekday = isoWeekday(date);
-            const isWeekend = weekday >= 6;
+            // Samedi ou dimanche sans aucun cours : jour sans classe.
+            const isWeekend = weekday >= 6 && !coursesByWeekday.has(weekday);
             const holiday = holidays.find((h) => h.day === iso);
             const dayExams = exams.filter((e) => e.day === iso);
             const courses = isWeekend || holiday ? 0 : (coursesByWeekday.get(weekday) ?? 0);

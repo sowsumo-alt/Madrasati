@@ -21,6 +21,7 @@ import { formatDateIn } from "@/lib/format";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { slotSchema, type SlotFormValues } from "./schema";
 import { createSlot } from "./actions";
+import { WEEK_DAYS } from "@/lib/schedule";
 
 export interface SlotSubjectOption {
   id: string;
@@ -29,7 +30,6 @@ export interface SlotSubjectOption {
   teacherName: string | null;
 }
 
-const SCHOOL_DAYS = [1, 2, 3, 4, 5];
 
 interface SlotFormDialogProps {
   open: boolean;
@@ -167,7 +167,7 @@ export function SlotFormDialog({
                     </span>
                   </SelectTrigger>
                   <SelectContent>
-                    {SCHOOL_DAYS.map((d) => (
+                    {WEEK_DAYS.map((d) => (
                       <SelectItem key={d} value={String(d)} className="capitalize">
                         {dayLabel(d)}
                       </SelectItem>

@@ -122,12 +122,13 @@ export function monthlyAttendance(
 }
 
 /**
- * Jour de l'emploi du temps : 1 = lundi … 5 = vendredi, `null` le week-end.
- * Même convention que la saisie des créneaux.
+ * Jour de l'emploi du temps : 1 = lundi … 7 = dimanche, comme la saisie des
+ * créneaux. Une école qui fait cours le samedi ou le dimanche voit ces jours-là
+ * ses cours de la journée ; les autres n'ont simplement aucun créneau.
  */
-export function scheduleDay(now: Date): number | null {
+export function scheduleDay(now: Date): number {
   const day = now.getUTCDay();
-  return day >= 1 && day <= 5 ? day : null;
+  return day === 0 ? 7 : day;
 }
 
 /** 510 → "08:30" */

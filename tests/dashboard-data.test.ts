@@ -64,11 +64,11 @@ test("pas de pourcentage d'évolution sans mois de comparaison", () => {
   assert.equal(percentChange(1500, 2000), -25);
 });
 
-test("l'emploi du temps n'a pas de créneau le week-end", () => {
+test("le samedi et le dimanche ont leurs créneaux (écoles qui font cours le week-end)", () => {
   assert.equal(scheduleDay(d("2026-09-07T08:00:00Z")), 1);
   assert.equal(scheduleDay(d("2026-09-11T08:00:00Z")), 5);
-  assert.equal(scheduleDay(d("2026-09-12T08:00:00Z")), null);
-  assert.equal(scheduleDay(d("2026-09-13T08:00:00Z")), null);
+  assert.equal(scheduleDay(d("2026-09-12T08:00:00Z")), 6);
+  assert.equal(scheduleDay(d("2026-09-13T08:00:00Z")), 7);
 });
 
 test("au-delà des couleurs disponibles, les petites parts sont regroupées", () => {

@@ -3,11 +3,13 @@ import assert from "node:assert/strict";
 
 import {
   addWeeks,
+  classDays,
   displayedWeekStart,
   isoWeekday,
   monthCells,
   schoolDays,
   timeRows,
+  weekDates,
 } from "../src/lib/schedule";
 
 /** La grille de l'emploi du temps doit épouser les horaires réels de l'école. */
@@ -54,4 +56,22 @@ test("le calendrier du mois commence le lundi et se complète par semaines enti�
   assert.equal(cells[0].inMonth, false);
   assert.equal(cells[1].date.toISOString().slice(0, 10), "2026-09-01");
   assert.equal(cells.filter((c) => c.inMonth).length, 30);
+});
+
+test("samedi et dimanche : affichés dès qu'un cours y est placé", () => {
+  assert.deepEqual(classDays([{ dayOfWeek: 1 }, { dayOfWeek: 3 }]), [1, 2, 3, 4, 5]);
+  assert.deepEqual(classDays([{ dayOfWeek: 6 }]), [1, 2, 3, 4, 5, 6]);
+  assert.deepEqual(classDays([{ dayOfWeek: 7 }, { dayOfWeek: 6 }]), [1, 2, 3, 4, 5, 6, 7]);
+  const week = weekDates(new Date("2026-09-14T00:00:00Z"));
+  assert.equal(week.length, 7);
+  assert.equal(week[5].toISOString().slice(0, 10), "2026-09-19"); // samedi
+  assert.equal(week[6].toISOString().slice(0, 10), "2026-09-20"); // dimanche
+});
+
+test("une école qui fait cours le samedi voit encore sa semaine le samedi", () => {
+  const monday = (iso: string, days: number[]) =>
+    displayedWeekStart(new Date(`${iso}T00:00:00Z`), days).toISOString().slice(0, 10);
+  assert.equal(monday("2026-09-19", [1, 2, 3, 4, 5, 6]), "2026-09-14"); // samedi : semaine en cours
+  assert.equal(monday("2026-09-20", [1, 2, 3, 4, 5, 6]), "2026-09-21"); // dimanche : la suivante
+  assert.equal(monday("2026-09-20", [1, 2, 3, 4, 5, 6, 7]), "2026-09-14"); // cours le dimanche
 });

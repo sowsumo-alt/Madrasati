@@ -238,7 +238,7 @@ export default async function DashboardPage() {
         classRoom: { select: { name: true } },
       },
     }),
-    // Cours restants de la journée (pas de créneau le week-end).
+    // Cours restants de la journée (samedi et dimanche compris).
     todayDow
       ? prisma.scheduleSlot.findMany({
           where: {

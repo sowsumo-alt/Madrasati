@@ -38,7 +38,9 @@ export function CourseCard({
         <Icon className="h-[18px] w-[18px]" strokeWidth={2} />
       </span>
       <div className="min-w-0 flex-1 text-xs leading-snug">
-        <p className="font-semibold text-foreground">{subjectName}</p>
+        {/* Césure automatique : avec samedi et dimanche, les colonnes sont plus
+            étroites et « Mathématiques » sortait de sa case. */}
+        <p className="font-semibold text-foreground hyphens-auto break-words">{subjectName}</p>
         {className && <p className="font-medium text-primary-700">{className}</p>}
         {teacherName && <p className="truncate text-foreground/60">{teacherName}</p>}
         {roomText && <p className="truncate text-foreground/45">{roomText}</p>}

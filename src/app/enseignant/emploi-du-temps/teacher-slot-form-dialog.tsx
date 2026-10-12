@@ -33,6 +33,8 @@ const DAYS = [
   { value: 3, label: "Mercredi" },
   { value: 4, label: "Jeudi" },
   { value: 5, label: "Vendredi" },
+  { value: 6, label: "Samedi" },
+  { value: 7, label: "Dimanche" },
 ];
 
 export interface TeacherClassSubjectOption {

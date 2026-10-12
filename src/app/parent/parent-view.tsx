@@ -76,7 +76,11 @@ const DAYS = [
   { value: 3, label: "Mercredi" },
   { value: 4, label: "Jeudi" },
   { value: 5, label: "Vendredi" },
+  { value: 6, label: "Samedi" },
+  { value: 7, label: "Dimanche" },
 ];
+/** Colonnes de la semaine sur grand écran : 5, 6 ou 7 jours. */
+const DAY_COLUMNS: Record<number, string> = { 5: "lg:grid-cols-5", 6: "lg:grid-cols-6", 7: "lg:grid-cols-7" };
 
 const STATUS_META: Record<string, { label: string; icon: typeof Check; className: string }> = {
   PRESENT: { label: "Présent", icon: Check, className: "text-success" },
@@ -124,6 +128,8 @@ export function ParentView({
     router.push(`/parent?childId=${childId}&term=${encodeURIComponent(term)}`);
   }
 
+  // Samedi et dimanche seulement s'il y a cours : pas de colonne vide.
+  const shownDays = DAYS.filter((d) => d.value <= 5 || data.schedule.some((s) => s.dayOfWeek === d.value));
   const unpaid = data.fees.reduce(
     (sum, f) => sum + Math.max(f.amount - f.totalPaid, 0),
     0,
@@ -429,8 +435,8 @@ export function ParentView({
               {t("portal.noSchedule")}
             </p>
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-              {DAYS.map((day) => {
+            <div className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${DAY_COLUMNS[shownDays.length]}`}>
+              {shownDays.map((day) => {
                 const daySlots = data.schedule.filter((s) => s.dayOfWeek === day.value);
                 return (
                   <div key={day.value} className="rounded-lg border border-border p-2.5">

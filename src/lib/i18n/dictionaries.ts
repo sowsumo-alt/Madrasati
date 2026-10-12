@@ -919,9 +919,9 @@ export const dictionaries = {
     "atRisk.viewRecord": "Voir la fiche complète",
 
     "schedule.title": "Emploi du temps",
-    "schedule.subtitle": "Organisez la semaine de chaque classe, du lundi au vendredi.",
+    "schedule.subtitle": "Organisez la semaine de chaque classe, samedi et dimanche compris si votre école y fait cours.",
     "schedule.myTitle": "Mon emploi du temps",
-    "schedule.mySubtitle": "Vos cours de la semaine, du lundi au vendredi.",
+    "schedule.mySubtitle": "Vos cours de la semaine.",
     "schedule.newSlot": "Nouveau créneau",
     "schedule.createClassFirst": "Créez d'abord une classe dans le module Classes.",
     "schedule.assignSubjectsFirst":
@@ -2211,9 +2211,9 @@ export const dictionaries = {
     "atRisk.viewRecord": "View the full record",
 
     "schedule.title": "Timetable",
-    "schedule.subtitle": "Organise each class's week, Monday to Friday.",
+    "schedule.subtitle": "Organise each class's week, Saturday and Sunday included if your school teaches then.",
     "schedule.myTitle": "My timetable",
-    "schedule.mySubtitle": "Your lessons for the week, Monday to Friday.",
+    "schedule.mySubtitle": "Your lessons for the week.",
     "schedule.newSlot": "New slot",
     "schedule.createClassFirst": "Create a class in the Classes module first.",
     "schedule.assignSubjectsFirst":
@@ -3499,9 +3499,9 @@ export const dictionaries = {
     "atRisk.viewRecord": "عرض الملف الكامل",
 
     "schedule.title": "جدول الحصص",
-    "schedule.subtitle": "نظّم أسبوع كل قسم، من الإثنين إلى الجمعة.",
+    "schedule.subtitle": "نظّم أسبوع كل قسم، بما في ذلك السبت والأحد إذا كانت مدرستك تدرّس فيهما.",
     "schedule.myTitle": "جدول حصصي",
-    "schedule.mySubtitle": "حصصك خلال الأسبوع، من الإثنين إلى الجمعة.",
+    "schedule.mySubtitle": "حصصك خلال الأسبوع.",
     "schedule.newSlot": "حصة جديدة",
     "schedule.createClassFirst": "أنشئ قسمًا أولًا من وحدة الأقسام.",
     "schedule.assignSubjectsFirst":
