@@ -23,12 +23,15 @@ export function CancelReceiptButton({
   target,
   amountLabel,
   family = false,
+  compact = false,
 }: {
   target: { paymentId: string } | { familyPaymentId: string };
   /** « 9 500 MRU » */
   amountLabel: string;
   /** Reçu familial : toutes ses lignes sont annulées ensemble. */
   family?: boolean;
+  /** Petit bouton (icône), pour une liste de versements. */
+  compact?: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -55,16 +58,29 @@ export function CancelReceiptButton({
 
   return (
     <>
-      <Button
-        type="button"
-        variant="secondary"
-        className="no-print text-red-700"
-        onClick={() => setOpen(true)}
-        data-testid="cancel-receipt"
-      >
-        <Ban className="h-4 w-4" />
-        Annuler ce paiement
-      </Button>
+      {compact ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          title="Annuler ce paiement"
+          aria-label="Annuler ce paiement"
+          className="no-print flex h-9 w-9 items-center justify-center rounded-lg text-red-700 transition-colors hover:bg-red-50"
+          data-testid="cancel-payment-compact"
+        >
+          <Ban className="h-4 w-4" />
+        </button>
+      ) : (
+        <Button
+          type="button"
+          variant="secondary"
+          className="no-print text-red-700"
+          onClick={() => setOpen(true)}
+          data-testid="cancel-receipt"
+        >
+          <Ban className="h-4 w-4" />
+          Annuler ce paiement
+        </Button>
+      )}
       <Dialog open={open} onOpenChange={(o) => !saving && setOpen(o)}>
         <DialogContent className="max-w-md" data-testid="cancel-dialog">
           <DialogHeader>

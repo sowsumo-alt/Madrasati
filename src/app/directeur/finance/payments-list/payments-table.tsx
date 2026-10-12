@@ -3,6 +3,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import Link from "next/link";
 import {
+  Ban,
   Banknote,
   Eye,
   MessageCircle,
@@ -110,6 +111,13 @@ function RowMenu({ fee, actions }: { fee: FeeRow; actions: FeeRowActions }) {
               <Receipt className="h-4 w-4 text-foreground/60" />
               {t("finance.viewReceipt")}
             </Link>
+          </DropdownMenuItem>
+        )}
+        {fee.payments.length > 0 && (
+          // L'annulation se fait versement par versement, dans la fiche du frais.
+          <DropdownMenuItem onClick={() => actions.onView(fee)} className="text-danger" data-testid="cancel-payment-menu">
+            <Ban className="h-4 w-4" />
+            {t("finance.cancelPayment")}
           </DropdownMenuItem>
         )}
         {fee.payments.length === 0 && (

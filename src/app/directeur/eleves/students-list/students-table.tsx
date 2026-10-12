@@ -9,6 +9,7 @@ import {
   MoreVertical,
   Pencil,
   Phone,
+  Trash2,
   UserCheck,
   UserX,
 } from "lucide-react";
@@ -63,6 +64,7 @@ export function StudentsTable({
   onView,
   onEdit,
   onToggleStatus,
+  onRemove,
   onFamily,
   schoolName,
 }: {
@@ -73,6 +75,8 @@ export function StudentsTable({
   onView: (student: StudentRow) => void;
   onEdit: (student: StudentRow) => void;
   onToggleStatus: (student: StudentRow) => void;
+  /** « Supprimer / archiver » : même fenêtre que pour une famille. */
+  onRemove: (student: StudentRow) => void;
   /** Filtre la liste sur la famille de ce parent. */
   onFamily: (parentId: string) => void;
   schoolName: string;
@@ -251,6 +255,10 @@ export function StudentsTable({
                               {t("students.reactivate")}
                             </>
                           )}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onRemove(s)} className="text-danger" data-testid="student-remove-menu">
+                          <Trash2 className="h-4 w-4" />
+                          {t("students.removeOrArchive")}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>

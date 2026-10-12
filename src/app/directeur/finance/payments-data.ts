@@ -47,7 +47,7 @@ export async function loadPaymentsData(schoolId: string, now = new Date()) {
           },
         },
         payments: {
-          select: { id: true, amount: true, method: true, receiptNumber: true, paidAt: true },
+          select: { id: true, amount: true, method: true, receiptNumber: true, paidAt: true, familyPaymentId: true },
           orderBy: { paidAt: "asc" },
         },
       },
@@ -100,6 +100,7 @@ export async function loadPaymentsData(schoolId: string, now = new Date()) {
           amount: p.amount,
           method: p.method,
           paidAt: p.paidAt.toISOString(),
+          familyPaymentId: p.familyPaymentId,
         })),
       };
     })

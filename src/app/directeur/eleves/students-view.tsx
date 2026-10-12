@@ -16,6 +16,7 @@ import { useLanguage } from "@/lib/i18n/language-provider";
 import { joinFullName } from "@/lib/student-form";
 import type { StudentClassOption, StudentEditTarget } from "./student-form-dialog";
 import { useOpenedOnce } from "@/lib/use-opened-once";
+import { RemovalDialog } from "@/app/directeur/familles/removal-dialog";
 import type { CatalogGroup } from "@/lib/class-catalog";
 import { moveStudentsToClass, setStudentStatus, setStudentsStatus } from "./actions";
 import {
@@ -164,6 +165,7 @@ export function StudentsView({
   const [editTarget, setEditTarget] = useState<StudentEditTarget | null>(null);
   const [profileId, setProfileId] = useState<string | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<StudentRow | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<StudentRow | null>(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
   const [bulkRemoveOpen, setBulkRemoveOpen] = useState(false);
@@ -389,6 +391,7 @@ export function StudentsView({
               onView={(s) => setProfileId(s.id)}
               onEdit={openEdit}
               onToggleStatus={setConfirmTarget}
+              onRemove={setRemoveTarget}
               onFamily={(parentId) => navigate({ ...state, query, family: parentId, page: 1 })}
               schoolName={schoolName}
             />
@@ -429,6 +432,23 @@ export function StudentsView({
       )}
       {importLoaded && (
         <ImportDialog open={importOpen} onOpenChange={setImportOpen} classes={classes} catalog={catalog} />
+      )}
+      {removeTarget && (
+        <RemovalDialog
+          kind="student"
+          id={removeTarget.id}
+          open
+          onOpenChange={(open) => !open && setRemoveTarget(null)}
+          onDone={() => {
+            setRemoveTarget(null);
+            setSelected((prev) => {
+              const next = new Set(prev);
+              next.delete(removeTarget.id);
+              return next;
+            });
+            router.refresh();
+          }}
+        />
       )}
       <ConfirmDialog
         open={Boolean(confirmTarget)}

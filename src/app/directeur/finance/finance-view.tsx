@@ -96,7 +96,15 @@ export interface FeeRow {
     familySize: number;
   } | null;
   /** Du plus ancien au plus récent. */
-  payments: { id: string; receiptNumber: string; amount: number; method: string; paidAt: string }[];
+  payments: {
+    id: string;
+    receiptNumber: string;
+    amount: number;
+    method: string;
+    paidAt: string;
+    /** Reçu familial dont ce versement fait partie : annulé en entier. */
+    familyPaymentId?: string | null;
+  }[];
 }
 
 export interface PaymentsKpis {
