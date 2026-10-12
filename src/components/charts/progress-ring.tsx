@@ -24,7 +24,7 @@ export function ProgressRing({
       role="img"
       aria-label={`${percent}%`}
     >
-      <circle cx={28} cy={28} r={R} fill="none" stroke="#e8ece9" strokeWidth={STROKE} />
+      <circle cx={28} cy={28} r={R} fill="none" style={{ stroke: "var(--surface-muted)" }} strokeWidth={STROKE} />
       <circle
         cx={28}
         cy={28}

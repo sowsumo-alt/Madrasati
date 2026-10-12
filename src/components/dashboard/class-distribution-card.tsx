@@ -95,7 +95,7 @@ export function ClassDistributionCard({
               role="img"
               aria-label={arcs.map((a) => `${a.label} ${a.value}`).join(", ")}
             >
-              <circle cx={80} cy={80} r={R} fill="none" stroke="#eef1ee" strokeWidth={STROKE} />
+              <circle cx={80} cy={80} r={R} fill="none" style={{ stroke: "var(--surface-muted)" }} strokeWidth={STROKE} />
               {arcs.map((a) => (
                 <circle
                   key={a.label}

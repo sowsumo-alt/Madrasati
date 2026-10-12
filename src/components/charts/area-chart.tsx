@@ -3,6 +3,7 @@
 import { useId } from "react";
 import { SERIE, type ChartTheme, type Point } from "./chart-primitives";
 import { smoothPath } from "./smooth-path";
+import { useAppTheme } from "@/lib/app-theme-context";
 
 // Grille, étiquettes et anneau des points selon le fond : clair (application
 // des écoles) ou sombre (espace Super Admin).
@@ -23,7 +24,7 @@ export function AreaChart({
   color = SERIE,
   emptyLabel,
   highlightLast = false,
-  theme = "light",
+  theme: themeProp,
   tickFormat,
 }: {
   data: Point[];
@@ -38,6 +39,8 @@ export function AreaChart({
   tickFormat?: (value: number) => string;
 }) {
   const gradientId = useId();
+  const appTheme = useAppTheme();
+  const theme = themeProp ?? appTheme;
   const { grid: GRID, ink: INK_MUTED, ring: RING } = THEMES[theme];
 
   if (data.length === 0) {

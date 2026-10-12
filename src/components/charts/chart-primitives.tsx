@@ -11,6 +11,8 @@
  * visible l'accompagne (règle du relief).
  */
 
+import { useAppTheme } from "@/lib/app-theme-context";
+
 export const SERIE = "#0f7049";
 export const SERIE_2 = "#bd8d2c";
 const GRID = "#dfe4e0";
@@ -80,13 +82,15 @@ export function LineChart({
   data,
   unit = "",
   maxOverride,
-  theme = "light",
+  theme: themeProp,
 }: {
   data: Point[];
   unit?: string;
   maxOverride?: number;
   theme?: ChartTheme;
 }) {
+  const appTheme = useAppTheme();
+  const theme = themeProp ?? appTheme;
   const c = THEME_COLORS[theme];
   if (data.length === 0) return <EmptyPlot theme={theme} />;
 
@@ -186,7 +190,9 @@ export function LineChart({
 
 /** Colonnes verticales — une seule série. */
 export function ColumnChart({ data, unit = "" }: { data: Point[]; unit?: string }) {
-  if (data.length === 0) return <EmptyPlot />;
+  const theme = useAppTheme();
+  const { grid: GRID, ink: INK_MUTED } = THEME_COLORS[theme];
+  if (data.length === 0) return <EmptyPlot theme={theme} />;
 
   const W = 520;
   const H = 200;

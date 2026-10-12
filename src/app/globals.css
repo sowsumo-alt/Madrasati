@@ -1,4 +1,6 @@
 @import "tailwindcss";
+/* Mode sombre de l'application des écoles (généré : scripts/build-dark-theme.mjs). */
+@import "./theme-dark.css";
 
 /* Variante « dark: » — réservée à l'espace Super Admin en mode sombre (voir
    plus bas). Elle s'applique à toute la page tant que cet espace est affiché

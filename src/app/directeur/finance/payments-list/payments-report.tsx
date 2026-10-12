@@ -46,7 +46,7 @@ export function PaymentsReport({
   ];
 
   return (
-    <div id="payments-report" className="bg-white p-10 text-[13px] text-slate-900" style={{ width: 1100 }}>
+    <div id="payments-report" data-paper className="bg-white p-10 text-[13px] text-slate-900" style={{ width: 1100 }}>
       <div className="flex items-end justify-between gap-6 border-b-2 border-emerald-700 pb-4">
         <div>
           <p className="text-2xl font-bold text-emerald-900">{schoolName}</p>

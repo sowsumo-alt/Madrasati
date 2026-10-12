@@ -3,6 +3,7 @@ import { requireRole } from "@/lib/session";
 import { ROLES, ROLE_LABEL_KEYS } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { AppShell } from "@/components/layout/app-shell";
+import { getAppTheme } from "@/lib/app-theme-server";
 import { effectivePlan } from "@/lib/plans";
 
 export default async function TeacherLayout({ children }: { children: ReactNode }) {
@@ -19,6 +20,7 @@ export default async function TeacherLayout({ children }: { children: ReactNode 
       userName={user.name ?? ""}
       roleKey={ROLE_LABEL_KEYS.TEACHER}
       plan={school ? effectivePlan(school) : "standard"}
+      theme={await getAppTheme()}
     >
       {children}
     </AppShell>

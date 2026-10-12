@@ -81,7 +81,7 @@ export function CompactReceipt({
   const letterhead = Boolean(school.logoIsLetterhead && school.logoUrl);
 
   return (
-    <div id={id} className={styles.receipt} data-testid="compact-receipt">
+    <div id={id} className={styles.receipt} data-testid="compact-receipt" data-paper>
       <div className={styles.frame}>
         <div className={letterhead ? styles.headLetterhead : styles.head}>
           <div className={letterhead ? styles.bannerWrap : styles.school}>
@@ -244,6 +244,7 @@ export function ReceiptSheet({
       <div
         className={`${styles.sheet} ${mode === "HALF_SHEET" ? styles.a5 : styles.a4}`}
         data-receipt-sheet={mode}
+        data-paper
       >
         <div className={styles.slot}>{top}</div>
         {mode === "TWO_PER_PAGE" && (

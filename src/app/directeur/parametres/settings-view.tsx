@@ -371,7 +371,7 @@ export function SettingsView({
           <p className="text-xs text-foreground/50">{t("settings.headerPreviewHint")}</p>
         </CardHeader>
         <CardContent className="p-4 pt-0">
-          <div className="overflow-x-auto rounded-lg border border-border bg-white p-5">
+          <div className="overflow-x-auto rounded-lg border border-border bg-white p-5" data-paper>
             <div className="min-w-[560px]" data-testid="header-preview">
               <DocumentHeader school={preview} official={official} />
             </div>

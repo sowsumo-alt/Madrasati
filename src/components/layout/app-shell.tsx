@@ -12,6 +12,9 @@ import { Sidebar } from "./sidebar";
 import { LanguageMenu } from "./language-menu";
 import { FullscreenButton } from "./fullscreen-button";
 import { UserMenu } from "./user-menu";
+import { ThemeToggle } from "./theme-toggle";
+import { APP_THEME_COOKIE, type AppTheme } from "@/lib/app-theme";
+import { AppThemeContext } from "@/lib/app-theme-context";
 import type { NavKey } from "./nav-items";
 
 interface AppShellProps {
@@ -29,6 +32,8 @@ interface AppShellProps {
   alertLabel?: string;
   /** Formule de l'école — détermine les entrées de menu verrouillées. */
   plan: Plan;
+  /** Thème choisi sur cet appareil (cookie relu par le serveur). */
+  theme?: AppTheme;
 }
 
 /**
@@ -46,12 +51,21 @@ export function AppShell({
   alertHref = "#",
   alertLabel = "Notifications",
   plan,
+  theme: initialTheme = "light",
 }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { t } = useLanguage();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [theme, setTheme] = useState<AppTheme>(initialTheme);
+
+  /** Clair ↔ sombre : immédiat, et gardé sur l'appareil pour les prochaines visites. */
+  function toggleTheme() {
+    const next: AppTheme = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    document.cookie = `${APP_THEME_COOKIE}=${next}; path=/; max-age=31536000; samesite=lax`;
+  }
 
   function onSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -61,18 +75,19 @@ export function AppShell({
   }
 
   return (
-    <div className="min-h-screen bg-background print:bg-white">
+    <AppThemeContext.Provider value={theme}>
+    <div className="min-h-screen bg-background print:bg-white" data-app-theme={theme}>
       {/* Fond illustré (feuillage, toque et livres) fixé à l'écran : il
           reste en place pendant le défilement et commence au bord de la
           barre latérale ; retourné en arabe, pour que le feuillage reste du
           côté opposé à la barre. */}
       <div
         aria-hidden
-        className="no-print pointer-events-none fixed inset-0 bg-[url(/backgrounds/app-bg.webp)] bg-cover bg-center lg:start-64 rtl:-scale-x-100"
+        className="app-bg no-print pointer-events-none fixed inset-0 bg-[url(/backgrounds/app-bg.webp)] bg-cover bg-center lg:start-64 rtl:-scale-x-100"
       />
 
       {/* Barre latérale — bureau */}
-      <aside className="no-print fixed inset-y-0 start-0 z-40 hidden w-64 bg-gradient-to-b from-primary-800 via-primary-800 to-primary-900 lg:block">
+      <aside data-keep-colors className="app-sidebar no-print fixed inset-y-0 start-0 z-40 hidden w-64 bg-gradient-to-b from-primary-800 via-primary-800 to-primary-900 lg:block">
         <Sidebar navKey={navKey} plan={plan} />
       </aside>
 
@@ -80,7 +95,7 @@ export function AppShell({
       {mobileOpen && (
         <div className="no-print fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
-          <aside className="absolute inset-y-0 start-0 w-72 max-w-[85vw] bg-gradient-to-b from-primary-800 to-primary-900 shadow-xl">
+          <aside data-keep-colors className="app-sidebar absolute inset-y-0 start-0 w-72 max-w-[85vw] bg-gradient-to-b from-primary-800 to-primary-900 shadow-xl">
             <button
               onClick={() => setMobileOpen(false)}
               className="absolute end-3 top-6 z-10 rounded-lg p-1.5 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
@@ -150,6 +165,7 @@ export function AppShell({
                 )}
               </Link>
               <FullscreenButton />
+              <ThemeToggle theme={theme} onToggle={toggleTheme} />
               <LanguageMenu />
               <UserMenu
                 userName={userName}
@@ -168,5 +184,6 @@ export function AppShell({
         </main>
       </div>
     </div>
+    </AppThemeContext.Provider>
   );
 }

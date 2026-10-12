@@ -4,6 +4,7 @@ import { ROLES, ROLE_LABEL_KEYS } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { dueFeesOf } from "@/lib/due-rule-data";
 import { AppShell } from "@/components/layout/app-shell";
+import { getAppTheme } from "@/lib/app-theme-server";
 import { effectivePlan } from "@/lib/plans";
 import { Eye } from "lucide-react";
 import { ReadOnlyToasts } from "@/components/layout/read-only-toasts";
@@ -33,6 +34,7 @@ export default async function DirectorLayout({
       userName={user.name ?? ""}
       roleKey={user.readOnly ? "role.readOnly" : ROLE_LABEL_KEYS.DIRECTOR}
       plan={school ? effectivePlan(school) : "standard"}
+      theme={await getAppTheme()}
       searchHref="/directeur/eleves"
       alertCount={overdueFees}
       alertHref="/directeur/notifications"

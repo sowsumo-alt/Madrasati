@@ -34,6 +34,8 @@ export async function exportElementToPdf(element: HTMLElement, fileName: string)
      */
     onclone: (doc: Document) => {
       doc.querySelectorAll(".no-print, [data-pdf-ignore]").forEach((el) => el.remove());
+      // Mode sombre à l'écran : le document remis au parent reste clair.
+      doc.querySelectorAll("[data-app-theme]").forEach((el) => el.setAttribute("data-app-theme", "light"));
       doc.querySelectorAll<HTMLElement>("[data-pdf-show]").forEach((el) => {
         el.classList.remove("hidden");
         el.style.display = "block";
@@ -118,6 +120,8 @@ export async function exportElementsToPdf(
       // Même préparation que pour un seul document (voir plus haut).
       onclone: (doc: Document) => {
         doc.querySelectorAll(".no-print, [data-pdf-ignore]").forEach((el) => el.remove());
+        // Mode sombre à l'écran : le document remis au parent reste clair.
+        doc.querySelectorAll("[data-app-theme]").forEach((el) => el.setAttribute("data-app-theme", "light"));
         doc.querySelectorAll<HTMLElement>("[data-pdf-show]").forEach((el) => {
           el.classList.remove("hidden");
           el.style.display = "block";

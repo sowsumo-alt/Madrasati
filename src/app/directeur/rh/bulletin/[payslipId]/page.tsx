@@ -39,6 +39,7 @@ export default async function PayslipPage({
 
       <div
         id="bulletin-salaire"
+        data-paper
         className="rounded-xl border border-border bg-surface p-8 shadow-sm print:border-0 print:shadow-none"
       >
         <DocumentHeader school={toSchoolIdentity(payslip.school)} />

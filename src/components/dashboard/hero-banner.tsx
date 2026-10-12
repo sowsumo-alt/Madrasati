@@ -24,7 +24,7 @@ export function HeroBanner({
   quote: string;
 }) {
   return (
-    <section className="animate-page-in relative isolate overflow-hidden rounded-2xl bg-gradient-to-br from-primary-900 via-primary-800 to-primary-600 text-white shadow-soft">
+    <section data-keep-colors className="animate-page-in relative isolate overflow-hidden rounded-2xl bg-gradient-to-br from-primary-900 via-primary-800 to-primary-600 text-white shadow-soft">
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
         <div className="absolute -top-24 end-[-4rem] h-72 w-72 rounded-full bg-primary-400/30 blur-3xl" />
         <div className="absolute -bottom-28 end-1/3 h-56 w-56 rounded-full bg-accent-400/20 blur-3xl" />

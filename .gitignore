@@ -51,3 +51,6 @@ next-env.d.ts
 
 # Dossier de travail local (rapports et tests d'audit) : jamais publié.
 diagnostic/
+
+# Plan produit (stratégie) : gardé hors du dépôt public
+plan.md

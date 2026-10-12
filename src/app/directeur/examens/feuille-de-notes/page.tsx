@@ -95,7 +95,7 @@ function SheetPages({ data, sheet }: { data: MarkSheetsData; sheet: MarkSheet })
   return (
     <>
       {pages.map(([start, end], index) => (
-        <section key={start} className={styles.page} data-testid="mark-sheet-page">
+        <section key={start} className={styles.page} data-testid="mark-sheet-page" data-paper>
           <SchoolHead school={data.school} />
 
           <div className={styles.titleRow}>

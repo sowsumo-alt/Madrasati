@@ -129,7 +129,7 @@ export function AnnualReportCard({
   };
 
   return (
-    <div id={id} className={`${styles.bulletin} ${styles.annual}`} dir="ltr" lang="fr" data-testid="annual-report-card" data-pdf-single-page>
+    <div id={id} className={`${styles.bulletin} ${styles.annual}`} dir="ltr" lang="fr" data-testid="annual-report-card" data-pdf-single-page data-paper>
       <DocumentHeader school={school} official={official} />
 
       <div className={styles.annualTitleRow}>
