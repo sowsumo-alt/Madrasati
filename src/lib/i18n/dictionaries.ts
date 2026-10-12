@@ -555,7 +555,7 @@ export const dictionaries = {
     "finance.remainingIs": "Reste {amount}",
     "finance.deleteFee": "Supprimer le frais",
     "finance.cancelPayment": "Annuler un paiement…",
-    "students.removeOrArchive": "Supprimer / archiver",
+    "students.removeOrArchive": "Supprimer définitivement…",
     "finance.deleteFeeTitle": "Supprimer ce frais ?",
     "finance.deleteFeeHint":
       "« {label} » de {amount} pour {student} sera retire definitivement. Aucun paiement ne lui est rattache, rien ne sera perdu.",
@@ -1851,7 +1851,7 @@ export const dictionaries = {
     "finance.remainingIs": "{amount} left",
     "finance.deleteFee": "Delete the fee",
     "finance.cancelPayment": "Cancel a payment…",
-    "students.removeOrArchive": "Delete / archive",
+    "students.removeOrArchive": "Delete permanently…",
     "finance.deleteFeeTitle": "Delete this fee?",
     "finance.deleteFeeHint":
       "“{label}” of {amount} for {student} will be removed for good. No payment is attached to it, nothing will be lost.",
@@ -3145,7 +3145,7 @@ export const dictionaries = {
     "finance.remainingIs": "المتبقي {amount}",
     "finance.deleteFee": "حذف الرسم",
     "finance.cancelPayment": "إلغاء دفعة…",
-    "students.removeOrArchive": "حذف / أرشفة",
+    "students.removeOrArchive": "حذف نهائي…",
     "finance.deleteFeeTitle": "حذف هذا الرسم؟",
     "finance.deleteFeeHint":
       "سيُحذف «{label}» بمبلغ {amount} لـ {student} نهائيًا. لا توجد دفعات مرتبطة به، ولن يضيع شيء.",

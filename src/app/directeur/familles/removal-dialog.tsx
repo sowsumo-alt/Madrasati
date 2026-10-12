@@ -29,9 +29,12 @@ export function RemovalDialog({
   open,
   onOpenChange,
   onDone,
+  initialMode,
 }: {
   kind: "student" | "family";
   id: string;
+  /** Choix présélectionné (menu « Supprimer définitivement… ») ; sinon selon l'argent en jeu. */
+  initialMode?: Mode;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Après la suppression ou l'archivage. */
@@ -55,10 +58,10 @@ export function RemovalDialog({
         if (!r.ok) return setError(r.error);
         setPreview(r);
         // Sans argent en jeu, la suppression est le choix attendu.
-        setMode(r.payments > 0 ? "ARCHIVE" : "DELETE");
+        setMode(initialMode ?? (r.payments > 0 ? "ARCHIVE" : "DELETE"));
       })
       .catch(() => setError("Impossible de charger les informations. Réessayez."));
-  }, [open, kind, id]);
+  }, [open, kind, id, initialMode]);
 
   async function confirm() {
     if (!preview) return;
@@ -119,7 +122,12 @@ export function RemovalDialog({
                     ? `${preview.payments} paiement(s), ${formatMRU(preview.paidTotal)} encaissés`
                     : "aucun paiement"
                 }`
-              : error ?? "Chargement…"}
+              : error ?? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Chargement des informations…
+                  </span>
+                )}
           </DialogDescription>
         </DialogHeader>
 

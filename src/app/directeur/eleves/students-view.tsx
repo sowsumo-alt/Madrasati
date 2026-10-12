@@ -439,6 +439,7 @@ export function StudentsView({
       {removeTarget && (
         <RemovalDialog
           kind="student"
+          initialMode="DELETE"
           id={removeTarget.id}
           open
           onOpenChange={(open) => !open && setRemoveTarget(null)}
