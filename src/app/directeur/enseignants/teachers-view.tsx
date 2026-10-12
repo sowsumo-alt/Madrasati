@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -13,6 +14,7 @@ import {
   UserCheck,
   KeyRound,
   Loader2,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,6 +56,8 @@ export interface TeacherRow {
   /** Identifiant du compte de connexion, s'il en a un. */
   userId: string | null;
   accountEmail: string | null;
+  /** Classes où il enseigne cette année (matière ou professeur principal). */
+  classes: string[];
 }
 
 export function TeachersView({
@@ -162,6 +166,23 @@ export function TeachersView({
         </Button>
       </div>
 
+      {(() => {
+        // Sans classe, un enseignant qui se connecte ne voit rien : on le dit ici.
+        const without = teachers.filter((tc) => tc.status === "ACTIVE" && tc.classes.length === 0).length;
+        return without > 0 ? (
+          <div
+            className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+            data-testid="teachers-without-class"
+          >
+            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+            <span className="min-w-0 flex-1">{t("teachers.noClassBanner").replace("{n}", String(without))}</span>
+            <Link href="/directeur/classes" className="font-semibold text-amber-800 hover:underline">
+              {t("teachers.assignClasses")} →
+            </Link>
+          </div>
+        ) : null;
+      })()}
+
       <div className="relative max-w-xs">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/40" />
         <Input
@@ -200,6 +221,18 @@ export function TeachersView({
                     <tr key={teacher.id} className="hover:bg-surface-muted/40">
                       <td className="px-5 py-3 font-medium text-foreground">
                         {teacher.firstName} {teacher.lastName}
+                        {teacher.classes.length > 0 ? (
+                          <span className="block text-xs font-normal text-foreground/55">{teacher.classes.join(", ")}</span>
+                        ) : teacher.status === "ACTIVE" ? (
+                          <Link
+                            href="/directeur/classes"
+                            className="mt-0.5 flex w-fit items-center gap-1 text-xs font-medium text-amber-700 hover:underline"
+                            data-testid="teacher-no-class"
+                          >
+                            <AlertTriangle className="h-3 w-3" />
+                            {t("teachers.noClass")}
+                          </Link>
+                        ) : null}
                       </td>
                       <td className="px-5 py-3 text-foreground/70">
                         {teacher.subjectSpecialty ?? (

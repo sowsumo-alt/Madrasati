@@ -722,6 +722,10 @@ export const dictionaries = {
     "teacherHome.noClassToday": "Aucun cours prévu aujourd'hui.",
     "teacherHome.noUpcomingExam": "Aucun examen à venir.",
     "teacherHome.noClassAssigned": "Aucune classe ne vous est assignée pour le moment.",
+    "teacherHome.noClassBanner": "Aucune classe ne vous est encore attribuée : vous ne voyez donc ni élèves, ni appel, ni notes. Demandez à la direction de vous attribuer vos matières (Classes → Gérer les matières) ; elles apparaîtront ici aussitôt.",
+    "teachers.noClass": "Aucune classe attribuée",
+    "teachers.assignClasses": "Attribuer les matières",
+    "teachers.noClassBanner": "{n} enseignant(s) sans classe cette année : en se connectant, ils ne verront ni élèves ni notes. Attribuez-leur leurs matières dans Classes → Gérer les matières.",
 
     "settings.title": "Paramètres",
     "settings.subtitle": "Informations de votre école et années scolaires.",
@@ -2008,6 +2012,10 @@ export const dictionaries = {
     "teacherHome.noClassToday": "No class scheduled today.",
     "teacherHome.noUpcomingExam": "No upcoming exam.",
     "teacherHome.noClassAssigned": "No class is assigned to you at the moment.",
+    "teacherHome.noClassBanner": "No class is assigned to you yet, so you see no students, attendance or grades. Ask the school office to assign your subjects (Classes → Manage subjects); they will appear here right away.",
+    "teachers.noClass": "No class assigned",
+    "teachers.assignClasses": "Assign subjects",
+    "teachers.noClassBanner": "{n} teacher(s) without a class this year: when they sign in, they will see no students or grades. Assign their subjects in Classes → Manage subjects.",
 
     "settings.title": "Settings",
     "settings.subtitle": "Your school details and academic years.",
@@ -3292,6 +3300,10 @@ export const dictionaries = {
     "teacherHome.noClassToday": "لا توجد حصص اليوم.",
     "teacherHome.noUpcomingExam": "لا يوجد امتحان قادم.",
     "teacherHome.noClassAssigned": "لم يُسند إليك أي قسم في الوقت الحالي.",
+    "teacherHome.noClassBanner": "لم يُسند إليك أي قسم بعد، لذلك لا ترى تلاميذ ولا غيابات ولا علامات. اطلب من الإدارة إسناد موادك إليك (الأقسام ← إدارة المواد) وستظهر هنا فورًا.",
+    "teachers.noClass": "لا قسم مُسند",
+    "teachers.assignClasses": "إسناد المواد",
+    "teachers.noClassBanner": "{n} أستاذ(ة) بلا قسم هذه السنة: عند الدخول لن يروا تلاميذ ولا علامات. أسند إليهم موادهم من الأقسام ← إدارة المواد.",
 
     "settings.title": "الإعدادات",
     "settings.subtitle": "معلومات مدرستك والسنوات الدراسية.",
