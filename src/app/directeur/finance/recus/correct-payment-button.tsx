@@ -88,10 +88,11 @@ export function CorrectPaymentButton({
           onClick={openDialog}
           title="Corriger ce paiement"
           aria-label="Corriger ce paiement"
-          className="no-print flex h-9 w-9 items-center justify-center rounded-lg text-primary-700 transition-colors hover:bg-primary-50"
+          className="no-print inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-primary-700 transition-colors hover:bg-primary-50"
           data-testid="correct-payment-compact"
         >
           <PenLine className="h-4 w-4" />
+          Corriger
         </button>
       ) : (
         <Button type="button" variant="secondary" className="no-print" onClick={openDialog} data-testid="correct-payment">

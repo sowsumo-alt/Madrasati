@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   Ban,
   Banknote,
+  PenLine,
   Eye,
   MessageCircle,
   MoreVertical,
@@ -114,7 +115,13 @@ function RowMenu({ fee, actions }: { fee: FeeRow; actions: FeeRowActions }) {
           </DropdownMenuItem>
         )}
         {fee.payments.length > 0 && (
-          // L'annulation se fait versement par versement, dans la fiche du frais.
+          // Correction et annulation se font versement par versement, dans la fiche du frais.
+          <DropdownMenuItem onClick={() => actions.onView(fee)} className="text-primary-700" data-testid="correct-payment-menu">
+            <PenLine className="h-4 w-4" />
+            {t("finance.correctPayment")}
+          </DropdownMenuItem>
+        )}
+        {fee.payments.length > 0 && (
           <DropdownMenuItem onClick={() => actions.onView(fee)} className="text-danger" data-testid="cancel-payment-menu">
             <Ban className="h-4 w-4" />
             {t("finance.cancelPayment")}

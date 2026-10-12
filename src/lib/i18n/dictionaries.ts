@@ -555,6 +555,7 @@ export const dictionaries = {
     "finance.remainingIs": "Reste {amount}",
     "finance.deleteFee": "Supprimer le frais",
     "finance.cancelPayment": "Annuler un paiement…",
+    "finance.correctPayment": "Corriger un paiement…",
     "students.removeOrArchive": "Supprimer définitivement…",
     "finance.deleteFeeTitle": "Supprimer ce frais ?",
     "finance.deleteFeeHint":
@@ -1851,6 +1852,7 @@ export const dictionaries = {
     "finance.remainingIs": "{amount} left",
     "finance.deleteFee": "Delete the fee",
     "finance.cancelPayment": "Cancel a payment…",
+    "finance.correctPayment": "Correct a payment…",
     "students.removeOrArchive": "Delete permanently…",
     "finance.deleteFeeTitle": "Delete this fee?",
     "finance.deleteFeeHint":
@@ -3145,6 +3147,7 @@ export const dictionaries = {
     "finance.remainingIs": "المتبقي {amount}",
     "finance.deleteFee": "حذف الرسم",
     "finance.cancelPayment": "إلغاء دفعة…",
+    "finance.correctPayment": "تصحيح دفعة…",
     "students.removeOrArchive": "حذف نهائي…",
     "finance.deleteFeeTitle": "حذف هذا الرسم؟",
     "finance.deleteFeeHint":

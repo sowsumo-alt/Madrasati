@@ -168,9 +168,10 @@ export function FeeDetailSheet({
                 ) : (
                   <ul className="mt-2 space-y-2">
                     {[...fee.payments].reverse().map((p) => (
-                      <li key={p.id} className="flex items-center gap-3 rounded-xl border border-border px-3.5 py-2.5">
+                      <li key={p.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-border px-3.5 py-2.5">
                         <PaymentMethodIcon method={p.method} />
-                        <div className="min-w-0 flex-1">
+                        {/* Assez large pour le montant et la date : sur téléphone, les boutons passent dessous. */}
+                        <div className="min-w-[10rem] flex-1">
                           <p className="font-semibold text-foreground" style={tabular}>
                             {formatMRU(p.amount)}
                           </p>
@@ -184,6 +185,7 @@ export function FeeDetailSheet({
                             <span dir="ltr">{p.receiptNumber}</span>
                           </p>
                         </div>
+                        <div className="ms-auto flex items-center gap-0.5">
                         <Link
                           href={`/directeur/finance/recus/${p.id}`}
                           target="_blank"
@@ -202,6 +204,7 @@ export function FeeDetailSheet({
                           family={Boolean(p.familyPaymentId)}
                           amountLabel={p.familyPaymentId ? `${formatMRU(p.amount)} (reçu familial)` : formatMRU(p.amount)}
                         />
+                        </div>
                       </li>
                     ))}
                   </ul>

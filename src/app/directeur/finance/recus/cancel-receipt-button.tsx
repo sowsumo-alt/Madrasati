@@ -64,10 +64,11 @@ export function CancelReceiptButton({
           onClick={() => setOpen(true)}
           title="Annuler ce paiement"
           aria-label="Annuler ce paiement"
-          className="no-print flex h-9 w-9 items-center justify-center rounded-lg text-red-700 transition-colors hover:bg-red-50"
+          className="no-print inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-red-700 transition-colors hover:bg-red-50"
           data-testid="cancel-payment-compact"
         >
           <Ban className="h-4 w-4" />
+          Annuler
         </button>
       ) : (
         <Button
