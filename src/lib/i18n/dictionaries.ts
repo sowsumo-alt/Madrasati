@@ -410,6 +410,9 @@ export const dictionaries = {
     "students.deleteConfirmBody":
       "L'élève sera marqué comme inactif. Son historique (notes, présences, paiements) sera conservé.",
     "students.importExcel": "Importer depuis Excel",
+    "students.exportWord": "Exporter en Word",
+    "students.exportWordDone": "Liste des élèves exportée en Word.",
+    "students.exportWordFailed": "L'export Word n'a pas abouti. Vérifiez la connexion et réessayez.",
     "students.importHelp":
       "Fichier .xlsx avec les colonnes : Prénom, Nom, Date de naissance, Genre, Classe.",
     "students.createdCount": "élève(s) importé(s) avec succès.",
@@ -1716,6 +1719,9 @@ export const dictionaries = {
     "students.deleteConfirmBody":
       "The student will be marked inactive. Their history (grades, attendance, payments) is kept.",
     "students.importExcel": "Import from Excel",
+    "students.exportWord": "Export to Word",
+    "students.exportWordDone": "Student list exported to Word.",
+    "students.exportWordFailed": "The Word export failed. Check the connection and try again.",
     "students.importHelp":
       ".xlsx file with columns: First name, Last name, Date of birth, Gender, Class.",
     "students.createdCount": "student(s) imported successfully.",
@@ -3020,6 +3026,9 @@ export const dictionaries = {
     "students.deleteConfirmBody":
       "سيُسجَّل التلميذ كغير نشط. ويُحتفظ بسجله كاملًا: النقاط والحضور والمدفوعات.",
     "students.importExcel": "استيراد من Excel",
+    "students.exportWord": "تصدير إلى Word",
+    "students.exportWordDone": "تم تصدير قائمة التلاميذ إلى Word.",
+    "students.exportWordFailed": "لم ينجح التصدير إلى Word. تحقق من الاتصال وحاول مجددًا.",
     "students.importHelp":
       "ملف ‎.xlsx‎ بالأعمدة التالية: الاسم الشخصي، الاسم العائلي، تاريخ الميلاد، الجنس، القسم.",
     "students.createdCount": "تم استيراد التلاميذ بنجاح.",

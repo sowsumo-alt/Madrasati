@@ -28,6 +28,7 @@ import { StudentsTable } from "./students-list/students-table";
 import { StudentsPagination } from "./students-list/students-pagination";
 import { BulkActionsBar } from "./students-list/bulk-actions-bar";
 import { BulkMoveDialog } from "./students-list/bulk-move-dialog";
+import { StudentsWordButton } from "./students-list/students-word-button";
 import type { TuitionSettings, StudentMoney, TuitionSummary } from "@/lib/tuition-data";
 
 // Fenêtres chargées au premier clic (next/dynamic) : leur code n'est pas
@@ -294,6 +295,7 @@ export function StudentsView({
             <Upload className="h-4 w-4" />
             {t("students.importExcel")}
           </Button>
+          {hasStudents && <StudentsWordButton state={state} />}
           {/* Parcours à part, pour plusieurs enfants d'une même famille :
               « Nouvel élève » garde exactement le formulaire d'un seul enfant. */}
           <Link
