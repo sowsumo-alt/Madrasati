@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { requiredDateSchema } from "@/lib/iso-date";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { saveGradingConfig } from "@/lib/grading-config-data";
@@ -64,8 +65,8 @@ export async function updateSchool(values: SchoolFormValues) {
 
 const yearSchema = z.object({
   label: z.string().trim().min(1, "Le libellé est requis"),
-  startDate: z.string().trim().min(1, "La date de début est requise"),
-  endDate: z.string().trim().min(1, "La date de fin est requise"),
+  startDate: requiredDateSchema("La date de début est requise", "Début de l'année"),
+  endDate: requiredDateSchema("La date de fin est requise", "Fin de l'année"),
 });
 export type YearFormValues = z.infer<typeof yearSchema>;
 

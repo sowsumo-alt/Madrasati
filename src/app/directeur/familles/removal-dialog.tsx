@@ -57,8 +57,10 @@ export function RemovalDialog({
       .then((r) => {
         if (!r.ok) return setError(r.error);
         setPreview(r);
-        // Sans argent en jeu, la suppression est le choix attendu.
-        setMode(initialMode ?? (r.payments > 0 ? "ARCHIVE" : "DELETE"));
+        // De l'argent encaissé : l'archivage est toujours présélectionné, même
+        // ouvert depuis « Supprimer définitivement… » — supprimer effacerait des
+        // reçus déjà remis aux parents. Sans argent, le choix demandé.
+        setMode(r.payments > 0 ? "ARCHIVE" : (initialMode ?? "DELETE"));
       })
       .catch(() => setError("Impossible de charger les informations. Réessayez."));
   }, [open, kind, id, initialMode]);
@@ -102,8 +104,8 @@ export function RemovalDialog({
       title: `Supprimer définitivement${preview && preview.payments > 0 ? " (données de test)" : ""}`,
       hint:
         kind === "family"
-          ? "La famille, ses enfants, leurs échéances, paiements et reçus disparaissent. Irréversible."
-          : "L'élève, ses échéances, paiements, reçus, notes et présences disparaissent. Irréversible.",
+          ? `La famille, ses enfants, leurs échéances, paiements et reçus disparaissent. Irréversible.${preview && preview.payments > 0 ? ` ${formatMRU(preview.paidTotal)} déjà encaissés disparaîtront des rapports.` : ""}`
+          : `L'élève, ses échéances, paiements, reçus, notes et présences disparaissent. Irréversible.${preview && preview.payments > 0 ? ` ${formatMRU(preview.paidTotal)} déjà encaissés disparaîtront des rapports.` : ""}`,
       icon: Trash2,
     },
   ];

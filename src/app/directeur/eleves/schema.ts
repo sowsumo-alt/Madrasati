@@ -2,15 +2,17 @@ import { z } from "zod";
 import { optionalPhoneSchema } from "@/lib/phone";
 import { PAYMENT_METHODS } from "@/lib/payment-methods";
 import { optionalNniSchema } from "@/lib/nni";
+import { optionalDateSchema } from "@/lib/iso-date";
 import { imageDataUriSchema } from "@/lib/image-data-uri";
 
 const optionalText = (max: number) => z.string().trim().max(max).optional().or(z.literal(""));
 
 export const studentSchema = z
   .object({
-    firstName: z.string().trim().min(1, "Le prénom est requis"),
-    lastName: z.string().trim().min(1, "Le nom est requis"),
-    dateOfBirth: z.string().trim().optional().or(z.literal("")),
+    firstName: z.string().trim().min(1, "Le prénom est requis").max(80),
+    lastName: z.string().trim().min(1, "Le nom est requis").max(80),
+    // Une date impossible (31/02) est refusée, jamais enregistrée un autre jour.
+    dateOfBirth: optionalDateSchema("Date de naissance"),
     // Obligatoire depuis la maquette de septembre 2026 : la répartition
     // filles / garçons des statistiques n'a de sens que si chaque élève en a un.
     // `includes` et non `v === "M" || v === "F"` : TypeScript lirait ce test
@@ -31,7 +33,7 @@ export const studentSchema = z
     classId: z.string().trim().min(1, "Choisissez la classe de l'élève"),
     status: z.enum(["ACTIVE", "INACTIVE", "TRANSFERRED", "GRADUATED"]),
     /** Jour de l'inscription, prérempli avec la date du jour. */
-    enrollmentDate: z.string().trim().optional().or(z.literal("")),
+    enrollmentDate: optionalDateSchema("Date d'inscription", { min: "2000-01-01", daysAfterToday: 366 }),
     /** Photo stockée en data URI, réduite côté navigateur. */
     photoUrl: imageDataUriSchema(400_000),
     /** Nom complet du père ou du tuteur, découpé en prénom et nom côté serveur. */

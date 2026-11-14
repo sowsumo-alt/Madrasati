@@ -4,6 +4,7 @@ import { PAYMENT_METHODS } from "@/lib/payment-methods";
 import { familySheetSchema } from "@/lib/family-sheet";
 import { FICHE_MODES } from "@/lib/family-fiche";
 import { optionalNniSchema } from "@/lib/nni";
+import { optionalDateSchema } from "@/lib/iso-date";
 
 const optionalText = (max: number) => z.string().trim().max(max).optional().or(z.literal(""));
 
@@ -12,7 +13,8 @@ const optionalText = (max: number) => z.string().trim().max(max).optional().or(z
 export const familyChildSchema = z.object({
   firstName: z.string().trim().min(1, "Le prénom est requis").max(80),
   lastName: z.string().trim().min(1, "Le nom est requis").max(80),
-  dateOfBirth: z.string().trim().optional().or(z.literal("")),
+  // Une date impossible (31/02) est refusée, jamais enregistrée un autre jour.
+  dateOfBirth: optionalDateSchema("Date de naissance"),
   gender: z.string().refine((v) => ["M", "F"].includes(v), "Choisissez le genre"),
   placeOfBirth: optionalText(120),
   /** Numéro National d'Identification : 10 chiffres, facultatif. */

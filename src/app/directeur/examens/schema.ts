@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { requiredDateSchema } from "@/lib/iso-date";
 import { EXAM_KINDS, parseTime } from "@/lib/exams";
 
 export const TERMS = ["Trimestre 1", "Trimestre 2", "Trimestre 3"] as const;
@@ -35,7 +36,7 @@ export const examSchema = z.object({
     .string()
     .refine((v) => (EXAM_KINDS as readonly string[]).includes(v), "Choisissez le type d'examen"),
   term: z.enum(TERMS),
-  date: z.string().trim().min(1, "La date est requise"),
+  date: requiredDateSchema("La date est requise", "Date de l'examen"),
   startTime: z
     .string()
     .trim()

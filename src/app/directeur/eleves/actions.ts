@@ -298,9 +298,12 @@ async function updateStudentUnsafe(studentId: string, values: StudentFormValues)
 
 export async function setStudentStatus(studentId: string, status: string) {
   const user = await requireRole(ROLES.DIRECTOR);
+  // Un des quatre statuts connus seulement : un autre texte ferait disparaître
+  // l'élève de toutes les listes (actifs, retirés…) sans que personne le voie.
+  const next = z.enum(["ACTIVE", "INACTIVE", "TRANSFERRED", "GRADUATED"]).parse(status);
   await prisma.student.updateMany({
     where: { id: studentId, schoolId: user.schoolId },
-    data: { status },
+    data: { status: next },
   });
   await reattachFamilySheets(prisma, [studentId]);
   revalidatePath("/directeur/eleves");

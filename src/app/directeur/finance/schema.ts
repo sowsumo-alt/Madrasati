@@ -1,11 +1,12 @@
 import { z } from "zod";
+import { requiredDateSchema } from "@/lib/iso-date";
 import { PAYMENT_METHODS } from "@/lib/payment-methods";
 
 export const feeSchema = z.object({
   studentId: z.string().min(1, "Sélectionnez un élève"),
   label: z.string().trim().min(1, "Le libellé est requis"),
   amount: z.coerce.number().int().positive("Le montant doit être positif"),
-  dueDate: z.string().trim().min(1, "La date d'échéance est requise"),
+  dueDate: requiredDateSchema("La date d'échéance est requise", "Échéance"),
 });
 export type FeeFormValues = z.infer<typeof feeSchema>;
 

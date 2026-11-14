@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { optionalDateSchema } from "@/lib/iso-date";
 import { phoneSchema } from "@/lib/phone";
 
 export const teacherSchema = z.object({
@@ -9,7 +10,7 @@ export const teacherSchema = z.object({
   diploma: z.string().trim().optional().or(z.literal("")),
   subjectSpecialty: z.string().trim().optional().or(z.literal("")),
   monthlySalary: z.string().trim().optional().or(z.literal("")),
-  hireDate: z.string().trim().optional().or(z.literal("")),
+  hireDate: optionalDateSchema("Date d'embauche", { min: "1960-01-01", daysAfterToday: 366 }),
   status: z.enum(["ACTIVE", "INACTIVE"]),
 });
 
