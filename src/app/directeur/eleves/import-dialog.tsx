@@ -20,11 +20,9 @@ import { composeClassName, type CatalogGroup } from "@/lib/class-catalog";
 import {
   IMPORT_FIELDS,
   IMPORT_FIELD_LABELS,
+  analyzeImportRows,
   buildImportPreview,
-  findHeaderRow,
-  findTitle,
   suggestClassFromTitle,
-  suggestField,
   type ImportCell,
   type ImportField,
   type ImportedStudent,
@@ -32,6 +30,7 @@ import {
 import { ClassSelectItems } from "@/components/classes/class-select-items";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { cn } from "@/lib/utils";
+import type { WordTable } from "@/lib/word-import";
 import { importStudentList, takenNnis } from "./import-actions";
 
 interface ImportDialogProps {
@@ -57,11 +56,8 @@ const sameText = (a: string, b: string) =>
   a.normalize("NFD").replace(/\p{M}/gu, "").trim().toLowerCase() ===
   b.normalize("NFD").replace(/\p{M}/gu, "").trim().toLowerCase();
 
-const cellText = (v: ImportCell) =>
-  v instanceof Date ? v.toLocaleDateString("fr-FR") : String(v ?? "").trim();
-
 /**
- * Import d'une liste d'élèves depuis le fichier Excel de l'école, tel quel.
+ * Import d'une liste d'élèves depuis le fichier Excel ou Word de l'école, tel quel.
  * Madrasati reconnaît les colonnes habituelles, sépare « Prénoms et Nom »,
  * laisse de côté les totaux, et montre tout avant d'enregistrer : le
  * directeur corrige une correspondance ou un nom, choisit la classe (ou la
@@ -80,6 +76,9 @@ export function ImportDialog({ open, onOpenChange, classes, catalog }: ImportDia
   const [classId, setClassId] = useState("");
   const [newClass, setNewClass] = useState<ClassLevelValue>(EMPTY_CLASS_LEVEL);
   const [importing, setImporting] = useState(false);
+  // Un document Word peut porter plusieurs tableaux : le directeur choisit le bon.
+  const [wordTables, setWordTables] = useState<WordTable[]>([]);
+  const [tableIndex, setTableIndex] = useState(0);
 
   function reset() {
     setFile(null);
@@ -89,69 +88,66 @@ export function ImportDialog({ open, onOpenChange, classes, catalog }: ImportDia
     setClassMode("existing");
     setClassId("");
     setNewClass(EMPTY_CLASS_LEVEL);
+    setWordTables([]);
+    setTableIndex(0);
     if (inputRef.current) inputRef.current.value = "";
   }
 
   async function handleFile(f: File) {
+    // L'ancien format Word (.doc) ne se lit pas : il faut l'enregistrer en .docx.
+    if (/\.doc$/i.test(f.name)) {
+      toast.error(t("students.importOldWord"));
+      return;
+    }
     setReading(true);
     try {
+      if (/\.docx$/i.test(f.name)) {
+        const [{ readWordTables }, buffer] = await Promise.all([import("@/lib/word-import"), f.arrayBuffer()]);
+        const tables = readWordTables(new Uint8Array(buffer));
+        setWordTables(tables);
+        setTableIndex(0);
+        loadRows(f.name, tables[0]?.rows ?? []);
+        return;
+      }
       const [XLSX, buffer] = await Promise.all([import("xlsx"), f.arrayBuffer()]);
       // cellDates : une date Excel arrive en objet Date, pas en numéro de série.
       const workbook = XLSX.read(buffer, { type: "array", cellDates: true });
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json<ImportCell[]>(sheet, { header: 1, defval: "", raw: true });
-      if (rows.length === 0) {
-        toast.error(t("students.importNoRows"));
-        return;
-      }
-
-      const found = findHeaderRow(rows);
-      const headerRow = found === -1 ? 0 : found;
-      const data = rows.slice(headerRow + 1);
-      const width = Math.max(...rows.slice(headerRow, headerRow + 50).map((r) => r.length));
-      const columns = Array.from({ length: width }, (_, index) => ({
-        index,
-        header: cellText(rows[headerRow]?.[index]),
-        samples: data.map((r) => cellText(r[index])).filter(Boolean).slice(0, 8),
-      })).filter((c) => c.header || c.samples.length > 0);
-
-      const suggested: ImportField[] = Array.from({ length: width }, () => "ignore");
-      const used = new Set<ImportField>();
-      for (const c of columns) {
-        const field = suggestField(c.header, c.samples);
-        // Deux colonnes ne reçoivent pas le même champ : la première l'emporte.
-        if (field !== "ignore" && !used.has(field)) {
-          suggested[c.index] = field;
-          used.add(field);
-        }
-      }
-
-      const title = findTitle(rows, headerRow);
-      const loaded: LoadedFile = { name: f.name, rows, headerRow, title, columns };
-      setFile(loaded);
-      setMapping(suggested);
-      setEdits({});
-
-      // La classe : celle qui porte déjà le nom du titre, sinon on propose
-      // de la créer d'après le titre (« JARDIN » → Préscolaire / Jardin).
-      const suggestion = suggestClassFromTitle(title);
-      const wanted = suggestion ? composeClassName(suggestion.level, suggestion.section) : null;
-      const existing = title
-        ? classes.find((c) => sameText(c.name, title) || (wanted != null && sameText(c.name, wanted)))
-        : null;
-      if (existing) {
-        setClassMode("existing");
-        setClassId(existing.id);
-      } else if (suggestion) {
-        setClassMode("new");
-        setNewClass({ category: suggestion.category, level: suggestion.level, section: suggestion.section });
-      } else {
-        setClassMode(classes.length > 0 ? "existing" : "new");
-      }
+      setWordTables([]);
+      loadRows(f.name, XLSX.utils.sheet_to_json<ImportCell[]>(sheet, { header: 1, defval: "", raw: true }));
     } catch {
       toast.error(t("students.importReadError"));
     } finally {
       setReading(false);
+    }
+  }
+
+  /** Les lignes du fichier (feuille Excel ou tableau Word) → colonnes reconnues et classe proposée. */
+  function loadRows(name: string, rows: ImportCell[][]) {
+    if (rows.length === 0) {
+      toast.error(t("students.importNoRows"));
+      return;
+    }
+    const { headerRow, title, columns, mapping: suggested } = analyzeImportRows(rows);
+    setFile({ name, rows, headerRow, title, columns });
+    setMapping(suggested);
+    setEdits({});
+
+    // La classe : celle qui porte déjà le nom du titre, sinon on propose
+    // de la créer d'après le titre (« JARDIN » → Préscolaire / Jardin).
+    const suggestion = suggestClassFromTitle(title);
+    const wanted = suggestion ? composeClassName(suggestion.level, suggestion.section) : null;
+    const existing = title
+      ? classes.find((c) => sameText(c.name, title) || (wanted != null && sameText(c.name, wanted)))
+      : null;
+    if (existing) {
+      setClassMode("existing");
+      setClassId(existing.id);
+    } else if (suggestion) {
+      setClassMode("new");
+      setNewClass({ category: suggestion.category, level: suggestion.level, section: suggestion.section });
+    } else {
+      setClassMode(classes.length > 0 ? "existing" : "new");
     }
   }
 
@@ -263,7 +259,7 @@ export function ImportDialog({ open, onOpenChange, classes, catalog }: ImportDia
           <DialogDescription>
             {file
               ? `${file.name} — vérifiez la classe, les colonnes et la liste, puis confirmez.`
-              : "Choisissez le fichier Excel de votre école tel quel : Madrasati reconnaît ses colonnes et vous montre la liste avant d'importer."}
+              : "Choisissez le fichier Excel ou Word de votre école tel quel : Madrasati reconnaît ses colonnes et vous montre la liste avant d'importer."}
           </DialogDescription>
         </DialogHeader>
 
@@ -287,7 +283,7 @@ export function ImportDialog({ open, onOpenChange, classes, catalog }: ImportDia
             <input
               ref={inputRef}
               type="file"
-              accept=".xlsx,.xls,.csv"
+              accept=".xlsx,.xls,.csv,.docx,.doc"
               className="hidden"
               data-testid="import-file"
               onChange={(e) => {
@@ -300,6 +296,29 @@ export function ImportDialog({ open, onOpenChange, classes, catalog }: ImportDia
 
         {file && review && (
           <div className="space-y-6">
+            {wordTables.length > 1 && (
+              <section className="space-y-2">
+                <h3 className="text-sm font-semibold text-foreground">Tableau du document Word</h3>
+                <Select
+                  value={String(tableIndex)}
+                  onValueChange={(v) => {
+                    setTableIndex(Number(v));
+                    loadRows(file.name, wordTables[Number(v)].rows);
+                  }}
+                >
+                  <SelectTrigger className="sm:w-96" data-testid="import-word-table">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {wordTables.map((table, i) => (
+                      <SelectItem key={i} value={String(i)}>
+                        {table.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </section>
+            )}
             {/* 1. CLASSE */}
             <section className="space-y-3">
               <h3 className="text-sm font-semibold text-foreground">1. Classe de ces élèves</h3>

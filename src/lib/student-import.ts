@@ -397,3 +397,44 @@ export function suggestClassFromTitle(
   }
   return { category: "", level: title.trim(), section: "" };
 }
+
+const cellText = (v: ImportCell) => (v instanceof Date ? v.toLocaleDateString("fr-FR") : String(v ?? "").trim());
+
+export interface ImportColumn {
+  index: number;
+  header: string;
+  samples: string[];
+}
+
+/**
+ * Le tableau d'un fichier (Excel ou Word) : sa ligne d'en-tête, le titre
+ * au-dessus, ses colonnes et le champ proposé pour chacune — deux colonnes
+ * ne reçoivent jamais le même champ, la première l'emporte.
+ */
+export function analyzeImportRows(rows: ImportCell[][]): {
+  headerRow: number;
+  title: string | null;
+  columns: ImportColumn[];
+  mapping: ImportField[];
+} {
+  const found = findHeaderRow(rows);
+  const headerRow = found === -1 ? 0 : found;
+  const data = rows.slice(headerRow + 1);
+  const width = Math.max(0, ...rows.slice(headerRow, headerRow + 50).map((r) => r.length));
+  const columns = Array.from({ length: width }, (_, index) => ({
+    index,
+    header: cellText(rows[headerRow]?.[index]),
+    samples: data.map((r) => cellText(r[index])).filter(Boolean).slice(0, 8),
+  })).filter((c) => c.header || c.samples.length > 0);
+
+  const mapping: ImportField[] = Array.from({ length: width }, () => "ignore");
+  const used = new Set<ImportField>();
+  for (const c of columns) {
+    const field = suggestField(c.header, c.samples);
+    if (field !== "ignore" && !used.has(field)) {
+      mapping[c.index] = field;
+      used.add(field);
+    }
+  }
+  return { headerRow, title: findTitle(rows, headerRow), columns, mapping };
+}
