@@ -10,6 +10,7 @@ import { FICHE_MODE_LABELS, newFicheDraft, type FicheMode } from "@/lib/family-f
 import type { SheetChild, SheetExisting } from "@/app/directeur/familles/inscription/family-sheet-step";
 import { familyFicheState, familyReferentId } from "@/lib/family-sheet-data";
 import { SheetEditor } from "./sheet-editor";
+import type { CorrectionLine } from "./sheet-correction";
 
 const day = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -62,10 +63,12 @@ function existingOf(plan: Plan | null, enrollment: EnrollmentFee | null): SheetE
 export default async function SheetPage({
   searchParams,
 }: {
-  searchParams: Promise<{ famille?: string; eleve?: string }>;
+  searchParams: Promise<{ famille?: string; eleve?: string; corriger?: string }>;
 }) {
   const user = await requireRole(ROLES.DIRECTOR);
-  const { famille, eleve } = await searchParams;
+  const { famille, eleve, corriger } = await searchParams;
+  // ?corriger=1 : la fiche s'ouvre sur la correction des montants déjà versés.
+  const correcting = corriger === "1";
   const settings = await loadTuitionSettings(user.schoolId);
   const year = await prisma.academicYear.findFirst({
     where: { schoolId: user.schoolId, isCurrent: true },
@@ -118,7 +121,9 @@ export default async function SheetPage({
     if (!student) notFound();
     // Un enfant d'une famille de plusieurs élèves : sa fiche est celle de la famille.
     const family = student.parentLinks[0];
-    if (family && family.parent.studentLinks.length >= 2) redirect(`/directeur/fiche?famille=${family.parentId}`);
+    if (family && family.parent.studentLinks.length >= 2) {
+      redirect(`/directeur/fiche?famille=${family.parentId}${correcting ? "&corriger=1" : ""}`);
+    }
     title = `${student.firstName} ${student.lastName}`.trim();
     backHref = family ? `/directeur/familles/${family.parentId}` : "/directeur/eleves";
     students = [student];
@@ -168,6 +173,35 @@ export default async function SheetPage({
         }),
       ])
     : [null, null, [], []];
+
+  // Tout ce qui a été encaissé pour ces élèves, ligne par ligne : mois de la
+  // formule, inscription et frais ajoutés à la main — pour la correction.
+  const paidFees = await prisma.fee.findMany({
+    where: { schoolId: user.schoolId, studentId: { in: childIds }, payments: { some: {} } },
+    orderBy: [{ periodStart: "asc" }, { dueDate: "asc" }, { createdAt: "asc" }],
+    select: {
+      id: true,
+      label: true,
+      amount: true,
+      studentId: true,
+      payments: { orderBy: { paidAt: "asc" }, select: { receiptNumber: true, amount: true, paidAt: true } },
+    },
+  });
+  const nameOf = (id: string) => {
+    const s = students.find((x) => x.id === id);
+    return s ? `${s.firstName} ${s.lastName}`.trim() : "";
+  };
+  // Enfant par enfant (ordre de la fiche), puis mois par mois.
+  const correctionLines: CorrectionLine[] = [...paidFees]
+    .sort((a, b) => childIds.indexOf(a.studentId) - childIds.indexOf(b.studentId))
+    .map((f) => ({
+      feeId: f.id,
+      student: students.length > 1 ? nameOf(f.studentId) : null,
+      label: f.label,
+      due: f.amount,
+      paid: f.payments.reduce((sum, p) => sum + p.amount, 0),
+      receipts: f.payments.map((p) => ({ number: p.receiptNumber, date: day(p.paidAt), amount: p.amount })),
+    }));
 
   const familyExisting = familyPlan || familyEnrollment ? existingOf(familyPlan, familyEnrollment) : null;
   const childExisting: Record<string, SheetExisting> = {};
@@ -235,6 +269,7 @@ export default async function SheetPage({
       childExisting={childExisting}
       modeLock={modeLock}
       draftKey={`fiche-${user.schoolId}-${parentId ?? eleve}`}
+      correction={{ lines: correctionLines, parentId, studentId: parentId ? null : childIds[0], open: correcting }}
     />
   );
 }

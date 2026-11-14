@@ -115,10 +115,12 @@ function RowMenu({ fee, actions }: { fee: FeeRow; actions: FeeRowActions }) {
           </DropdownMenuItem>
         )}
         {fee.payments.length > 0 && (
-          // Correction et annulation se font versement par versement, dans la fiche du frais.
-          <DropdownMenuItem onClick={() => actions.onView(fee)} className="text-primary-700" data-testid="correct-payment-menu">
-            <PenLine className="h-4 w-4" />
-            {t("finance.correctPayment")}
+          // Correction : la fiche de paiement de l'élève (ou de sa famille), comme à l'inscription.
+          <DropdownMenuItem asChild className="text-primary-700" data-testid="correct-payment-menu">
+            <Link href={`/directeur/fiche?eleve=${fee.student.id}&corriger=1`}>
+              <PenLine className="h-4 w-4" />
+              {t("finance.correctPayment")}
+            </Link>
           </DropdownMenuItem>
         )}
         {fee.payments.length > 0 && (

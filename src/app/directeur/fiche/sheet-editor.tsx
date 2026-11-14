@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, Check, FileText, Loader2 } from "lucide-react";
+import { ArrowLeft, Check, FileText, Loader2, PenLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -29,6 +29,7 @@ import type { TuitionSettings } from "@/lib/tuition-data";
 import { clearDraft, loadDraft, useDraftAutosave } from "@/lib/form-draft";
 import { DraftBanner } from "@/components/forms/draft-banner";
 import { saveSheetAction } from "./actions";
+import { SheetCorrection, type CorrectionLine } from "./sheet-correction";
 import { useSubmissionKeys } from "@/lib/submission-key";
 
 interface SheetEditorDraft {
@@ -54,6 +55,7 @@ export function SheetEditor({
   childExisting,
   modeLock,
   draftKey,
+  correction,
 }: {
   title: string;
   backHref: string;
@@ -69,12 +71,15 @@ export function SheetEditor({
   childExisting: Record<string, SheetExisting>;
   modeLock: string | null;
   draftKey: string;
+  /** Lignes déjà encaissées, pour « Corriger des paiements » ; `open` : la fiche s'ouvre dessus. */
+  correction: { lines: CorrectionLine[]; parentId: string | null; studentId: string | null; open: boolean };
 }) {
   const router = useRouter();
   const submission = useSubmissionKeys();
   const [fiche, setFiche] = useState<FicheDraft>(initialDraft);
   const [method, setMethod] = useState<PaymentMethod>("CASH");
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [correcting, setCorrecting] = useState(correction.open);
   const [saving, setSaving] = useState(false);
 
   // — Brouillon : la saisie revient après une page fermée ou une coupure.
@@ -176,12 +181,29 @@ export function SheetEditor({
             <p className="text-sm text-foreground/60">{title}</p>
           </div>
         </div>
-        <Link href={backHref} className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-foreground/55 hover:text-foreground sm:min-h-0">
-          <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
-          Retour
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          {!correcting && correction.lines.length > 0 && (
+            <Button type="button" variant="secondary" onClick={() => setCorrecting(true)} data-testid="sheet-correct">
+              <PenLine className="h-4 w-4" />
+              Corriger des paiements
+            </Button>
+          )}
+          <Link href={backHref} className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-foreground/55 hover:text-foreground sm:min-h-0">
+            <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
+            Retour
+          </Link>
+        </div>
       </div>
 
+      {correcting ? (
+        <SheetCorrection
+          lines={correction.lines}
+          parentId={correction.parentId}
+          studentId={correction.studentId}
+          onClose={() => setCorrecting(false)}
+        />
+      ) : (
+      <>
       <FamilySheetStep
         entries={entries}
         classes={classes}
@@ -211,6 +233,8 @@ export function SheetEditor({
             : "Enregistrer la fiche"}
         </Button>
       </div>
+      </>
+      )}
 
       {/* Confirmation : le récapitulatif, puis l'encaissement — « Annuler » n'enregistre rien. */}
       <Dialog open={confirmOpen} onOpenChange={(open) => !saving && setConfirmOpen(open)}>

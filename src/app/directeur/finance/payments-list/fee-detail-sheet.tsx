@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { Banknote, MessageCircle, Pencil, Phone, Receipt } from "lucide-react";
+import { Banknote, MessageCircle, Pencil, PenLine, Phone, Receipt } from "lucide-react";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { StudentAvatar } from "@/components/students/student-avatar";
@@ -16,7 +16,6 @@ import type { FeeRow } from "../finance-view";
 import { FeeStatusBadge, overdueText } from "./fee-status-badge";
 import { parentLine } from "./parent-line";
 import { CancelReceiptButton } from "../recus/cancel-receipt-button";
-import { CorrectPaymentButton } from "../recus/correct-payment-button";
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -195,8 +194,15 @@ export function FeeDetailSheet({
                         >
                           <Receipt className="h-4 w-4" />
                         </Link>
-                        {/* Corriger (reçu seul) : nouveau reçu au bon montant, l'ancien reste marqué « ANNULÉ ». */}
-                        {!p.familyPaymentId && <CorrectPaymentButton compact payment={p} />}
+                        {/* Corriger : la fiche de paiement, ligne par ligne, comme à l'inscription. */}
+                        <Link
+                          href={`/directeur/fiche?eleve=${fee.student.id}&corriger=1`}
+                          className="no-print inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-primary-700 transition-colors hover:bg-primary-50"
+                          data-testid="correct-payment-compact"
+                        >
+                          <PenLine className="h-4 w-4" />
+                          Corriger
+                        </Link>
                         {/* Annuler : le reçu reste, marqué « ANNULÉ », et le mois redevient à payer. */}
                         <CancelReceiptButton
                           compact

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, PenLine } from "lucide-react";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
@@ -30,7 +30,6 @@ import {
 } from "@/lib/whatsapp";
 import { markReceiptsPrinted } from "../../actions";
 import { CancelReceiptButton } from "../cancel-receipt-button";
-import { CorrectPaymentButton } from "../correct-payment-button";
 import { CancelledReceiptView } from "../cancelled-receipt";
 import { ReceiptDateButton } from "../receipt-date-button";
 
@@ -276,15 +275,15 @@ export default async function ReceiptPage({
             label={partner ? "Imprimer les 2 reçus" : t("finance.printReceipt")}
             onUse={markReceiptsPrinted.bind(null, printedIds)}
           />
-          <CorrectPaymentButton
-            payment={{
-              id: payment.id,
-              amount: payment.amount,
-              method: payment.method,
-              paidAt: payment.paidAt.toISOString(),
-              receiptNumber: payment.receiptNumber,
-            }}
-          />
+          {/* La correction se fait dans la fiche de paiement, comme à l'inscription. */}
+          <Link
+            href={`/directeur/fiche?eleve=${payment.studentId}&corriger=1`}
+            className={buttonVariants({ variant: "secondary", className: "no-print" })}
+            data-testid="correct-payment"
+          >
+            <PenLine className="h-4 w-4" />
+            Corriger ce paiement
+          </Link>
           <CancelReceiptButton target={{ paymentId: payment.id }} amountLabel={formatMoney(payment.amount, unit)} />
         </div>
       </div>
