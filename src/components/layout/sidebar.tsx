@@ -40,14 +40,20 @@ function menuPath(pathname: string) {
   return pathname;
 }
 
-function isActive(rawPathname: string, href: string) {
-  const pathname = menuPath(rawPathname);
+function matches(pathname: string, href: string) {
   // Une entrée qui porte un filtre (?statut=…) ou vise une section (#annees)
   // partage son chemin avec une autre entrée : seule cette dernière s'allume.
   if (/[?#]/.test(href)) return false;
   if (HOME_HREFS.has(href)) return pathname === href;
   // Avec la barre oblique : « Élèves » ne s'allume plus sur « Élèves à surveiller ».
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+/** Seule l'entrée la plus précise s'allume : « Paiements » s'éteint sur « Paiements par classe ». */
+export function isActive(rawPathname: string, href: string, allHrefs: readonly string[] = []) {
+  const pathname = menuPath(rawPathname);
+  if (!matches(pathname, href)) return false;
+  return !allHrefs.some((other) => other.length > href.length && matches(pathname, other));
 }
 
 /** Contenu de la barre latérale : marque, menu par rubriques, devise en pied. */
@@ -64,6 +70,7 @@ export function Sidebar({
   const pathname = usePathname();
   const { t } = useLanguage();
   const navGroups = navGroupsByRole[navKey];
+  const allHrefs = navGroups.flatMap((group) => group.items.map((item) => item.href));
 
   return (
     <div className="flex h-full flex-col">
@@ -86,7 +93,7 @@ export function Sidebar({
               </p>
             )}
             {visibleNavItems(group.items, plan, navKey).map(({ item, locked }) => {
-              const active = !locked && isActive(pathname, item.href);
+              const active = !locked && isActive(pathname, item.href, allHrefs);
               const Icon = item.icon;
               const href = locked
                 ? `/directeur/fonctionnalite-verrouillee?feature=${item.feature}`

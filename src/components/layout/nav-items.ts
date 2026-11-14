@@ -20,6 +20,7 @@ import {
   Briefcase,
   UserSearch,
   HandCoins,
+  ClipboardList,
   FileChartColumn,
   Bell,
   BellRing,
@@ -86,6 +87,7 @@ const directorNavGroups: NavGroup[] = [
       { href: "/directeur/finance", labelKey: "nav.payments", icon: Wallet },
       // Même écran que Paiements, ouvert directement sur les frais non soldés.
       { href: "/directeur/finance?statut=impayes", labelKey: "nav.unpaid", icon: HandCoins },
+      { href: "/directeur/finance/par-classe", labelKey: "nav.classPayments", icon: ClipboardList },
       { href: "/directeur/rappels", labelKey: "nav.reminders", icon: BellRing },
       { href: "/directeur/rapports-financiers", labelKey: "nav.financialReports", icon: FileChartColumn },
     ],
