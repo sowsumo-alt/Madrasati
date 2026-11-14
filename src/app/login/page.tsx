@@ -6,6 +6,7 @@ import { LanguageToggle } from "@/components/layout/language-toggle";
 import { RotatingWords } from "@/components/ui/rotating-words";
 import { buildWhatsAppUrl } from "@/lib/whatsapp";
 import { CONTACT_PHONE, DEMO_MESSAGE } from "@/lib/contact";
+import { InstallAppButton } from "@/components/pwa/install-app-button";
 import { LoginForm } from "./login-form";
 
 const TRUST = [
@@ -122,6 +123,10 @@ export default async function LoginPage() {
 
           <div className="mt-6">
             <LoginForm />
+          </div>
+
+          <div className="mt-8 flex justify-center">
+            <InstallAppButton variant="link" />
           </div>
         </div>
       </div>

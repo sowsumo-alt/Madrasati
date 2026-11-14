@@ -2,6 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
+    // Identité stable de l'application installée, même si start_url change un jour.
+    id: "/",
     name: "Madrasati — Gestion scolaire",
     short_name: "Madrasati",
     description:

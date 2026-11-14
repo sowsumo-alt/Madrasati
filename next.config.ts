@@ -33,6 +33,10 @@ export const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Métadonnées toujours dans <head>, pour tous les navigateurs. Par défaut,
+  // Next.js les envoie en fin de page (dans <body>) : Chrome et Edge n'y
+  // cherchent pas le manifeste, et Madrasati n'était plus installable.
+  htmlLimitedBots: /.*/,
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

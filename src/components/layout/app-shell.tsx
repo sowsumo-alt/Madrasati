@@ -11,6 +11,7 @@ import type { TranslationKey } from "@/lib/i18n/dictionaries";
 import { Sidebar } from "./sidebar";
 import { LanguageMenu } from "./language-menu";
 import { FullscreenButton } from "./fullscreen-button";
+import { InstallAppButton } from "@/components/pwa/install-app-button";
 import { UserMenu } from "./user-menu";
 import { ThemeToggle } from "./theme-toggle";
 import { APP_THEME_COOKIE, type AppTheme } from "@/lib/app-theme";
@@ -164,6 +165,7 @@ export function AppShell({
                   </span>
                 )}
               </Link>
+              <InstallAppButton />
               <FullscreenButton />
               <ThemeToggle theme={theme} onToggle={toggleTheme} />
               <LanguageMenu />
