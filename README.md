@@ -34,11 +34,14 @@ Plateforme de gestion scolaire pour les écoles privées en Mauritanie — élè
 
 ### Comptes de démonstration (après `npm run db:seed`)
 
-| Rôle | Email | Mot de passe |
-|---|---|---|
-| Directeur | `directeur@ecole-demo.mr` | `Madrasati2026!` |
-| Enseignant | `enseignant@ecole-demo.mr` | `Madrasati2026!` |
-| Parent | `parent@ecole-demo.mr` | `Madrasati2026!` |
+| Rôle | Email |
+|---|---|
+| Directeur | `directeur@ecole-demo.mr` |
+| Enseignant | `enseignant@ecole-demo.mr` |
+| Parent | `parent@ecole-demo.mr` |
+
+Le mot de passe n'est pas publié ici : il est défini dans `prisma/seed.ts` pour la base locale seulement.
+Ne jamais réutiliser ces comptes, ni ce mot de passe, sur la base de production.
 
 ### Variables d'environnement
 
