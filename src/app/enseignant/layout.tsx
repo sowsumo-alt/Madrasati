@@ -14,11 +14,16 @@ export default async function TeacherLayout({ children }: { children: ReactNode 
   const [school, scope, { t }] = await Promise.all([
     prisma.school.findUnique({
       where: { id: user.schoolId },
-      select: { name: true, plan: true, subscriptionStatus: true },
+      select: { name: true, plan: true, subscriptionStatus: true, timesheetEnabled: true },
     }),
     getTeacherScope(user.id, user.schoolId),
     getTranslations(),
   ]);
+  // La cloche : messages de la direction non lus (statut de séance modifié, paie validée).
+  const unread =
+    school?.timesheetEnabled && scope
+      ? await prisma.teacherNotification.count({ where: { teacherId: scope.teacher.id, readAt: null } })
+      : 0;
 
   return (
     <AppShell
@@ -27,6 +32,10 @@ export default async function TeacherLayout({ children }: { children: ReactNode 
       userName={user.name ?? ""}
       roleKey={ROLE_LABEL_KEYS.TEACHER}
       plan={school ? effectivePlan(school) : "standard"}
+      modules={school?.timesheetEnabled ? ["timesheet"] : []}
+      alertCount={unread}
+      alertHref={school?.timesheetEnabled ? "/enseignant/pointage" : "#"}
+      alertLabel={unread > 0 ? `${unread} message(s) de la direction` : "Aucun nouveau message"}
       theme={await getAppTheme()}
     >
       {scope && scope.currentClassIds.length === 0 && (

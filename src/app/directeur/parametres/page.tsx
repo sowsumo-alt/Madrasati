@@ -8,6 +8,8 @@ import { currentGradingConfig } from "@/lib/grading-config-data";
 import { formatDate } from "@/lib/format";
 import { CURRENT_YEAR } from "@/lib/school-year";
 import { loadOfficialHeader } from "@/lib/official-header-data";
+import { isLateDeduction } from "@/lib/timesheet";
+import { TimesheetSettingsCard } from "./timesheet-settings-card";
 
 export default async function SettingsPage() {
   const user = await requireRole(ROLES.DIRECTOR);
@@ -37,33 +39,46 @@ export default async function SettingsPage() {
   }));
 
   return (
-    <SettingsView
-      gradingRule={
-        <GradingRuleCard
-          initialConfig={rule.config}
-          isDefault={rule.isDefault}
-          updatedAt={rule.updatedAt ? formatDate(rule.updatedAt) : null}
+    <div className="space-y-5">
+      <SettingsView
+        gradingRule={
+          <GradingRuleCard
+            initialConfig={rule.config}
+            isDefault={rule.isDefault}
+            updatedAt={rule.updatedAt ? formatDate(rule.updatedAt) : null}
+          />
+        }
+        school={{
+          name: school.name,
+          address: school.address ?? "",
+          city: school.city ?? "",
+          receiptPrintMode: school.receiptPrintMode === "HALF_SHEET" ? "HALF_SHEET" : "TWO_PER_PAGE",
+          monthlyTuition: school.monthlyTuition ?? "",
+          prepayLastMonth: school.prepayLastMonth,
+          amountUnit: school.amountUnit === "MRO" ? "MRO" : "MRU",
+          familySheetMode: school.familySheetMode === "PER_CHILD" ? "PER_CHILD" : "FAMILY",
+          paymentDueDay: school.paymentDueDay,
+          paymentGraceDays: school.paymentGraceDays,
+          phone: school.phone ?? "",
+          email: school.email ?? "",
+          logoUrl: school.logoUrl,
+          logoIsLetterhead: school.logoIsLetterhead,
+        }}
+        official={{ linesFr: official.linesFr, linesAr: official.linesAr }}
+        years={yearRows}
+        counts={{ students, teachers, classes }}
+      />
+      {school.timesheetEnabled && (
+        <TimesheetSettingsCard
+          initial={{
+            latitude: school.latitude,
+            longitude: school.longitude,
+            radius: school.checkInRadius,
+            lateDeduction: isLateDeduction(school.lateDeduction) ? school.lateDeduction : "PRORATA",
+          }}
+          readOnly={user.readOnly}
         />
-      }
-      school={{
-        name: school.name,
-        address: school.address ?? "",
-        city: school.city ?? "",
-        receiptPrintMode: school.receiptPrintMode === "HALF_SHEET" ? "HALF_SHEET" : "TWO_PER_PAGE",
-        monthlyTuition: school.monthlyTuition ?? "",
-        prepayLastMonth: school.prepayLastMonth,
-        amountUnit: school.amountUnit === "MRO" ? "MRO" : "MRU",
-        familySheetMode: school.familySheetMode === "PER_CHILD" ? "PER_CHILD" : "FAMILY",
-        paymentDueDay: school.paymentDueDay,
-        paymentGraceDays: school.paymentGraceDays,
-        phone: school.phone ?? "",
-        email: school.email ?? "",
-        logoUrl: school.logoUrl,
-        logoIsLetterhead: school.logoIsLetterhead,
-      }}
-      official={{ linesFr: official.linesFr, linesAr: official.linesAr }}
-      years={yearRows}
-      counts={{ students, teachers, classes }}
-    />
+      )}
+    </div>
   );
 }

@@ -29,55 +29,70 @@ datasource db {
 // ---------------------------------------------------------------------------
 
 model School {
-  id                 String    @id @default(cuid())
-  name               String
-  address            String?
-  city               String?
-  phone              String?
-  email              String?
-  logoUrl            String?
+  id                        String    @id @default(cuid())
+  name                      String
+  address                   String?
+  city                      String?
+  phone                     String?
+  email                     String?
+  logoUrl                   String?
   // Vrai quand le logo est un en-tête complet (symbole + nom + adresse +
   // téléphone dans une seule image large) : les documents l'impriment seul,
   // sans répéter en texte le nom et les coordonnées de l'école.
-  logoIsLetterhead   Boolean   @default(false)
-  currency           String    @default("MRU")
+  logoIsLetterhead          Boolean   @default(false)
+  currency                  String    @default("MRU")
   // Frais de scolarité d'un mois, en MRU : la base des formules de paiement
   // (mensuel, trimestriel…) proposées à chaque élève. Null tant que l'école
   // ne l'a pas renseigné dans ses Paramètres.
-  monthlyTuition     Int?
+  monthlyTuition            Int?
   // À l'inscription, le parent règle aussi le dernier mois de l'année (juin) :
   // l'usage de beaucoup d'écoles, qui craignent un dernier mois impayé. Le
   // mois est alors coché d'office dans le formulaire d'inscription.
-  prepayLastMonth    Boolean   @default(false)
+  prepayLastMonth           Boolean   @default(false)
   // Unité dans laquelle l'école écrit ses montants : "MRU" ou "MRO" (anciens
   // ouguiyas, 10 MRO = 1 MRU). Saisie et affichage seulement : en base, les
   // montants sont toujours en MRU entiers.
-  amountUnit         String    @default("MRU")
+  amountUnit                String    @default("MRU")
   // Fiche de paiement d'une famille de plusieurs enfants : "FAMILY" (une
   // fiche pour la famille, comme la fiche papier d'IBDAA 2) ou "PER_CHILD"
   // (une fiche par enfant, chacune avec ses montants saisis).
-  familySheetMode    String    @default("FAMILY")
+  familySheetMode           String    @default("FAMILY")
   // Impression des reçus : "TWO_PER_PAGE" (deux reçus par feuille A4, à
   // couper) ou "HALF_SHEET" (un reçu par demi-feuille A5 déjà coupée).
-  receiptPrintMode   String    @default("TWO_PER_PAGE")
+  receiptPrintMode          String    @default("TWO_PER_PAGE")
   // Dernier jour du mois pour payer (1 à 28) et jours de tolérance : un mois
   // reste « à venir » jusqu'au soir du jour limite + tolérance, puis devient
   // dû (voir src/lib/due-rule.ts). Par défaut : le 1er, sans tolérance.
-  paymentDueDay      Int       @default(1)
-  paymentGraceDays   Int       @default(0)
+  paymentDueDay             Int       @default(1)
+  paymentGraceDays          Int       @default(0)
   // Formule d'abonnement — "standard" | "advanced" | "network" (voir src/lib/plans.ts).
   // String plutôt qu'enum Prisma, comme le reste des champs de statut du schéma.
   // Une école naît en "advanced" pour essayer l'application complète.
-  plan               String    @default("advanced")
+  plan                      String    @default("advanced")
   // Statut de facturation — "pending" | "trial" | "active" | "past_due" |
   // "restricted" | "suspended". Géré uniquement depuis le tableau de bord
   // Super Admin (src/app/super-admin). Une école naît "pending" : elle n'a
   // aucun accès tant que l'éditeur ne l'a pas activée.
-  subscriptionStatus String    @default("pending")
-  lastPaymentAt      DateTime?
-  nextDueAt          DateTime?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  subscriptionStatus        String    @default("pending")
+  lastPaymentAt             DateTime?
+  nextDueAt                 DateTime?
+  // Module payant « Pointage & paie des enseignants », activé école par école
+  // par le Super Admin. Les séances ne sont générées qu'à partir de
+  // timesheetStartDate (jour d'activation) : rien d'antérieur n'est compté absent.
+  timesheetEnabled          Boolean   @default(false)
+  timesheetStartDate        DateTime?
+  // Dernier jour passé dont les séances sont générées : chaque jour n'est
+  // généré qu'une fois (aujourd'hui suit l'emploi du temps jusqu'au début des cours).
+  timesheetGeneratedThrough DateTime?
+  // Position de l'école (Paramètres) : le pointage n'est accepté que dans
+  // un rayon de checkInRadius mètres autour.
+  latitude                  Float?
+  longitude                 Float?
+  checkInRadius             Int       @default(150)
+  // Retards sur la paie : "PRORATA" (minutes de retard × taux horaire) ou "NONE".
+  lateDeduction             String    @default("PRORATA")
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
 
   users                User[]
   students             Student[]
@@ -108,6 +123,11 @@ model School {
   payslips             Payslip[]
   subscriptionPayments SubscriptionPayment[]
   tuitionPlans         TuitionPlan[]
+  teachingSessions     TeachingSession[]
+  sessionChanges       TeachingSessionChange[]
+  payAdjustments       TeacherPayAdjustment[]
+  timesheetMonths      TimesheetMonth[]
+  teacherNotifications TeacherNotification[]
 
   @@map("schools")
 }
@@ -139,14 +159,14 @@ model SubscriptionPayment {
  * ni l'inverse.
  */
 model SuperAdmin {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  name         String
+  id             String   @id @default(cuid())
+  email          String   @unique
+  passwordHash   String
+  name           String
   // Version des sessions : augmentée à la déconnexion, toute session plus
   // ancienne est refusée (voir lib/auth.ts).
-  sessionVersion Int    @default(0)
-  createdAt    DateTime @default(now())
+  sessionVersion Int      @default(0)
+  createdAt      DateTime @default(now())
 
   @@map("super_admins")
 }
@@ -331,6 +351,8 @@ model ScheduleSlot {
   endMinutes     Int
   room           String?
 
+  sessions TeachingSession[]
+
   @@index([classId])
   @@map("schedule_slots")
 }
@@ -380,33 +402,33 @@ model Student {
   tuitionPlans        TuitionPlan[]
   cancelledPayments   CancelledPayment[]
 
+  @@unique([schoolId, matricule])
   @@index([schoolId])
   @@index([classId])
   @@index([schoolId, nni])
-  @@unique([schoolId, matricule])
   @@map("students")
 }
 
 model Parent {
-  id           String   @id @default(cuid())
-  schoolId     String
-  school       School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  userId       String?  @unique
-  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  firstName    String
-  lastName     String
-  phone        String // format international, ex: +2224xxxxxxx (pour WhatsApp)
-  email        String?
-  address      String?
-  relationship String? // "père" | "mère" | "tuteur"
+  id                String   @id @default(cuid())
+  schoolId          String
+  school            School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  userId            String?  @unique
+  user              User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  firstName         String
+  lastName          String
+  phone             String // format international, ex: +2224xxxxxxx (pour WhatsApp)
+  email             String?
+  address           String?
+  relationship      String? // "père" | "mère" | "tuteur"
   // Nom affiché de la famille, ex: « Famille BA ». Facultatif : une famille
   // est simplement ce parent et les enfants qui lui sont rattachés ; sans nom
   // saisi, elle s'affiche « Famille » + le nom du parent (voir src/lib/family.ts).
-  familyName   String?
+  familyName        String?
   // Élève référent de la fiche de paiement (le nom porté sur la fiche papier),
   // choisi par le directeur ; en forfait famille, c'est lui qui porte les montants.
   referentStudentId String?
-  createdAt    DateTime @default(now())
+  createdAt         DateTime @default(now())
 
   studentLinks   StudentParent[]
   familyPayments FamilyPayment[]
@@ -443,15 +465,21 @@ model Teacher {
   diploma          String?
   subjectSpecialty String?
   monthlySalary    Int? // en MRU (Ouguiya), montant entier
+  // Taux horaire du pointage (MRU entiers) : heures pointées × taux = honoraires.
+  hourlyRate       Int?
   hireDate         DateTime?
   status           String    @default("ACTIVE")
   createdAt        DateTime  @default(now())
 
-  mainOfClasses ClassRoom[]
-  classSubjects ClassSubject[]
-  contract      TeacherContract?
-  leaves        TeacherLeave[]
-  payslips      Payslip[]
+  mainOfClasses  ClassRoom[]
+  classSubjects  ClassSubject[]
+  contract       TeacherContract?
+  leaves         TeacherLeave[]
+  payslips       Payslip[]
+  sessions       TeachingSession[]      @relation("SessionTeacher")
+  replacements   TeachingSession[]      @relation("SessionReplacement")
+  payAdjustments TeacherPayAdjustment[]
+  notifications  TeacherNotification[]
 
   @@index([schoolId])
   @@map("teachers")
@@ -989,17 +1017,17 @@ model ActivityLog {
 // mention « rappel envoyé le … » qui évite de relancer deux fois la même
 // famille. Ce qui était dû au moment du rappel est gardé tel quel.
 model PaymentReminder {
-  id        String   @id @default(cuid())
-  schoolId  String
-  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  id       String   @id @default(cuid())
+  schoolId String
+  school   School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   // L'id du parent, ou « student:<id> » pour un élève sans parent.
-  groupKey  String
-  amount    Int
+  groupKey String
+  amount   Int
   // « Octobre 2026, Novembre 2026 » : les mois rappelés.
-  months    String
-  userId    String?
-  userName  String
-  sentAt    DateTime @default(now())
+  months   String
+  userId   String?
+  userName String
+  sentAt   DateTime @default(now())
 
   @@index([schoolId, groupKey, sentAt])
   @@map("payment_reminders")
@@ -1019,4 +1047,118 @@ model SubmissionKey {
 
   @@id([schoolId, key])
   @@map("submission_keys")
+}
+
+/// Séance attendue d'un enseignant, générée chaque jour depuis l'emploi du
+/// temps (lib/timesheet-data.ts). Classe, matière et horaires sont copiés : la
+/// fiche du mois reste juste même si l'emploi du temps change ensuite.
+model TeachingSession {
+  id                   String        @id @default(cuid())
+  schoolId             String
+  school               School        @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  teacherId            String
+  teacher              Teacher       @relation("SessionTeacher", fields: [teacherId], references: [id], onDelete: Cascade)
+  scheduleSlotId       String?
+  scheduleSlot         ScheduleSlot? @relation(fields: [scheduleSlotId], references: [id], onDelete: SetNull)
+  /// Jour de la séance (minuit UTC, l'heure des écoles).
+  date                 DateTime
+  startsAt             DateTime
+  endsAt               DateTime
+  classId              String?
+  className            String
+  subjectName          String
+  /// PENDING (à venir), PRESENT, LATE, ABSENT, EXCUSED (absent justifié), REPLACED.
+  status               String        @default("PENDING")
+  checkedInAt          DateTime?
+  lateMinutes          Int           @default(0)
+  checkInLat           Float?
+  checkInLng           Float?
+  /// Distance à l'école au moment du pointage, en mètres.
+  checkInDistance      Int?
+  /// « Remplacé par » : les heures vont à ce remplaçant.
+  replacementTeacherId String?
+  replacementTeacher   Teacher?      @relation("SessionReplacement", fields: [replacementTeacherId], references: [id], onDelete: SetNull)
+  observation          String?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  changes TeachingSessionChange[]
+
+  @@unique([scheduleSlotId, date])
+  @@index([schoolId, date])
+  @@index([teacherId, date])
+  @@index([replacementTeacherId, date])
+  @@map("teaching_sessions")
+}
+
+/// Historique des corrections d'une séance : qui, quand, ancien et nouveau statut.
+model TeachingSessionChange {
+  id              String          @id @default(cuid())
+  schoolId        String
+  school          School          @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  sessionId       String
+  session         TeachingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  userName        String
+  fromStatus      String
+  toStatus        String
+  fromReplacement String?
+  toReplacement   String?
+  observation     String?
+  createdAt       DateTime        @default(now())
+
+  @@index([sessionId])
+  @@map("teaching_session_changes")
+}
+
+/// Avance ou autre déduction saisie par la direction sur la paie d'un mois.
+model TeacherPayAdjustment {
+  id            String   @id @default(cuid())
+  schoolId      String
+  school        School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  teacherId     String
+  teacher       Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  /// Premier jour du mois de paie (minuit UTC).
+  month         DateTime
+  /// ADVANCE (avance) ou OTHER (autre déduction).
+  kind          String
+  amount        Int
+  reason        String
+  createdByName String
+  createdAt     DateTime @default(now())
+
+  @@index([schoolId, month])
+  @@index([teacherId, month])
+  @@map("teacher_pay_adjustments")
+}
+
+/// Paie du pointage d'un mois : validée = verrouillée, avec les montants figés.
+model TimesheetMonth {
+  id           String    @id @default(cuid())
+  schoolId     String
+  school       School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  month        DateTime
+  lockedAt     DateTime?
+  lockedByName String?
+  /// Lignes de paie au moment de la validation (lib/timesheet.ts, TeacherPay[]).
+  snapshot     Json?
+
+  @@unique([schoolId, month])
+  @@map("timesheet_months")
+}
+
+/// Message à un enseignant : statut d'une séance modifié, paie du mois validée.
+model TeacherNotification {
+  id        String    @id @default(cuid())
+  schoolId  String
+  school    School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  teacherId String
+  teacher   Teacher   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  href      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([teacherId, createdAt])
+  @@map("teacher_notifications")
 }

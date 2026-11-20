@@ -8,6 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatTile } from "@/components/ui/stat-tile";
 import { formatDate } from "@/lib/format";
 import { getTranslations } from "@/lib/i18n/server";
+import { ensureSessions, loadTimesheetSchool } from "@/lib/timesheet-data";
+import { effectiveStatus, startOfDayUtc } from "@/lib/timesheet";
+import { CheckInCard, type TodaySession } from "@/components/timesheet/check-in-card";
 
 const DAY_LABELS = ["", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 
@@ -30,6 +33,29 @@ export default async function TeacherHome() {
         </p>
       </div>
     );
+  }
+
+  // Pointage (module payant) : les séances du jour, générées depuis l'emploi du temps.
+  const timesheet = await loadTimesheetSchool(user.schoolId);
+  let todaySessions: TodaySession[] | null = null;
+  const now = new Date();
+  if (timesheet?.enabled) {
+    await ensureSessions(user.schoolId, now);
+    const rows = await prisma.teachingSession.findMany({
+      where: { schoolId: user.schoolId, teacherId: scope.teacher.id, date: startOfDayUtc(now) },
+      orderBy: { startsAt: "asc" },
+      select: { id: true, startsAt: true, endsAt: true, className: true, subjectName: true, status: true, lateMinutes: true, checkedInAt: true },
+    });
+    todaySessions = rows.map((r) => ({
+      id: r.id,
+      startsAt: r.startsAt.toISOString(),
+      endsAt: r.endsAt.toISOString(),
+      className: r.className,
+      subjectName: r.subjectName,
+      status: effectiveStatus(r, now),
+      lateMinutes: r.lateMinutes,
+      checkedInAt: r.checkedInAt?.toISOString() ?? null,
+    }));
   }
 
   const jsDay = new Date().getDay(); // 0 = dimanche
@@ -82,6 +108,8 @@ export default async function TeacherHome() {
         </h1>
         <p className="mt-1 text-sm text-foreground/60">{t("teacherHome.subtitle")}</p>
       </div>
+
+      {todaySessions && <CheckInCard sessions={todaySessions} serverNow={now.toISOString()} />}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatTile label="Mes classes" value={String(classes.length)} icon={Users} tone="primary" />

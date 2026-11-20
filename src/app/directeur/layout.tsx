@@ -19,7 +19,7 @@ export default async function DirectorLayout({
   const [school, overdueFees] = await Promise.all([
     prisma.school.findUnique({
       where: { id: user.schoolId },
-      select: { name: true, plan: true, subscriptionStatus: true },
+      select: { name: true, plan: true, subscriptionStatus: true, timesheetEnabled: true },
     }),
     // La cloche signale les frais échus non réglés — selon le jour limite et
     // la tolérance de l'école : la seule alerte qui demande une action de la
@@ -34,6 +34,7 @@ export default async function DirectorLayout({
       userName={user.name ?? ""}
       roleKey={user.readOnly ? "role.readOnly" : ROLE_LABEL_KEYS.DIRECTOR}
       plan={school ? effectivePlan(school) : "standard"}
+      modules={school?.timesheetEnabled ? ["timesheet"] : []}
       theme={await getAppTheme()}
       searchHref="/directeur/eleves"
       alertCount={overdueFees}

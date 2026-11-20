@@ -16,7 +16,7 @@ import { UserMenu } from "./user-menu";
 import { ThemeToggle } from "./theme-toggle";
 import { APP_THEME_COOKIE, type AppTheme } from "@/lib/app-theme";
 import { AppThemeContext } from "@/lib/app-theme-context";
-import type { NavKey } from "./nav-items";
+import type { NavKey, SchoolModule } from "./nav-items";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -33,6 +33,8 @@ interface AppShellProps {
   alertLabel?: string;
   /** Formule de l'école — détermine les entrées de menu verrouillées. */
   plan: Plan;
+  /** Modules payants activés pour l'école (ex. : pointage des enseignants). */
+  modules?: readonly SchoolModule[];
   /** Thème choisi sur cet appareil (cookie relu par le serveur). */
   theme?: AppTheme;
 }
@@ -52,6 +54,7 @@ export function AppShell({
   alertHref = "#",
   alertLabel = "Notifications",
   plan,
+  modules = [],
   theme: initialTheme = "light",
 }: AppShellProps) {
   const pathname = usePathname();
@@ -89,7 +92,7 @@ export function AppShell({
 
       {/* Barre latérale — bureau */}
       <aside data-keep-colors className="app-sidebar no-print fixed inset-y-0 start-0 z-40 hidden w-64 bg-gradient-to-b from-primary-800 via-primary-800 to-primary-900 lg:block">
-        <Sidebar navKey={navKey} plan={plan} />
+        <Sidebar navKey={navKey} plan={plan} modules={modules} />
       </aside>
 
       {/* Barre latérale — tiroir mobile */}
@@ -104,7 +107,7 @@ export function AppShell({
             >
               <X className="h-5 w-5" />
             </button>
-            <Sidebar navKey={navKey} plan={plan} onNavigate={() => setMobileOpen(false)} />
+            <Sidebar navKey={navKey} plan={plan} modules={modules} onNavigate={() => setMobileOpen(false)} />
           </aside>
         </div>
       )}

@@ -34,6 +34,7 @@ export default async function SuperAdminPage() {
         lastPaymentAt: true,
         nextDueAt: true,
         createdAt: true,
+        timesheetEnabled: true,
       },
     }),
     // Un seul groupBy plutôt qu'un count par école : le tableau liste toutes
@@ -91,6 +92,7 @@ export default async function SuperAdminPage() {
         daysLate: daysLate && daysLate > 0 ? daysLate : null,
         trialEndsAt: trialEnd?.toISOString() ?? null,
         trialDaysLeft: trialEnd ? daysBetween(now, trialEnd) : null,
+        timesheetEnabled: s.timesheetEnabled,
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name, "fr"));

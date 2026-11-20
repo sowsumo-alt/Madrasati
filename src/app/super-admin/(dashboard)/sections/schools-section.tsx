@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { Banknote, Building2, ChevronDown, Download, Eye, History, Loader2, MessageCircle, MoreVertical, Pencil, X } from "lucide-react";
+import { Banknote, Building2, ChevronDown, Clock, Download, Eye, History, Loader2, MessageCircle, MoreVertical, Pencil, X } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,7 +22,7 @@ import {
 } from "@/lib/plans";
 import { buildWhatsAppUrl } from "@/lib/whatsapp";
 import { cn } from "@/lib/utils";
-import { changeSchoolPlan, changeSubscriptionStatus } from "../actions";
+import { changeSchoolPlan, changeSubscriptionStatus, setTimesheetModule } from "../actions";
 import { MarkPaidDialog } from "../mark-paid-dialog";
 import { HistoryDialog } from "../history-dialog";
 import { buildReminderMessage, reminderButtonTitle } from "../reminder-message";
@@ -248,6 +248,9 @@ export function SchoolsSection({ schools }: { schools: SchoolRow[] }) {
                         reminderUrl={reminderUrl(s)}
                         onPay={() => setPayTarget(s)}
                         onHistory={() => setHistoryTarget(s)}
+                        onToggleTimesheet={() =>
+                          run(s.id, () => setTimesheetModule(s.id, !s.timesheetEnabled), s.timesheetEnabled ? "Pointage désactivé." : "Pointage activé.")
+                        }
                       />
                     </td>
                   </tr>
@@ -268,6 +271,9 @@ export function SchoolsSection({ schools }: { schools: SchoolRow[] }) {
                     reminderUrl={reminderUrl(s)}
                     onPay={() => setPayTarget(s)}
                     onHistory={() => setHistoryTarget(s)}
+                    onToggleTimesheet={() =>
+                      run(s.id, () => setTimesheetModule(s.id, !s.timesheetEnabled), s.timesheetEnabled ? "Pointage désactivé." : "Pointage activé.")
+                    }
                   />
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -398,12 +404,14 @@ function RowActions({
   reminderUrl,
   onPay,
   onHistory,
+  onToggleTimesheet,
 }: {
   school: SchoolRow;
   busy: boolean;
   reminderUrl: string | null;
   onPay: () => void;
   onHistory: () => void;
+  onToggleTimesheet: () => void;
 }) {
   const icon = "flex h-8 w-8 items-center justify-center rounded-lg text-foreground/60 transition-colors hover:bg-surface-muted hover:text-foreground";
   return (
@@ -437,6 +445,10 @@ function RowActions({
           <DropdownMenuItem onSelect={onHistory}>
             <History className="h-4 w-4 text-foreground/60" />
             Historique des paiements
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={onToggleTimesheet} data-testid="sa-toggle-timesheet">
+            <Clock className="h-4 w-4 text-foreground/60" />
+            {s.timesheetEnabled ? "Désactiver le pointage enseignants" : "Activer le pointage enseignants (module payant)"}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

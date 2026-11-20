@@ -22,6 +22,26 @@ export async function changeSchoolPlan(schoolId: string, plan: string) {
   revalidatePath("/super-admin");
 }
 
+/**
+ * Module payant « Pointage & paie des enseignants », activé école par école.
+ * À la première activation, le pointage commence ce jour-là : aucun jour
+ * antérieur n'est généré, donc aucun enseignant n'est compté absent avant.
+ */
+export async function setTimesheetModule(schoolId: string, enabled: boolean) {
+  await requireSuperAdmin();
+  const school = await prisma.school.findUnique({ where: { id: schoolId }, select: { timesheetStartDate: true } });
+  if (!school) throw new Error("École introuvable.");
+  const now = new Date();
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  await prisma.school.update({
+    where: { id: schoolId },
+    data: enabled
+      ? { timesheetEnabled: true, ...(school.timesheetStartDate ? {} : { timesheetStartDate: today, timesheetGeneratedThrough: new Date(today.getTime() - 86_400_000) }) }
+      : { timesheetEnabled: false },
+  });
+  revalidatePath("/super-admin");
+}
+
 export async function changeSubscriptionStatus(schoolId: string, status: string) {
   await requireSuperAdmin();
   if (!isSubscriptionStatus(status)) throw new Error("Statut invalide.");

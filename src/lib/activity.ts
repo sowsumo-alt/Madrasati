@@ -15,6 +15,7 @@ export const ACTIVITY_ACTIONS = {
   SHEET: "SHEET",
   USER: "USER",
   EXPORT: "EXPORT",
+  TIMESHEET: "TIMESHEET",
 } as const;
 export type ActivityAction = (typeof ACTIVITY_ACTIONS)[keyof typeof ACTIVITY_ACTIONS];
 
@@ -27,6 +28,7 @@ export const ACTIVITY_LABELS: Record<ActivityAction, string> = {
   SHEET: "Fiche de paiement",
   USER: "Comptes",
   EXPORT: "Export",
+  TIMESHEET: "Pointage",
 };
 
 export async function logActivity(

@@ -28,7 +28,8 @@ export const securityHeaders = [
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  { key: "Permissions-Policy", value: "geolocation=(), microphone=(), payment=(), usb=()" },
+  // Géolocalisation : Madrasati seule (pointage des enseignants depuis l'école), jamais un site tiers.
+  { key: "Permissions-Policy", value: "geolocation=(self), microphone=(), payment=(), usb=()" },
 ];
 
 const nextConfig: NextConfig = {

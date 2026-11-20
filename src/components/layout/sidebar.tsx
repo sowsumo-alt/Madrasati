@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { useLanguage } from "@/lib/i18n/language-provider";
 import { Logo } from "@/components/brand/logo";
 import { planHasFeature, type Plan } from "@/lib/plans";
-import { navGroupsByRole, type NavItem, type NavKey } from "./nav-items";
+import { navGroupsByRole, type NavItem, type NavKey, type SchoolModule } from "./nav-items";
 
 const HOME_HREFS = new Set(["/directeur", "/enseignant", "/parent"]);
 
@@ -17,13 +17,15 @@ const HOME_HREFS = new Set(["/directeur", "/enseignant", "/parent"]);
  * l'abonnement. Un enseignant ou un parent ne voit rien de tout ça : les
  * entrées correspondantes disparaissent purement et simplement du menu.
  */
-function visibleNavItems(items: NavItem[], plan: Plan, navKey: NavKey) {
+function visibleNavItems(items: NavItem[], plan: Plan, navKey: NavKey, modules: readonly SchoolModule[]) {
+  // Un module non activé n'est pas proposé : il n'a rien à montrer à l'école.
+  const enabled = items.filter((item) => !item.module || modules.includes(item.module));
   if (navKey !== "director") {
-    return items
+    return enabled
       .filter((item) => !item.feature || planHasFeature(plan, item.feature))
       .map((item) => ({ item, locked: false }));
   }
-  return items.map((item) => ({
+  return enabled.map((item) => ({
     item,
     locked: Boolean(item.feature) && !planHasFeature(plan, item.feature!),
   }));
@@ -60,10 +62,13 @@ export function isActive(rawPathname: string, href: string, allHrefs: readonly s
 export function Sidebar({
   navKey,
   plan,
+  modules = [],
   onNavigate,
 }: {
   navKey: NavKey;
   plan: Plan;
+  /** Modules payants activés pour l'école. */
+  modules?: readonly SchoolModule[];
   /** Appelé au clic sur un lien — ferme le tiroir sur mobile. */
   onNavigate?: () => void;
 }) {
@@ -92,7 +97,7 @@ export function Sidebar({
                 {t(group.labelKey)}
               </p>
             )}
-            {visibleNavItems(group.items, plan, navKey).map(({ item, locked }) => {
+            {visibleNavItems(group.items, plan, navKey, modules).map(({ item, locked }) => {
               const active = !locked && isActive(pathname, item.href, allHrefs);
               const Icon = item.icon;
               const href = locked

@@ -29,6 +29,7 @@ import {
   NotebookPen,
   UsersRound,
   Activity,
+  Clock,
 } from "lucide-react";
 
 export interface NavItem {
@@ -39,7 +40,12 @@ export interface NavItem {
   feature?: Feature;
   /** Annoncée mais pas encore développée : mène à une page « Bientôt disponible ». */
   soon?: boolean;
+  /** Module payant activé école par école : l'entrée n'existe que s'il est activé. */
+  module?: SchoolModule;
 }
+
+/** Modules payants activés par le Super Admin, école par école. */
+export type SchoolModule = "timesheet";
 
 export interface NavGroup {
   /** Sans titre si absent (ex: le Tableau de bord, toujours seul en tête). */
@@ -104,6 +110,7 @@ const directorNavGroups: NavGroup[] = [
     labelKey: "nav.category.admin",
     items: [
       { href: "/directeur/enseignants", labelKey: "nav.teachers", icon: BookUser },
+      { href: "/directeur/pointage", labelKey: "nav.timesheet", icon: Clock, module: "timesheet" },
       { href: "/directeur/rh", labelKey: "nav.hr", icon: Briefcase, feature: "hrPayroll" },
       { href: "/directeur/utilisateurs", labelKey: "nav.users", icon: UserCog },
       { href: "/directeur/activite", labelKey: "nav.activity", icon: Activity },
@@ -128,6 +135,7 @@ const teacherNavGroups: NavGroup[] = [
       { href: "/enseignant/notes", labelKey: "nav.exams", icon: GraduationCap },
       { href: "/enseignant/saisie-notes", labelKey: "nav.grades", icon: NotebookPen },
       { href: "/enseignant/emploi-du-temps", labelKey: "nav.schedule", icon: CalendarDays },
+      { href: "/enseignant/pointage", labelKey: "nav.myTimesheet", icon: Clock, module: "timesheet" },
       {
         href: "/enseignant/eleves-a-surveiller",
         labelKey: "nav.atRisk",

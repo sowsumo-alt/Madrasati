@@ -20,6 +20,8 @@ export interface SchoolRow {
   daysLate: number | null;
   trialEndsAt: string | null;
   trialDaysLeft: number | null;
+  /** Module payant « Pointage & paie des enseignants » activé. */
+  timesheetEnabled: boolean;
 }
 
 export interface DashboardKpis {
