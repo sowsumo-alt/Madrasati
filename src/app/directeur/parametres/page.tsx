@@ -13,7 +13,8 @@ export default async function SettingsPage() {
   const user = await requireRole(ROLES.DIRECTOR);
 
   const [school, years, students, teachers, classes, rule, official] = await Promise.all([
-    prisma.school.findUnique({ where: { id: user.schoolId } }),
+    // Le logo s'affiche et se modifie ici : la seule page qui le lit directement.
+    prisma.school.findUnique({ where: { id: user.schoolId }, omit: { logoUrl: false } }),
     prisma.academicYear.findMany({
       where: { schoolId: user.schoolId },
       orderBy: { startDate: "desc" },

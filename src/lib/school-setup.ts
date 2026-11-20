@@ -1,5 +1,4 @@
-import type { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { prisma, type Db } from "@/lib/prisma";
 import {
   standardClassesFor,
   subjectNamesForCycle,
@@ -154,7 +153,7 @@ export function currentAcademicYear(today = new Date()) {
  * Renvoie le nombre de classes réellement créées.
  */
 export async function createStandardClasses(
-  tx: Prisma.TransactionClient,
+  tx: Db,
   schoolId: string,
   academicYearId: string,
   type: SchoolType,

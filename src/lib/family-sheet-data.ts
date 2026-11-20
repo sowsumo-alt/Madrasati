@@ -1,9 +1,9 @@
-import type { Prisma, PrismaClient } from "@prisma/client";
 import { monthLabel, monthStart } from "@/lib/tuition";
 import { applyTuitionPlan, recordGroupedPayment, type PaymentPart } from "@/lib/tuition-plan";
 import { sheetErrors, todayIso, type FamilySheetInput, type SheetAlready } from "@/lib/family-sheet";
 import { UserError } from "@/lib/user-error";
 import { FICHE_MODE_LABELS, type FicheMode } from "@/lib/family-fiche";
+import type { Db } from "@/lib/prisma";
 
 /**
  * Enregistrement d'une fiche de paiement (voir lib/family-sheet.ts) : à
@@ -17,7 +17,6 @@ import { FICHE_MODE_LABELS, type FicheMode } from "@/lib/family-fiche";
  * fois au tableau de bord, dans les impayés et dans l'argent perçu.
  */
 
-type Db = Prisma.TransactionClient | PrismaClient;
 
 /** Une part à encaisser, avec la date de son versement (null : aujourd'hui). */
 export type DatedPart = PaymentPart & { date: string | null };
@@ -34,7 +33,7 @@ const studentName = (s: { firstName: string; lastName: string }) => `${s.firstNa
  * mois déjà réglés restent tels quels avec leurs reçus (applyTuitionPlan).
  */
 export async function recordFamilySheet(
-  tx: Prisma.TransactionClient,
+  tx: Db,
   input: {
     schoolId: string;
     year: { id: string; label: string; startDate: Date; endDate: Date };
@@ -214,7 +213,7 @@ export async function recordFamilySheet(
  * est gardée telle quelle et compte dans l'argent perçu à cette date.
  */
 export async function recordSheetPayments(
-  tx: Prisma.TransactionClient,
+  tx: Db,
   input: {
     schoolId: string;
     parts: DatedPart[];
@@ -331,7 +330,7 @@ export async function familyFicheState(
  * paiements, ensemble) — aucun montant ne change.
  */
 export async function prepareFamilyFiche(
-  tx: Prisma.TransactionClient,
+  tx: Db,
   input: { parentId: string; yearId: string; childIds: string[]; mode: FicheMode; referentId: string },
 ) {
   const { parentId, yearId, childIds, mode, referentId } = input;
@@ -364,7 +363,7 @@ export async function prepareFamilyFiche(
 
 /** La fiche familiale passe à un autre enfant : échéances, formule, inscription et paiements. */
 async function moveFamilyFiche(
-  tx: Prisma.TransactionClient,
+  tx: Db,
   input: { parentId: string; yearId: string; from: string; to: string },
 ) {
   const { parentId, yearId, from, to } = input;

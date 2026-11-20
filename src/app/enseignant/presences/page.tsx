@@ -52,8 +52,15 @@ export default async function TeacherAttendancePage({
       ? prisma.student.findMany({
           where: { schoolId: user.schoolId, classId: selectedClassId, status: "ACTIVE" },
           orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-          include: {
-            parentLinks: { where: { isPrimary: true }, include: { parent: true }, take: 1 },
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            parentLinks: {
+              where: { isPrimary: true },
+              select: { parent: { select: { firstName: true, lastName: true, phone: true } } },
+              take: 1,
+            },
           },
         })
       : Promise.resolve([]),

@@ -17,6 +17,7 @@ import { assertNnisAvailable, nniConflict } from "@/lib/nni-data";
 import { storedNni } from "@/lib/nni";
 import { ACTIVITY_ACTIONS, logActivity } from "@/lib/activity";
 import { assertMatriculeFree, assignMatricules, cleanMatricule } from "@/lib/student-number";
+import { forgetStudentPhoto } from "@/lib/school-cache";
 
 /** Compare deux noms en ignorant casse, accents composés et espaces multiples. */
 function normalizeName(value: string) {
@@ -267,6 +268,8 @@ async function updateStudentUnsafe(studentId: string, values: StudentFormValues)
       ...(data.enrollmentDate ? { enrollmentDate: new Date(data.enrollmentDate) } : {}),
     },
   });
+  // La photo a peut-être changé : les listes la relisent dans la base.
+  forgetStudentPhoto(studentId);
   // Élève référent d'une fiche familiale qui n'est plus actif : la fiche
   // passe à un autre enfant de la famille.
   await reattachFamilySheets(prisma, [studentId]);

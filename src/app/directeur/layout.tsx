@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { requireRole } from "@/lib/session";
 import { ROLES, ROLE_LABEL_KEYS } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
-import { dueFeesOf } from "@/lib/due-rule-data";
+import { dueFeeCount } from "@/lib/due-rule-data";
 import { AppShell } from "@/components/layout/app-shell";
 import { getAppTheme } from "@/lib/app-theme-server";
 import { effectivePlan } from "@/lib/plans";
@@ -24,7 +24,7 @@ export default async function DirectorLayout({
     // La cloche signale les frais échus non réglés — selon le jour limite et
     // la tolérance de l'école : la seule alerte qui demande une action de la
     // direction au quotidien.
-    dueFeesOf(user.schoolId).then((fees) => fees.length),
+    dueFeeCount(user.schoolId),
   ]);
 
   return (

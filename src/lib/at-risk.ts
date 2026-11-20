@@ -38,9 +38,17 @@ export async function findAtRiskStudents(
   const students = await prisma.student.findMany({
     where: studentWhere,
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-    include: {
+    // Seulement ce que la liste affiche : nom, classe, parent à contacter.
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
       classRoom: { select: { name: true } },
-      parentLinks: { where: { isPrimary: true }, include: { parent: true }, take: 1 },
+      parentLinks: {
+        where: { isPrimary: true },
+        select: { parent: { select: { firstName: true, lastName: true, phone: true } } },
+        take: 1,
+      },
     },
   });
   if (students.length === 0) return [];

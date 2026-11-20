@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { getTranslations } from "@/lib/i18n/server";
 import { FEATURES, schoolHasFeature } from "@/lib/plans";
 import { DEFAULT_TEMPLATES } from "@/lib/school-setup";
-import { toSchoolIdentity } from "@/lib/official-header";
+import { loadSchoolIdentity } from "@/lib/school-cache";
 import { loadOfficialHeader } from "@/lib/official-header-data";
 import { fillTemplate, withArabic, schoolSignatureFr, schoolSignatureAr } from "@/lib/whatsapp";
 import { termDateRange } from "@/lib/report-card";
@@ -52,10 +52,11 @@ export default async function ClassReportCardsPage({
   if (!classRoom) notFound();
 
   const previousTerm = previousTermOf(term, TERMS);
-  const [cards, previousCards, school, template, students, official, pastAverages] = await Promise.all([
+  const [cards, previousCards, school, schoolInfo, template, students, official, pastAverages] = await Promise.all([
     classCardsWithRules(user.schoolId, classId, term),
     previousTerm ? classCardsWithRules(user.schoolId, classId, previousTerm) : Promise.resolve([]),
-    prisma.school.findUnique({ where: { id: user.schoolId } }),
+    prisma.school.findUnique({ where: { id: user.schoolId }, select: { name: true, plan: true, subscriptionStatus: true } }),
+    loadSchoolIdentity(user.schoolId),
     prisma.messageTemplate.findFirst({
       where: { schoolId: user.schoolId, key: "GRADES_AVAILABLE" },
       select: { body: true, bodyAr: true },
@@ -106,7 +107,6 @@ export default async function ClassReportCardsPage({
 
   const { t } = await getTranslations();
   const bilingual = schoolHasFeature(school, FEATURES.BILINGUAL_MESSAGES);
-  const schoolInfo = toSchoolIdentity(school);
 
   const bulk: BulkStudent[] = cards.map((card) => {
     const studentName = `${card.student.firstName} ${card.student.lastName}`;

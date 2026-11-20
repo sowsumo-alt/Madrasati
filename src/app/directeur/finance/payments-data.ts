@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { loadDueRule } from "@/lib/due-rule-data";
+import { loadStudentPhotos } from "@/lib/school-cache";
 import { effectiveDueDate, payByDate } from "@/lib/due-rule";
 import { feeDisplayStatus, remainingOf } from "@/lib/fee-status";
 import { collectionRate, daysOverdue, feeListDay } from "@/lib/payments-list";
@@ -15,11 +16,19 @@ import type { FeeRow, PaymentsKpis } from "./finance-view";
  * sont (withPhotos) — une photo par ligne, sur des milliers de frais, pesait
  * plusieurs mégaoctets.
  */
-export async function loadPaymentsData(schoolId: string, now = new Date()) {
+export async function loadPaymentsData(schoolId: string, now = new Date(), only: { studentId?: string } = {}) {
   const [fees, dueRule] = await Promise.all([
     prisma.fee.findMany({
-      where: { schoolId },
-      include: {
+      // Un seul élève (« Enregistrer un paiement » depuis sa ligne) : ses frais seulement.
+      where: { schoolId, ...(only.studentId ? { studentId: only.studentId } : {}) },
+      // Seulement les colonnes affichées ou calculées : la liste compte des milliers de frais.
+      select: {
+        id: true,
+        label: true,
+        amount: true,
+        dueDate: true,
+        periodStart: true,
+        tuitionPlanId: true,
         student: {
           select: {
             id: true,
@@ -149,11 +158,7 @@ export async function loadPaymentsData(schoolId: string, now = new Date()) {
 export async function withPhotos(schoolId: string, rows: FeeRow[]): Promise<FeeRow[]> {
   const ids = [...new Set(rows.map((r) => r.student.id))];
   if (ids.length === 0) return rows;
-  const photos = await prisma.student.findMany({
-    where: { schoolId, id: { in: ids }, photoUrl: { not: null } },
-    select: { id: true, photoUrl: true },
-  });
-  const byId = new Map(photos.map((p) => [p.id, p.photoUrl]));
+  const byId = await loadStudentPhotos(schoolId, ids);
   return rows.map((r) => ({ ...r, student: { ...r.student, photoUrl: byId.get(r.student.id) ?? null } }));
 }
 

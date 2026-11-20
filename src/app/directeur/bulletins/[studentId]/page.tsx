@@ -28,7 +28,7 @@ import { CommentEditor } from "./comment-editor";
 import { getTranslations } from "@/lib/i18n/server";
 import { FEATURES, schoolHasFeature } from "@/lib/plans";
 import { DEFAULT_TEMPLATES } from "@/lib/school-setup";
-import { toSchoolIdentity } from "@/lib/official-header";
+import { loadSchoolIdentity, loadStudentPhotos } from "@/lib/school-cache";
 import { loadOfficialHeader } from "@/lib/official-header-data";
 import { fillTemplate, withArabic, schoolSignatureFr, schoolSignatureAr } from "@/lib/whatsapp";
 import { termDateRange } from "@/lib/report-card";
@@ -85,11 +85,14 @@ export default async function ReportCardPage({
   // trimestre d'une école aux bulletins cumulatifs.
   const isAnnual = isAnnualTerm(rule.config, term);
 
-  const [cards, school, academicYear, comment, parentLink, template, official] = await Promise.all([
+  const [cards, school, schoolIdentity, photos, academicYear, comment, parentLink, template, official] = await Promise.all([
     term === ANNUAL_TERM
       ? buildAnnualReportCards(user.schoolId, student.classId, rule.config)
       : buildReportCards(user.schoolId, student.classId, term, rule.config),
-    prisma.school.findUnique({ where: { id: user.schoolId } }),
+    prisma.school.findUnique({ where: { id: user.schoolId }, select: { name: true, plan: true, subscriptionStatus: true } }),
+    loadSchoolIdentity(user.schoolId),
+    // La photo figure sur le bulletin (en cache, voir lib/school-cache.ts).
+    loadStudentPhotos(user.schoolId, [student.id]),
     prisma.academicYear.findFirst({
       where: { schoolId: user.schoolId, isCurrent: true },
       select: { label: true, startDate: true, endDate: true },
@@ -266,7 +269,6 @@ export default async function ReportCardPage({
 
   // Collège et lycée : le bulletin officiel mauritanien (meilleur devoir × 3
   // + composition, ÷ 4). Le Fondamental garde plus bas son bulletin d'origine.
-  const schoolIdentity = toSchoolIdentity(school);
 
   if (card.scheme === "SECONDARY") {
     const range = academicYear ? termDateRange(academicYear, term) : null;
@@ -355,7 +357,7 @@ export default async function ReportCardPage({
         school={schoolIdentity}
         official={official}
         yearLabel={student.classRoom?.academicYear.label ?? academicYear?.label ?? null}
-        photoUrl={student.photoUrl}
+        photoUrl={photos.get(student.id) ?? null}
         evolution={cardEvolution}
         incomplete={missing.length > 0}
         previousAverages={previousAverages}

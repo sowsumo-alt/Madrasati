@@ -9,6 +9,7 @@ import { getTranslations } from "@/lib/i18n/server";
 import { FamilyView } from "../family-view/family-view";
 import type { AttachCandidate, FamilyHistoryEntry, FamilyPageData } from "../family-view/types";
 import { familyFicheState, familyReferentId } from "@/lib/family-sheet-data";
+import { loadStudentPhotos } from "@/lib/school-cache";
 
 /** « +22246523896 » et « 22246523896 » désignent le même numéro. */
 function phoneVariants(phone: string) {
@@ -68,6 +69,8 @@ export default async function FamilyPage({ params }: { params: Promise<{ parentI
     .map((l) => l.student)
     .sort((a, b) => a.firstName.localeCompare(b.firstName, "fr"));
   const childIds = new Set(students.map((s) => s.id));
+  // Les enfants s'affichent avec leur photo (en cache, voir lib/school-cache.ts).
+  const photos = await loadStudentPhotos(user.schoolId, [...childIds]);
 
   const children = students.map((s) => {
     const balance = familyBalance(
@@ -81,7 +84,7 @@ export default async function FamilyPage({ params }: { params: Promise<{ parentI
       id: s.id,
       firstName: s.firstName,
       lastName: s.lastName,
-      photoUrl: s.photoUrl,
+      photoUrl: photos.get(s.id) ?? null,
       className: s.classRoom?.name ?? null,
       status: s.status,
       ...balance,

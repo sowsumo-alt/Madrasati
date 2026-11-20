@@ -6,6 +6,7 @@ import { CURRENT_YEAR } from "@/lib/school-year";
 import { buildCatalog, classOptions } from "@/lib/class-catalog";
 import { loadTuitionSettings, studentMoneySummaries, tuitionSummaries } from "@/lib/tuition-data";
 import { lettersOf } from "@/lib/initials";
+import { loadStudentPhotos } from "@/lib/school-cache";
 import { pageOf } from "@/lib/list-page";
 import { STUDENTS_PAGE_SIZE, filterStudents, parseStudentsParams } from "@/lib/students-query";
 
@@ -21,18 +22,44 @@ export default async function StudentsPage({
   // liste et n'envoie que la page affichée (photos comprises, pour elle seule).
   const state = parseStudentsParams(params);
 
-  const [students, classes, school, currentYear, allLevels, tuition, tuitionSettings, money] = await Promise.all([
+  const [students, classes, school, currentYear, allLevels, tuitionSettings] = await Promise.all([
+    // Toute l'école, pour filtrer : seulement les colonnes affichées ou filtrées.
     prisma.student.findMany({
       where: { schoolId: user.schoolId },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-      omit: { photoUrl: true },
-      include: {
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        dateOfBirth: true,
+        gender: true,
+        status: true,
+        classId: true,
+        placeOfBirth: true,
+        nationality: true,
+        nni: true,
+        rimNumber: true,
+        matricule: true,
+        motherName: true,
+        enrollmentDate: true,
         classRoom: { select: { name: true } },
         parentLinks: {
           where: { isPrimary: true },
           // Le nombre d'enfants du parent : à partir de deux, c'est une
           // famille que l'on peut afficher d'un clic.
-          include: { parent: { include: { _count: { select: { studentLinks: true } } } } },
+          select: {
+            parent: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                phone: true,
+                address: true,
+                familyName: true,
+                _count: { select: { studentLinks: true } },
+              },
+            },
+          },
           take: 1,
         },
       },
@@ -56,9 +83,7 @@ export default async function StudentsPage({
       distinct: ["category", "level"],
       select: { category: true, level: true, name: true },
     }),
-    tuitionSummaries(user.schoolId),
     loadTuitionSettings(user.schoolId),
-    studentMoneySummaries(user.schoolId),
   ]);
 
   const rows: StudentRow[] = students.map((s) => {
@@ -79,8 +104,8 @@ export default async function StudentsPage({
       rimNumber: s.rimNumber,
       matricule: s.matricule,
       motherName: s.motherName,
-      tuition: tuition.get(s.id) ?? null,
-      money: money.get(s.id) ?? null,
+      tuition: null,
+      money: null,
       enrollmentDate: s.enrollmentDate.toISOString(),
       parent: parent
         ? {
@@ -104,18 +129,25 @@ export default async function StudentsPage({
   const family = state.family && rows.some((r) => r.parent?.id === state.family) ? state.family : null;
   const current = { ...state, classFilter, family };
   const list = pageOf(filterStudents(rows, current), state.page, STUDENTS_PAGE_SIZE);
-  const photos = list.rows.length
-    ? await prisma.student.findMany({
-        where: { schoolId: user.schoolId, id: { in: list.rows.map((r) => r.id) }, photoUrl: { not: null } },
-        select: { id: true, photoUrl: true },
-      })
-    : [];
-  const photoOf = new Map(photos.map((p) => [p.id, p.photoUrl]));
+  // Photos, formule et argent : pour les élèves de la page seulement, pas pour toute l'école.
+  const pageIds = list.rows.map((r) => r.id);
+  const [photoOf, tuition, money] = pageIds.length
+    ? await Promise.all([
+        loadStudentPhotos(user.schoolId, pageIds),
+        tuitionSummaries(user.schoolId, pageIds),
+        studentMoneySummaries(user.schoolId, pageIds),
+      ])
+    : [new Map<string, string | null>(), new Map(), new Map()];
 
   return (
     <StudentsView
       state={{ ...current, page: list.page }}
-      students={list.rows.map((r) => ({ ...r, photoUrl: photoOf.get(r.id) ?? null }))}
+      students={list.rows.map((r) => ({
+        ...r,
+        photoUrl: photoOf.get(r.id) ?? null,
+        tuition: tuition.get(r.id) ?? null,
+        money: money.get(r.id) ?? null,
+      }))}
       total={list.total}
       pageCount={list.pageCount}
       hasStudents={rows.length > 0}

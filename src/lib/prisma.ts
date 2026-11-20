@@ -1,15 +1,34 @@
 import { PrismaClient } from "@prisma/client";
+import type { ITXClientDenyList } from "@prisma/client/runtime/library";
 import { WRITE_OPERATIONS, guardWrite, primeWriteGuard } from "@/lib/write-guard";
 
+/**
+ * Colonnes lourdes : la photo d'un élève et le logo d'une école sont des
+ * images encodées (data:…), des dizaines de Ko chacune. Jamais lues sans être
+ * demandées (select: { photoUrl: true } ou omit: { photoUrl: false }) : une
+ * liste d'élèves ou une fiche d'école ne les transfère plus depuis la base.
+ */
+export const HEAVY_COLUMNS = {
+  student: { photoUrl: true },
+  school: { logoUrl: true },
+} as const;
+
+const createClient = () => new PrismaClient({ omit: HEAVY_COLUMNS });
+type AppPrismaClient = ReturnType<typeof createClient>;
+
+/** Le client de l'application ou une transaction ouverte avec lui : ce que reçoivent les fonctions partagées. */
+export type Db = Omit<AppPrismaClient, ITXClientDenyList>;
+
 const globalForPrisma = globalThis as unknown as {
-  prismaBase: PrismaClient | undefined;
+  prismaBase: AppPrismaClient | undefined;
 };
 
 /**
  * Client sans contrôle d'accès : réservé aux écritures du système lui-même
  * (démarrage de l'essai d'une école…), jamais à une action d'un utilisateur.
+ * Un seul client (et un seul jeu de connexions) par instance du serveur.
  */
-export const basePrisma = globalForPrisma.prismaBase ?? new PrismaClient();
+export const basePrisma = globalForPrisma.prismaBase ?? createClient();
 
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prismaBase = basePrisma;
@@ -49,4 +68,4 @@ export const prisma = (typeof window !== "undefined" ? basePrisma : basePrisma.$
       },
     },
   },
-})) as unknown as PrismaClient;
+})) as unknown as AppPrismaClient;

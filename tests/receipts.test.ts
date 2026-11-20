@@ -1,8 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { Prisma } from "@prisma/client";
 
 import { generateReceiptNumber } from "../src/lib/receipts";
+import type { Db } from "../src/lib/prisma";
 
 /**
  * Le numéro de reçu a bloqué la Finance d'une école en production : la
@@ -15,10 +15,10 @@ import { generateReceiptNumber } from "../src/lib/receipts";
  */
 
 /** Client de transaction minimal : seul $queryRaw est utilisé par la fonction. */
-function txWithMax(max: number | null): Prisma.TransactionClient {
+function txWithMax(max: number | null): Db {
   return {
     $queryRaw: async () => [{ max }],
-  } as unknown as Prisma.TransactionClient;
+  } as unknown as Db;
 }
 
 const year = new Date().getFullYear();

@@ -1,4 +1,3 @@
-import type { Prisma } from "@prisma/client";
 import { UserError } from "@/lib/user-error";
 import { familyPartReceiptNumber, generateReceiptNumber } from "@/lib/receipts";
 import { logPayment } from "@/lib/activity";
@@ -13,6 +12,7 @@ import {
   periodMonthsOf,
   type TuitionFrequency,
 } from "@/lib/tuition";
+import type { Db } from "@/lib/prisma";
 
 /**
  * Enregistre la formule de paiement d'un élève et (re)crée ses échéances,
@@ -25,7 +25,7 @@ import {
  * paiement, à partir du mois choisi, sont remplacées.
  */
 export async function applyTuitionPlan(
-  tx: Prisma.TransactionClient,
+  tx: Db,
   input: {
     schoolId: string;
     studentId: string;
@@ -138,7 +138,7 @@ export interface PaymentPart {
  * déduit : rien n'est payé deux fois.
  */
 export async function prepaidParts(
-  tx: Prisma.TransactionClient,
+  tx: Db,
   planId: string,
   months: Date[],
 ): Promise<PaymentPart[]> {
@@ -195,7 +195,7 @@ export async function prepaidParts(
  * reçu groupé s'il y en a un.
  */
 export async function recordGroupedPayment(
-  tx: Prisma.TransactionClient,
+  tx: Db,
   input: {
     schoolId: string;
     parts: PaymentPart[];

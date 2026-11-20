@@ -159,9 +159,10 @@ export default async function DashboardPage() {
       where: { schoolId, status: { not: "PAID" }, dueDate: { lte: new Date() } },
       select: { id: true, amount: true, dueDate: true, periodStart: true },
     }),
+    // Versé sur ces mêmes frais seulement (pas un total par frais de toute l'école).
     prisma.payment.groupBy({
       by: ["feeId"],
-      where: { schoolId },
+      where: { schoolId, fee: { status: { not: "PAID" }, dueDate: { lte: new Date() } } },
       _sum: { amount: true },
     }),
     prisma.exam.count({

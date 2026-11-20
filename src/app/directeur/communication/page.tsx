@@ -9,14 +9,22 @@ export default async function CommunicationPage() {
   const user = await requireRole(ROLES.DIRECTOR);
 
   const [parents, teachers, templates, school] = await Promise.all([
+    // Destinataires : nom et téléphone, et le prénom de chaque enfant — rien d'autre.
     prisma.parent.findMany({
       where: { schoolId: user.schoolId },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-      include: { studentLinks: { include: { student: true } } },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+        studentLinks: { select: { studentId: true, student: { select: { firstName: true, lastName: true } } } },
+      },
     }),
     prisma.teacher.findMany({
       where: { schoolId: user.schoolId, status: "ACTIVE" },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+      select: { id: true, firstName: true, lastName: true, phone: true },
     }),
     prisma.messageTemplate.findMany({
       where: { schoolId: user.schoolId },

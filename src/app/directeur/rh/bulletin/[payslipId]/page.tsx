@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { formatMRU } from "@/lib/format";
 import { PrintButton } from "@/components/ui/print-button";
 import { DocumentHeader } from "@/components/documents/document-header";
-import { toSchoolIdentity } from "@/lib/official-header";
+import { loadSchoolIdentity } from "@/lib/school-cache";
 
 const MONTHS = [
   "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
@@ -21,10 +21,13 @@ export default async function PayslipPage({
   const { payslipId } = await params;
   const user = await requireFeature(FEATURES.HR_PAYROLL, ROLES.DIRECTOR);
 
-  const payslip = await prisma.payslip.findFirst({
-    where: { id: payslipId, schoolId: user.schoolId },
-    include: { teacher: true, school: true, bonusLines: true },
-  });
+  const [payslip, school] = await Promise.all([
+    prisma.payslip.findFirst({
+      where: { id: payslipId, schoolId: user.schoolId },
+      include: { teacher: true, bonusLines: true },
+    }),
+    loadSchoolIdentity(user.schoolId),
+  ]);
 
   if (!payslip) notFound();
 
@@ -42,7 +45,7 @@ export default async function PayslipPage({
         data-paper
         className="rounded-xl border border-border bg-surface p-8 shadow-sm print:border-0 print:shadow-none"
       >
-        <DocumentHeader school={toSchoolIdentity(payslip.school)} />
+        <DocumentHeader school={school} />
 
         <div className="border-b border-border pb-6 text-center">
           <p className="text-sm font-bold uppercase tracking-wide text-foreground">

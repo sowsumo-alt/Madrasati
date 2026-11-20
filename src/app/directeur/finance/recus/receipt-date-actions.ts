@@ -2,8 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import type { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { prisma, type Db } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { UserError, asResult } from "@/lib/user-error";
@@ -20,7 +19,7 @@ const shortDate = (iso: string) => iso.split("-").reverse().join("/");
 
 /** Change la date d'un reçu (et de ses parts) ; renvoie de quoi le noter au journal. */
 async function moveReceipt(
-  tx: Prisma.TransactionClient,
+  tx: Db,
   schoolId: string,
   data: z.infer<typeof schema>,
   paidAt: Date,

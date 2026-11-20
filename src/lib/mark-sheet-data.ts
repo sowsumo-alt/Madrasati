@@ -4,7 +4,8 @@ import { partForKind } from "@/lib/grading-config";
 import { currentGradingConfig } from "@/lib/grading-config-data";
 import { examKindOf, formulaFor } from "@/lib/report-card-compute";
 import { formatCell } from "@/lib/grade-sheet";
-import { toSchoolIdentity, type SchoolIdentity } from "@/lib/official-header";
+import type { SchoolIdentity } from "@/lib/official-header";
+import { loadSchoolIdentity } from "@/lib/school-cache";
 import {
   markSheetColumns,
   orderStudents,
@@ -74,10 +75,10 @@ export async function loadMarkSheets(options: {
         },
       },
     }),
-    prisma.school.findUnique({ where: { id: schoolId } }),
+    loadSchoolIdentity(schoolId),
     currentGradingConfig(schoolId),
   ]);
-  if (!classRoom || !school) return null;
+  if (!classRoom) return null;
 
   const subjects = classRoom.classSubjects
     .filter((cs) => cs.subject.isActive && (subjectId === "ALL" || cs.subjectId === subjectId))
@@ -149,7 +150,7 @@ export async function loadMarkSheets(options: {
   });
 
   return {
-    school: toSchoolIdentity(school),
+    school,
     className: classRoom.name,
     yearLabel: classRoom.academicYear.label,
     term,

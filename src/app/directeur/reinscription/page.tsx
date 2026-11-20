@@ -27,7 +27,13 @@ export default async function ReenrollmentPage() {
             classRoom: { academicYearId: { not: currentYear.id } },
           },
           orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-          include: { classRoom: { include: { academicYear: true } } },
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            classId: true,
+            classRoom: { select: { name: true, academicYearId: true, academicYear: { select: { label: true } } } },
+          },
         })
       : Promise.resolve([]),
   ]);

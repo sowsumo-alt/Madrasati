@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { prisma, type Db } from "@/lib/prisma";
 import { UserError, asResult, type ActionResult } from "@/lib/user-error";
 import { assertNnisAvailable } from "@/lib/nni-data";
 import { storedNni } from "@/lib/nni";
@@ -79,7 +79,7 @@ export async function findFamiliesByPhone(phone: string): Promise<KnownFamily[]>
 }
 
 /** Recalcule le statut enregistré d'un frais après un versement. */
-async function refreshFeeStatus(tx: Prisma.TransactionClient, feeId: string, amount: number) {
+async function refreshFeeStatus(tx: Db, feeId: string, amount: number) {
   const sum = await tx.payment.aggregate({ where: { feeId }, _sum: { amount: true } });
   const paid = sum._sum.amount ?? 0;
   const status = paid >= amount ? "PAID" : paid > 0 ? "PARTIAL" : "PENDING";

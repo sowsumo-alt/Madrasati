@@ -22,6 +22,6 @@ export async function paymentRowsForExport(query: string): Promise<FeeRow[]> {
 /** Frais encore dus, pour « Enregistrer un paiement » : d'un élève, ou de toute l'école. */
 export async function openFeesForPayment(studentId?: string): Promise<FeeRow[]> {
   const user = await requireRole(ROLES.DIRECTOR);
-  const { rows } = await loadPaymentsData(user.schoolId);
+  const { rows } = await loadPaymentsData(user.schoolId, new Date(), { studentId });
   return openFeesOf(rows, studentId);
 }

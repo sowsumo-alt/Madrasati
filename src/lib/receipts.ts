@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import { prepareWriteGuard, prisma } from "@/lib/prisma";
+import { prepareWriteGuard, prisma, type Db } from "@/lib/prisma";
 import { UserError } from "@/lib/user-error";
 
 /** Préfixe des numéros de reçu d'une année civile, ex: « REC-2026- ». */
@@ -31,7 +31,7 @@ function receiptPrefix(year: number) {
  * verrouille rien à lui seul, c'est `runWithReceipt` qui gère le réessai.
  */
 export async function generateReceiptNumber(
-  tx: Prisma.TransactionClient,
+  tx: Db,
   schoolId: string,
   attempt = 0,
 ) {
@@ -90,7 +90,7 @@ function parseResult<T>(json: string): T {
 }
 
 /** Verrou des encaissements d'une école, tenu jusqu'à la fin de la transaction. */
-export async function lockSchoolReceipts(tx: Prisma.TransactionClient, schoolId: string) {
+export async function lockSchoolReceipts(tx: Db, schoolId: string) {
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${"receipts:" + schoolId}, 0))`;
 }
 
@@ -118,7 +118,7 @@ export async function lockSchoolReceipts(tx: Prisma.TransactionClient, schoolId:
  */
 export async function runWithReceipt<T>(
   schoolId: string,
-  fn: (tx: Prisma.TransactionClient, attempt: number) => Promise<T>,
+  fn: (tx: Db, attempt: number) => Promise<T>,
   options: { submissionKey?: string | null } = {},
 ): Promise<T> {
   const key = submissionKeyOf(options.submissionKey);

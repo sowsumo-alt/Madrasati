@@ -26,6 +26,10 @@ export async function familyDataExport(parentId: string) {
     if (!parent) throw new UserError("Famille introuvable.");
     const students = parent.studentLinks.map((l) => l.student);
     const ids = students.map((s) => s.id);
+    // L'export dit seulement si l'enfant a une photo : on ne transfère pas les images.
+    const withPhoto = new Set(
+      (await prisma.student.findMany({ where: { id: { in: ids }, photoUrl: { not: null } }, select: { id: true } })).map((s) => s.id),
+    );
     const name = (id: string) => {
       const s = students.find((x) => x.id === id);
       return s ? `${s.firstName} ${s.lastName}`.trim() : "";
@@ -69,7 +73,7 @@ export async function familyDataExport(parentId: string) {
         NNI: s.nni,
         "N° RIM": s.rimNumber,
         Inscription: day(s.enrollmentDate),
-        Photo: s.photoUrl ? "oui (dans l'application)" : "non",
+        Photo: withPhoto.has(s.id) ? "oui (dans l'application)" : "non",
       })),
       "Frais et paiements": fees.flatMap((f) => [
         { Élève: name(f.studentId), Ligne: "Frais", Libellé: f.label, Date: day(f.dueDate), Montant: f.amount, Reçu: "", Mode: "" },

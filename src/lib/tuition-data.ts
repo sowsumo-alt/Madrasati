@@ -20,10 +20,11 @@ export interface TuitionSummary {
 }
 
 /** Formule de chaque élève de l'école pour l'année en cours. */
-export async function tuitionSummaries(schoolId: string): Promise<Map<string, TuitionSummary>> {
+/** `studentIds` : seulement ces élèves (la page affichée), sans relire les frais de toute l'école. */
+export async function tuitionSummaries(schoolId: string, studentIds?: string[]): Promise<Map<string, TuitionSummary>> {
   const rule = await loadDueRule(schoolId);
   const plans = await prisma.tuitionPlan.findMany({
-    where: { schoolId, academicYear: { isCurrent: true } },
+    where: { schoolId, academicYear: { isCurrent: true }, ...(studentIds ? { studentId: { in: studentIds } } : {}) },
     select: {
       studentId: true,
       frequency: true,
@@ -163,10 +164,11 @@ export interface StudentMoney {
   includedIn: string | null;
 }
 
-export async function studentMoneySummaries(schoolId: string): Promise<Map<string, StudentMoney>> {
+/** `studentIds` : seulement ces élèves (la page affichée), sans relire les frais de toute l'école. */
+export async function studentMoneySummaries(schoolId: string, studentIds?: string[]): Promise<Map<string, StudentMoney>> {
   const [students, familyPlans, year, rule] = await Promise.all([
     prisma.student.findMany({
-      where: { schoolId },
+      where: { schoolId, ...(studentIds ? { id: { in: studentIds } } : {}) },
       select: {
         id: true,
         fees: { select: { amount: true, dueDate: true, periodStart: true, academicYearId: true, payments: { select: { amount: true } } } },

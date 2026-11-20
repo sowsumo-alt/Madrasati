@@ -1,5 +1,5 @@
-import type { Prisma } from "@prisma/client";
 import { UserError } from "@/lib/user-error";
+import type { Db } from "@/lib/prisma";
 
 /**
  * Matricule d'un élève : « 2026-0042 », l'année de son inscription et son rang
@@ -49,7 +49,7 @@ export function cleanMatricule(value: string | null | undefined): string | null 
  * `wanted` : numéros saisis (import, formulaire) ; un numéro déjà pris est refusé.
  */
 export async function assignMatricules(
-  tx: Prisma.TransactionClient,
+  tx: Db,
   schoolId: string,
   students: { enrollmentDate: Date; wanted?: string | null }[],
 ): Promise<string[]> {
@@ -84,7 +84,7 @@ export async function assignMatricules(
 
 /** Changement de matricule : refusé s'il appartient déjà à un autre élève de l'école. */
 export async function assertMatriculeFree(
-  db: Prisma.TransactionClient,
+  db: Db,
   schoolId: string,
   matricule: string,
   studentId: string,

@@ -1,17 +1,11 @@
 import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 import { balanceOf } from "@/lib/money";
-import { dueRuleOf, effectiveDueDate, payByDate, type DueRule } from "@/lib/due-rule";
+import { effectiveDueDate, payByDate, type DueRule } from "@/lib/due-rule";
+import { loadSchoolDueRule } from "@/lib/school-cache";
 
-/** La règle d'échéance de l'école (Paramètres), lue une fois par requête. */
-export const loadDueRule = cache(async (schoolId: string): Promise<DueRule> =>
-  dueRuleOf(
-    await prisma.school.findUnique({
-      where: { id: schoolId },
-      select: { paymentDueDay: true, paymentGraceDays: true },
-    }),
-  ),
-);
+/** La règle d'échéance de l'école (Paramètres) : en cache entre les requêtes (lib/school-cache.ts). */
+export const loadDueRule = cache((schoolId: string): Promise<DueRule> => loadSchoolDueRule(schoolId));
 
 export interface DueFee {
   id: string;
@@ -35,6 +29,24 @@ export interface DueFee {
  * jamais due avant sa date enregistrée (la règle ne fait que la repousser),
  * d'où le premier filtre en base.
  */
+/**
+ * Le nombre d'échéances dues et non soldées (la cloche, sur chaque page du
+ * directeur) : même règle que dueFeesOf, mais seulement les colonnes du calcul.
+ */
+export async function dueFeeCount(schoolId: string, now = new Date()): Promise<number> {
+  const [rule, fees] = await Promise.all([
+    loadDueRule(schoolId),
+    prisma.fee.findMany({
+      where: { schoolId, status: { not: "PAID" }, dueDate: { lte: now } },
+      select: { amount: true, dueDate: true, periodStart: true, payments: { select: { amount: true } } },
+    }),
+  ]);
+  return fees.filter((f) => {
+    const paid = f.payments.reduce((sum, p) => sum + p.amount, 0);
+    return balanceOf([{ amount: f.amount, paid, dueDate: effectiveDueDate(f, rule) }], now).due > 0;
+  }).length;
+}
+
 export async function dueFeesOf(schoolId: string, now = new Date()): Promise<DueFee[]> {
   const [rule, fees] = await Promise.all([
     loadDueRule(schoolId),

@@ -1,6 +1,6 @@
-import type { Prisma } from "@prisma/client";
 import { UserError } from "@/lib/user-error";
 import { ACTIVITY_ACTIONS, logActivity } from "@/lib/activity";
+import type { Db } from "@/lib/prisma";
 
 /**
  * Annulation d'un reçu — jamais un effacement silencieux.
@@ -15,7 +15,7 @@ import { ACTIVITY_ACTIONS, logActivity } from "@/lib/activity";
  * sous un seul numéro.
  */
 export async function cancelReceipt(
-  tx: Prisma.TransactionClient,
+  tx: Db,
   input: {
     schoolId: string;
     userId: string;

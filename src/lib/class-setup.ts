@@ -1,8 +1,8 @@
-import type { Prisma } from "@prisma/client";
 import { isStandardCategory, nextClassName, type StandardCategory } from "@/lib/class-catalog";
 import { UserError } from "@/lib/user-error";
 import { officialSubjectIndex, SECONDARY_OFFICIAL_SUBJECTS } from "@/lib/grading";
 import { subjectNamesForCycle } from "@/lib/school-levels";
+import type { Db } from "@/lib/prisma";
 
 /**
  * Création d'une classe avec ses matières, depuis la page Classes ou depuis
@@ -42,7 +42,7 @@ const CYCLE_OF: Partial<Record<StandardCategory, "primaire" | "college" | "lycee
 };
 
 export async function createClassWithSubjects(
-  tx: Prisma.TransactionClient,
+  tx: Db,
   input: NewClassInput,
 ): Promise<{ id: string; name: string; subjectsFrom: SubjectsSource }> {
   const sameYear = await tx.classRoom.findMany({
@@ -89,7 +89,7 @@ export async function createClassWithSubjects(
 }
 
 async function attachCategoryTemplate(
-  tx: Prisma.TransactionClient,
+  tx: Db,
   schoolId: string,
   classId: string,
   category: string,

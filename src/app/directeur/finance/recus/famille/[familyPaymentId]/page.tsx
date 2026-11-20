@@ -18,7 +18,7 @@ import { PrintButton } from "@/components/ui/print-button";
 import { PdfButton } from "@/components/ui/pdf-button";
 import { CompactReceipt, ReceiptSheet, isReceiptPrintMode, type ReceiptPrintMode } from "@/components/receipts/compact-receipt";
 import { ReceiptModeSwitch } from "@/components/receipts/receipt-mode-switch";
-import { toSchoolIdentity } from "@/lib/official-header";
+import { loadSchoolIdentity } from "@/lib/school-cache";
 import { WhatsAppIcon } from "@/components/brand/whatsapp-icon";
 import { buttonVariants } from "@/components/ui/button";
 import { getTranslations } from "@/lib/i18n/server";
@@ -91,6 +91,7 @@ export default async function FamilyReceiptPage({
 
   const { t, locale } = await getTranslations();
   const { school, parent } = familyPayment;
+  const identity = await loadSchoolIdentity(user.schoolId);
   // Montants dans l'unité de l'école (MRO : la fiche papier, puis l'équivalent en MRU).
   const unit: AmountUnit = isAmountUnit(school.amountUnit) ? school.amountUnit : "MRU";
   const money = (amount: number) => formatMoney(amount, unit);
@@ -102,7 +103,7 @@ export default async function FamilyReceiptPage({
     const cancelledName = parent ? familyLabel(parent, t("family.defaultName")) : t("family.receiptFamily");
     return (
       <CancelledReceiptView
-        school={toSchoolIdentity(school)}
+        school={identity}
         unit={unit}
         title={t("family.receiptTitle")}
         receiptNumber={familyPayment.receiptNumber}
@@ -271,7 +272,7 @@ export default async function FamilyReceiptPage({
         top={
           <CompactReceipt
             id="recu-card"
-            school={toSchoolIdentity(school)}
+            school={identity}
             title={oneStudent && !familySheet ? t("finance.receiptTitle") : t("family.receiptTitle")}
             receiptNumber={familyPayment.receiptNumber}
             date={formatDateIn(locale, familyPayment.paidAt, { day: "numeric", month: "long", year: "numeric" })}

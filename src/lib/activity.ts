@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import type { Db } from "@/lib/prisma";
 
 /**
  * Journal d'activité de l'école : qui a fait quoi, et quand. Chaque action
@@ -30,7 +30,7 @@ export const ACTIVITY_LABELS: Record<ActivityAction, string> = {
 };
 
 export async function logActivity(
-  db: Prisma.TransactionClient,
+  db: Db,
   entry: {
     schoolId: string;
     userId: string;
@@ -57,7 +57,7 @@ export async function logActivity(
 
 /** Un encaissement : le numéro du reçu, les élèves concernés, le total. */
 export async function logPayment(
-  db: Prisma.TransactionClient,
+  db: Db,
   entry: {
     schoolId: string;
     userId: string;

@@ -9,6 +9,7 @@ import { saveGradingConfig } from "@/lib/grading-config-data";
 import type { GradingConfig } from "@/lib/grading-config";
 import { ROLES } from "@/lib/roles";
 import { imageDataUriSchema } from "@/lib/image-data-uri";
+import { forgetSchool } from "@/lib/school-cache";
 
 /**
  * Data URI d'image, plafonné pour éviter de gonfler la base. Assez large pour
@@ -60,6 +61,7 @@ export async function updateSchool(values: SchoolFormValues) {
   });
 
   // L'en-tête de chaque document imprimé est relu depuis ces informations.
+  forgetSchool(user.schoolId);
   revalidatePath("/directeur", "layout");
 }
 

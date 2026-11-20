@@ -1,5 +1,5 @@
-import type { Prisma } from "@prisma/client";
 import { reattachFamilySheets } from "@/lib/family-sheet-data";
+import type { Db } from "@/lib/prisma";
 
 /**
  * Supprimer ou archiver des élèves et des familles.
@@ -17,7 +17,7 @@ import { reattachFamilySheets } from "@/lib/family-sheet-data";
 
 export { sameName } from "@/lib/removal-name";
 
-export async function archiveStudents(tx: Prisma.TransactionClient, schoolId: string, studentIds: string[]) {
+export async function archiveStudents(tx: Db, schoolId: string, studentIds: string[]) {
   await tx.student.updateMany({ where: { id: { in: studentIds }, schoolId }, data: { status: "INACTIVE" } });
   await reattachFamilySheets(tx, studentIds);
 }
@@ -27,7 +27,7 @@ export async function archiveStudents(tx: Prisma.TransactionClient, schoolId: st
  * combien) mais oublie les noms. Chaque nom complet est remplacé, en mot
  * entier seulement — « Ali Ba » ne touche pas « Ali Bakary ».
  */
-async function forgetNamesInJournal(tx: Prisma.TransactionClient, schoolId: string, names: string[], replacement: string) {
+async function forgetNamesInJournal(tx: Db, schoolId: string, names: string[], replacement: string) {
   const unique = [...new Set(names.map((n) => n.replace(/\s+/g, " ").trim()))].filter((n) => n.length >= 3);
   for (const name of unique) {
     // Expression Postgres : \m et \M bornent un mot entier ; le nom est échappé.
@@ -37,7 +37,7 @@ async function forgetNamesInJournal(tx: Prisma.TransactionClient, schoolId: stri
   }
 }
 
-export async function deleteStudents(tx: Prisma.TransactionClient, schoolId: string, studentIds: string[]) {
+export async function deleteStudents(tx: Db, schoolId: string, studentIds: string[]) {
   const found = await tx.student.findMany({
     where: { id: { in: studentIds }, schoolId },
     select: { id: true, firstName: true, lastName: true },
@@ -72,7 +72,7 @@ export async function deleteStudents(tx: Prisma.TransactionClient, schoolId: str
 }
 
 /** Supprime une famille de test : ses enfants (voir deleteStudents), ses reçus, son compte parent. */
-export async function deleteFamily(tx: Prisma.TransactionClient, schoolId: string, parentId: string) {
+export async function deleteFamily(tx: Db, schoolId: string, parentId: string) {
   const parent = await tx.parent.findFirst({
     where: { id: parentId, schoolId },
     select: { id: true, userId: true, firstName: true, lastName: true, familyName: true, studentLinks: { select: { studentId: true } } },

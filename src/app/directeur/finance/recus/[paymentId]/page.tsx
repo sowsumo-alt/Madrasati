@@ -7,7 +7,8 @@ import { prisma } from "@/lib/prisma";
 import { FEATURES, schoolHasFeature } from "@/lib/plans";
 import { formatDateIn, formatLongDate, formatLongDateAr, formatAmount, formatPhone } from "@/lib/format";
 import { PrintButton } from "@/components/ui/print-button";
-import { toSchoolIdentity, type SchoolIdentity } from "@/lib/official-header";
+import type { SchoolIdentity } from "@/lib/official-header";
+import { loadSchoolIdentity } from "@/lib/school-cache";
 import { formatMoney, isAmountUnit, type AmountUnit } from "@/lib/money";
 import { PdfButton } from "@/components/ui/pdf-button";
 import {
@@ -146,7 +147,7 @@ export default async function ReceiptPage({
     const { t } = await getTranslations();
     return (
       <CancelledReceiptView
-        school={toSchoolIdentity(cancelled.school)}
+        school={await loadSchoolIdentity(user.schoolId)}
         unit={isAmountUnit(cancelled.school.amountUnit) ? cancelled.school.amountUnit : "MRU"}
         title={t("finance.receiptTitle")}
         receiptNumber={cancelled.receiptNumber}
@@ -204,7 +205,7 @@ export default async function ReceiptPage({
 
   const parent = payment.student.parentLinks[0]?.parent ?? null;
   const { t, locale } = await getTranslations();
-  const school = toSchoolIdentity(payment.school);
+  const school = await loadSchoolIdentity(user.schoolId);
   const unit: AmountUnit = isAmountUnit(payment.school.amountUnit) ? payment.school.amountUnit : "MRU";
 
   const confirmationTemplate = await prisma.messageTemplate.findFirst({

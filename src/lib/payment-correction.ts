@@ -1,9 +1,9 @@
-import type { Prisma } from "@prisma/client";
 import { UserError } from "@/lib/user-error";
 import { formatMRU } from "@/lib/format";
 import { ACTIVITY_ACTIONS, logActivity } from "@/lib/activity";
 import { cancelReceipt } from "@/lib/payment-cancel";
 import { recordGroupedPayment, type PaymentPart } from "@/lib/tuition-plan";
+import type { Db } from "@/lib/prisma";
 
 /**
  * Correction d'une fiche de paiement : le directeur tape, ligne par ligne, ce
@@ -58,7 +58,7 @@ export interface CorrectionResult {
 }
 
 export async function correctFeePayments(
-  tx: Prisma.TransactionClient,
+  tx: Db,
   input: {
     schoolId: string;
     userId: string;
