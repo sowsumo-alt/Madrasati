@@ -15,6 +15,7 @@ import { formatLongDate } from "@/lib/format";
 import type { OfficialHeaderText, SchoolIdentity } from "@/lib/official-header";
 import { DocumentHeader } from "@/components/documents/document-header";
 import styles from "./secondary-report-card.module.css";
+import { ReportCardCoefficient, hasUncountedCoefficient, UNCOUNTED_COEFFICIENT_NOTE } from "@/components/documents/report-card-coefficient";
 
 /**
  * Bulletin annuel du collège et du lycée, établi à la fin du 3e trimestre —
@@ -209,7 +210,9 @@ export function AnnualReportCard({
                   <td className={styles.moyt} data-testid="subject-average">
                     {r.average != null ? twoDecimals(r.average) : EMPTY}
                   </td>
-                  <td data-testid="coefficient">{r.coefficient}</td>
+                  <td data-testid="coefficient">
+                    <ReportCardCoefficient value={r.coefficient} counted={r.average != null} />
+                  </td>
                   <td className={styles.weighted} data-testid="weighted">
                     {weighted != null ? twoDecimals(weighted) : EMPTY}
                   </td>
@@ -302,6 +305,11 @@ export function AnnualReportCard({
       {incomplete && (
         <p className={styles.incomplete} data-testid="incomplete-mention">
           Certaines notes n&apos;étaient pas disponibles à la génération de ce bulletin.
+        </p>
+      )}
+      {hasUncountedCoefficient(card.results) && (
+        <p className={styles.incomplete} data-testid="uncounted-note">
+          {UNCOUNTED_COEFFICIENT_NOTE}
         </p>
       )}
 

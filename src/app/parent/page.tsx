@@ -100,6 +100,7 @@ export default async function ParentHome({
           average: l.average,
           classAverage: l.classAverage,
         })),
+        totalCoefficients: card.totalCoefficients,
         overallAverage: card.average,
         mention: card.mention,
         rank: card.rank,

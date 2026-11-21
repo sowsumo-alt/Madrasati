@@ -1,5 +1,6 @@
 "use client";
 
+import { ReportCardCoefficient, hasUncountedCoefficient, UNCOUNTED_COEFFICIENT_NOTE } from "@/components/documents/report-card-coefficient";
 import { useRouter } from "next/navigation";
 import {
   ClipboardCheck,
@@ -52,6 +53,8 @@ export interface ChildData {
       average: number | null;
       classAverage: number | null;
     }[];
+    /** Total de la colonne Coef. : les matières qui comptent dans la moyenne. */
+    totalCoefficients: number;
     overallAverage: number | null;
     mention: MentionKey;
     rank: number | null;
@@ -278,7 +281,7 @@ export function ParentView({
                           className="px-5 py-2.5 text-foreground/60"
                           style={{ fontVariantNumeric: "tabular-nums" }}
                         >
-                          {l.coefficient}
+                          <ReportCardCoefficient value={l.coefficient} counted={l.average != null} />
                         </td>
                         <td
                           className="px-5 py-2.5 font-medium text-foreground"
@@ -302,8 +305,28 @@ export function ParentView({
                       </tr>
                     ))}
                   </tbody>
+                  <tfoot>
+                    <tr className="border-t border-border bg-surface-muted/60 font-semibold">
+                      <td className="px-5 py-2.5 text-foreground">{t("finance.total")}</td>
+                      <td
+                        className="px-5 py-2.5 text-foreground"
+                        style={{ fontVariantNumeric: "tabular-nums" }}
+                        data-testid="total-coefficients"
+                      >
+                        {data.reportCard.totalCoefficients}
+                      </td>
+                      <td className="px-5 py-2.5" />
+                      <td className="px-5 py-2.5" />
+                      <td className="px-5 py-2.5 text-right text-foreground" dir="rtl" lang="ar">
+                        المجموع
+                      </td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
+              {hasUncountedCoefficient(data.reportCard.lines) && (
+                <p className="px-5 pt-2 text-[11px] italic text-foreground/50">{UNCOUNTED_COEFFICIENT_NOTE}</p>
+              )}
 
               <div className="flex items-center justify-between border-t border-border px-5 py-4">
                 <span className="text-sm font-semibold text-foreground">

@@ -6,6 +6,7 @@ import { formatDelta, type CardEvolution, type Evolution } from "@/lib/report-ca
 import { cn } from "@/lib/utils";
 import type { OfficialHeaderText, SchoolIdentity } from "@/lib/official-header";
 import { DocumentHeader } from "@/components/documents/document-header";
+import { ReportCardCoefficient, hasUncountedCoefficient, UNCOUNTED_COEFFICIENT_NOTE } from "@/components/documents/report-card-coefficient";
 import type { PreviousTermAverage } from "@/lib/report-card-data";
 
 /**
@@ -160,7 +161,9 @@ export function StandardReportCard({
           {card.results.map((r) => (
             <tr key={r.subjectName} data-testid="subject-row" data-subject={r.subjectName}>
               <td className="px-3 py-2.5 text-foreground">{r.subjectName}</td>
-              <td className="px-3 py-2.5 text-center text-foreground/70">{r.coefficient}</td>
+              <td className="px-3 py-2.5 text-center text-foreground/70" data-testid="coefficient">
+                <ReportCardCoefficient value={r.coefficient} counted={r.average != null} />
+              </td>
               <td className="px-3 py-2.5 text-center font-medium text-foreground" data-testid="subject-average">
                 {r.average != null ? r.average.toFixed(2) : "—"}
                 {evolution?.bySubject[r.subjectName] && (
@@ -178,7 +181,27 @@ export function StandardReportCard({
             </tr>
           ))}
         </tbody>
+        {/* Total de la colonne Coef., comme sur les bulletins du collège et du
+            lycée : les matières moyennées, celles qui comptent dans la moyenne. */}
+        <tfoot>
+          <tr className="border-y border-border bg-surface-muted/60 font-semibold" data-testid="total-row">
+            <td className="px-3 py-2.5 text-foreground">{t("finance.total")}</td>
+            <td className="px-3 py-2.5 text-center text-foreground" data-testid="total-coefficients">
+              {card.totalCoefficients}
+            </td>
+            <td className="px-3 py-2.5" />
+            <td className="px-3 py-2.5" />
+            <td className="px-3 py-2.5 text-right text-foreground" dir="rtl" lang="ar">
+              المجموع
+            </td>
+          </tr>
+        </tfoot>
       </table>
+      {hasUncountedCoefficient(card.results) && (
+        <p className="mt-1.5 text-[11px] italic text-foreground/50" data-testid="uncounted-note">
+          {UNCOUNTED_COEFFICIENT_NOTE}
+        </p>
+      )}
 
       <div className="mt-6 grid grid-cols-3 gap-4 rounded-lg bg-surface-muted px-4 py-4">
         <div>
