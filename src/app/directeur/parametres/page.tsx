@@ -68,17 +68,16 @@ export default async function SettingsPage() {
         years={yearRows}
         counts={{ students, teachers, classes }}
       />
-      {school.timesheetEnabled && (
-        <TimesheetSettingsCard
-          initial={{
-            latitude: school.latitude,
-            longitude: school.longitude,
-            radius: school.checkInRadius,
-            lateDeduction: isLateDeduction(school.lateDeduction) ? school.lateDeduction : "PRORATA",
-          }}
-          readOnly={user.readOnly}
-        />
-      )}
+      <TimesheetSettingsCard
+        enabled={school.timesheetEnabled}
+        initial={{
+          latitude: school.latitude,
+          longitude: school.longitude,
+          radius: school.checkInRadius,
+          lateDeduction: isLateDeduction(school.lateDeduction) ? school.lateDeduction : "PRORATA",
+        }}
+        readOnly={user.readOnly}
+      />
     </div>
   );
 }

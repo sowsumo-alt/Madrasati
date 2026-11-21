@@ -22,6 +22,7 @@ import {
   monthRange,
   sessionMinutes,
   startOfDayUtc,
+  timesheetSwitchData,
   type SessionStatus,
 } from "@/lib/timesheet";
 
@@ -370,6 +371,31 @@ export async function deleteNonWorkingDay(holidayId: string) {
     });
     refresh();
     revalidatePath("/directeur/emploi-du-temps");
+    return {};
+  });
+}
+
+/**
+ * Le directeur active (ou coupe) lui-même le module pour son école.
+ * Couper ne supprime rien : séances, paies et fiches restent, et reviennent à la réactivation.
+ */
+export async function setTimesheetEnabled(enabled: boolean) {
+  return asResult(async () => {
+    const user = await requireRole(ROLES.DIRECTOR);
+    const on = z.boolean().parse(enabled);
+    const school = await prisma.school.findUnique({ where: { id: user.schoolId }, select: { timesheetStartDate: true } });
+    if (!school) throw new UserError("École introuvable.");
+    await prisma.$transaction(async (tx) => {
+      await tx.school.update({ where: { id: user.schoolId }, data: timesheetSwitchData(on, school.timesheetStartDate, new Date()) });
+      await logActivity(tx, {
+        schoolId: user.schoolId,
+        userId: user.id,
+        action: ACTIVITY_ACTIONS.TIMESHEET,
+        summary: on ? "Module Pointage des enseignants activé" : "Module Pointage des enseignants désactivé",
+      });
+    });
+    revalidatePath("/directeur", "layout");
+    revalidatePath("/enseignant", "layout");
     return {};
   });
 }

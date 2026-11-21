@@ -35,15 +35,18 @@ export function TimesheetHeader({ current, title, subtitle }: { current: (typeof
   );
 }
 
-/** Le module n'est pas activé pour l'école : il s'active depuis l'offre Madrasati. */
+/** Le module n'est pas activé pour l'école : le directeur l'active dans Paramètres. */
 export function TimesheetDisabled() {
   return (
     <div className="rounded-2xl border border-border bg-surface px-6 py-16 text-center" data-testid="timesheet-disabled">
       <h1 className="text-lg font-semibold text-foreground">Pointage &amp; paie des enseignants</h1>
       <p className="mx-auto mt-2 max-w-md text-sm text-foreground/60">
         Ce module n&apos;est pas activé pour votre école. Il remplace la fiche de pointage papier : les enseignants pointent depuis
-        leur téléphone, la paie se calcule seule. Contactez Madrasati pour l&apos;activer.
+        leur téléphone, la paie se calcule seule.
       </p>
+      <Link href="/directeur/parametres#pointage" className="mt-4 inline-block font-medium text-primary-700 underline-offset-2 hover:underline">
+        L&apos;activer dans Paramètres
+      </Link>
     </div>
   );
 }

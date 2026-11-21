@@ -130,6 +130,18 @@ export function checkPosition(
 export const dayKey = (date: Date) => date.toISOString().slice(0, 10);
 export const startOfDayUtc = (date: Date) => new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 
+/**
+ * Activer ou couper le module. À la première activation, le pointage commence
+ * ce jour-là : aucun jour antérieur n'est généré, donc personne n'est compté
+ * absent avant. Une réactivation reprend là où le module s'était arrêté.
+ */
+export function timesheetSwitchData(enabled: boolean, startDate: Date | null, now: Date) {
+  if (!enabled) return { timesheetEnabled: false };
+  if (startDate) return { timesheetEnabled: true };
+  const today = startOfDayUtc(now);
+  return { timesheetEnabled: true, timesheetStartDate: today, timesheetGeneratedThrough: new Date(today.getTime() - 24 * 60 * MINUTE) };
+}
+
 export interface PlannedSlot {
   id: string;
   dayOfWeek: number;

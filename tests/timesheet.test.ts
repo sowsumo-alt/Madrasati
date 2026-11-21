@@ -150,3 +150,14 @@ test("mois consultables : depuis l'activation du pointage, 12 au plus, le plus r
   assert.deepEqual(timesheetMonths(at("2026-10-15T00:00:00"), at("2026-12-03T09:00:00")), ["2026-12", "2026-11", "2026-10"]);
   assert.equal(timesheetMonths(null, at("2026-12-03T09:00:00")).length, 12);
 });
+
+test("activation par le directeur : le pointage commence le jour même, une réactivation garde la date de départ", async () => {
+  const { timesheetSwitchData } = await import("../src/lib/timesheet");
+  assert.deepEqual(timesheetSwitchData(true, null, at("2026-11-21T14:30:00")), {
+    timesheetEnabled: true,
+    timesheetStartDate: at("2026-11-21T00:00:00"),
+    timesheetGeneratedThrough: at("2026-11-20T00:00:00"),
+  });
+  assert.deepEqual(timesheetSwitchData(true, at("2026-10-01T00:00:00"), at("2026-11-21T14:30:00")), { timesheetEnabled: true });
+  assert.deepEqual(timesheetSwitchData(false, at("2026-10-01T00:00:00"), at("2026-11-21T14:30:00")), { timesheetEnabled: false });
+});
