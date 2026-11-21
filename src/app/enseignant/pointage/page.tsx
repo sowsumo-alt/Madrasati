@@ -2,6 +2,8 @@ import { Clock, Wallet, Timer } from "lucide-react";
 import { requireRole } from "@/lib/session";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
+import { CURRENT_YEAR } from "@/lib/school-year";
+import { PayParts } from "@/components/timesheet/pay-rates";
 import { formatMRU } from "@/lib/format";
 import { StatTile } from "@/components/ui/stat-tile";
 import { SessionStatusBadge } from "@/components/timesheet/status-badge";
@@ -31,7 +33,7 @@ export default async function MyTimesheetPage({ searchParams }: { searchParams: 
   const key = mois && months.includes(mois) ? mois : monthKeyOf(now);
   const range = monthRange(key)!;
 
-  const [payroll, sessions, notifications] = await Promise.all([
+  const [payroll, sessions, notifications, mySubjects] = await Promise.all([
     monthPayroll(user.schoolId, key, now, teacher.id),
     prisma.teachingSession.findMany({
       where: {
@@ -60,7 +62,17 @@ export default async function MyTimesheetPage({ searchParams }: { searchParams: 
       take: 20,
       select: { id: true, title: true, body: true, readAt: true, createdAt: true },
     }),
+    // Ses matières de l'année, pour afficher son prix de l'heure avant même sa première séance.
+    prisma.classSubject.findMany({
+      where: { teacherId: teacher.id, classRoom: { schoolId: user.schoolId, ...CURRENT_YEAR } },
+      select: { subject: { select: { name: true, hourlyRate: true } } },
+    }),
   ]);
+  const myRates = [...new Map(mySubjects.map((c) => [c.subject.name, c.subject.hourlyRate ?? teacher.hourlyRate])).entries()]
+    .map(([subject, rate]) => ({ subject, rate }))
+    .sort((a, b) => a.subject.localeCompare(b.subject, "fr"));
+  const sameRate = new Set(myRates.map((r) => r.rate)).size <= 1;
+  const rateTile = myRates.length === 0 ? teacher.hourlyRate : sameRate ? myRates[0].rate : undefined;
   const line = payroll.lines.find((l) => l.teacherId === teacher.id);
   const unread = notifications.filter((n) => !n.readAt).length;
 
@@ -77,8 +89,8 @@ export default async function MyTimesheetPage({ searchParams }: { searchParams: 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatTile label="Heures du mois" value={hoursLabel(line?.minutes ?? 0)} icon={Clock} tone="primary" />
         <StatTile
-          label="Taux horaire"
-          value={teacher.hourlyRate != null ? formatMRU(teacher.hourlyRate) : "Non renseigné"}
+          label="Prix de l'heure"
+          value={rateTile === undefined ? "Selon la matière" : rateTile != null ? formatMRU(rateTile) : "Non renseigné"}
           icon={Timer}
           tone="primary"
         />
@@ -90,14 +102,23 @@ export default async function MyTimesheetPage({ searchParams }: { searchParams: 
         />
       </div>
 
+      {rateTile === undefined && (
+        <p className="text-sm text-foreground/70" data-testid="my-rates">
+          Prix de l&apos;heure : {myRates.map((r) => `${r.subject} ${r.rate != null ? formatMRU(r.rate) : "non renseigné"}`).join(" · ")}
+        </p>
+      )}
+
       {line && (line.deductions > 0 || line.honoraires > 0) && (
-        <p className="rounded-xl border border-border bg-surface px-4 py-3 text-sm text-foreground/70" data-testid="my-pay-detail">
+        <div className="rounded-xl border border-border bg-surface px-4 py-3 text-sm text-foreground/70" data-testid="my-pay-detail">
+          <PayParts pay={line} className="mb-1" />
+          <p>
           Honoraires {formatMRU(line.honoraires)}
           {line.lateDeduction > 0 && <> · retards −{formatMRU(line.lateDeduction)}</>}
           {line.advances > 0 && <> · avances −{formatMRU(line.advances)}</>}
           {line.otherDeductions > 0 && <> · autres déductions −{formatMRU(line.otherDeductions)}</>}
           {" "}= <strong className="text-foreground">{formatMRU(line.net)}</strong>
-        </p>
+          </p>
+        </div>
       )}
 
       {notifications.length > 0 && (

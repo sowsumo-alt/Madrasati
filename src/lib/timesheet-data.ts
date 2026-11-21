@@ -80,7 +80,7 @@ async function plannedSlots(schoolId: string): Promise<PlannedSlot[]> {
       endMinutes: true,
       classId: true,
       classRoom: { select: { name: true } },
-      classSubject: { select: { teacherId: true, subject: { select: { name: true } } } },
+      classSubject: { select: { teacherId: true, subject: { select: { id: true, name: true } } } },
     },
   });
   return slots.map((s) => ({
@@ -90,6 +90,7 @@ async function plannedSlots(schoolId: string): Promise<PlannedSlot[]> {
     endMinutes: s.endMinutes,
     classId: s.classId,
     className: s.classRoom.name,
+    subjectId: s.classSubject.subject.id,
     subjectName: s.classSubject.subject.name,
     teacherId: s.classSubject.teacherId,
   }));
@@ -175,6 +176,7 @@ const PAY_SESSION_SELECT = {
   startsAt: true,
   endsAt: true,
   lateMinutes: true,
+  subjectId: true,
   subjectName: true,
 } as const;
 
@@ -188,7 +190,7 @@ export async function monthPayroll(schoolId: string, key: string, now = new Date
   if (!range) throw new UserError("Mois illisible.");
   const school = await loadTimesheetSchool(schoolId);
   const lock = await lockedMonth(schoolId, range.start);
-  const [sessions, adjustments, teachers] = await Promise.all([
+  const [sessions, adjustments, teachers, subjects] = await Promise.all([
     prisma.teachingSession.findMany({
       where: {
         schoolId,
@@ -207,7 +209,19 @@ export async function monthPayroll(schoolId: string, key: string, now = new Date
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
       select: { id: true, firstName: true, lastName: true, hourlyRate: true, subjectSpecialty: true },
     }),
+    prisma.subject.findMany({
+      where: { schoolId },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, hourlyRate: true, isActive: true },
+    }),
   ]);
+  // Le prix de l'heure de la matière de chaque séance (à défaut, par son nom : matière supprimée puis recréée).
+  const rateById = new Map(subjects.map((s) => [s.id, s.hourlyRate]));
+  const rateByName = new Map(subjects.filter((s) => s.hourlyRate != null).map((s) => [s.name, s.hourlyRate]));
+  const priced = sessions.map((s) => ({
+    ...s,
+    subjectRate: s.subjectId && rateById.has(s.subjectId) ? (rateById.get(s.subjectId) ?? null) : (rateByName.get(s.subjectName) ?? null),
+  }));
   const ids = new Set([
     ...sessions.map((s) => s.teacherId),
     ...sessions.flatMap((s) => (s.status === "REPLACED" && s.replacementTeacherId ? [s.replacementTeacherId] : [])),
@@ -219,7 +233,7 @@ export async function monthPayroll(schoolId: string, key: string, now = new Date
     : teachers
         .filter((t) => ids.has(t.id))
         .map((t) => {
-          const own = sessions.filter((s) => s.teacherId === t.id || s.replacementTeacherId === t.id);
+          const own = priced.filter((s) => s.teacherId === t.id || s.replacementTeacherId === t.id);
           const subjects = [...new Set(sessions.filter((s) => s.teacherId === t.id).map((s) => s.subjectName))];
           return {
             ...computeTeacherPay(
@@ -249,6 +263,7 @@ export async function monthPayroll(schoolId: string, key: string, now = new Date
     totals,
     adjustments,
     teachers,
+    subjects: subjects.filter((s) => s.isActive).map(({ id, name, hourlyRate }) => ({ id, name, hourlyRate })),
     locked: lock?.lockedAt ? { at: lock.lockedAt, by: lock.lockedByName } : null,
     lateDeduction: school?.lateDeduction ?? "PRORATA",
   };

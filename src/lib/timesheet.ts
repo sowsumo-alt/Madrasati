@@ -8,7 +8,8 @@
  * - L'enseignant pointe de 10 min avant à 15 min après le début, depuis
  *   l'école (rayon GPS). Au-delà de 5 min après le début : retard.
  * - Sans pointage à la fin de la séance : absent.
- * - Paie : heures (présent, retard, remplacements faits) × taux horaire,
+ * - Paie : heures (présent, retard, remplacements faits) × prix de l'heure
+ *   de la matière (à défaut, taux de l'enseignant),
  *   moins les retards (si la règle de l'école les déduit), les avances et les
  *   autres déductions.
  */
@@ -149,6 +150,7 @@ export interface PlannedSlot {
   endMinutes: number;
   classId: string;
   className: string;
+  subjectId: string;
   subjectName: string;
   /** L'enseignant de la matière dans cette classe ; sans enseignant, pas de séance. */
   teacherId: string | null;
@@ -162,6 +164,7 @@ export interface PlannedSession {
   endsAt: Date;
   classId: string;
   className: string;
+  subjectId: string;
   subjectName: string;
 }
 
@@ -180,6 +183,7 @@ export function plannedSessions(slots: PlannedSlot[], date: Date, nonWorkingDays
       endsAt: new Date(day.getTime() + s.endMinutes * MINUTE),
       classId: s.classId,
       className: s.className,
+      subjectId: s.subjectId,
       subjectName: s.subjectName,
     }));
 }
@@ -239,6 +243,9 @@ export interface PaySession {
   startsAt: Date;
   endsAt: Date;
   lateMinutes: number;
+  subjectName?: string;
+  /** Prix de l'heure de la matière ; vide : le taux de l'enseignant payé s'applique. */
+  subjectRate?: number | null;
 }
 
 export interface PayAdjustment {
@@ -246,9 +253,22 @@ export interface PayAdjustment {
   amount: number;
 }
 
+/** Une ligne des honoraires : les heures d'une matière à un même prix. */
+export interface PayPart {
+  subject: string;
+  rate: number | null;
+  minutes: number;
+  amount: number;
+}
+
 export interface TeacherPay {
   teacherId: string;
+  /** Taux de l'enseignant, pour les matières sans prix de l'heure. */
   hourlyRate: number | null;
+  /** Honoraires matière par matière (absent des paies validées avant les prix par matière). */
+  parts?: PayPart[];
+  /** Minutes payées sans aucun prix connu (ni matière ni enseignant) : comptées 0 MRU. */
+  unpricedMinutes?: number;
   /** Minutes payées : séances présentes ou en retard, et remplacements faits. */
   minutes: number;
   replacementMinutes: number;
@@ -263,8 +283,11 @@ export interface TeacherPay {
 }
 
 /**
- * La paie d'un enseignant pour un mois. Les montants sont arrondis une seule
- * fois, au total : 3 séances de 50 min à 100 MRU/h font 250 MRU, pas 3 × 83.
+ * La paie d'un enseignant pour un mois. Chaque séance est payée au prix de
+ * l'heure de sa matière (Physique 1 300 MRU/h, Maths 200 MRU/h…), à défaut au
+ * taux de l'enseignant. Les montants sont arrondis une fois par matière, sur
+ * le total de ses heures, comme sur la fiche papier : 3 séances de 50 min à
+ * 100 MRU/h font 250 MRU, pas 3 × 83.
  */
 export function computeTeacherPay(
   teacherId: string,
@@ -274,7 +297,17 @@ export function computeTeacherPay(
   lateRule: LateDeduction,
   now: Date,
 ): TeacherPay {
-  const rate = hourlyRate ?? 0;
+  const rateOf = (s: PaySession) => s.subjectRate ?? hourlyRate;
+  const parts = new Map<string, PayPart>();
+  const pay = (s: PaySession, m: number) => {
+    const rate = rateOf(s);
+    const subject = s.subjectName ?? "";
+    const key = `${subject} ${rate ?? ""}`;
+    const part = parts.get(key) ?? { subject, rate, minutes: 0, amount: 0 };
+    part.minutes += m;
+    parts.set(key, part);
+  };
+  let lateCost = 0;
   const counts = Object.fromEntries(SESSION_STATUSES.map((s) => [s, 0])) as Record<SessionStatus, number>;
   let minutes = 0;
   let replacementMinutes = 0;
@@ -283,22 +316,36 @@ export function computeTeacherPay(
     const status = effectiveStatus(s, now);
     if (s.teacherId === teacherId) {
       counts[status]++;
-      if (status === "PRESENT" || status === "LATE") minutes += sessionMinutes(s);
-      if (status === "LATE") lateMinutes += Math.min(Math.max(0, s.lateMinutes), sessionMinutes(s));
+      if (status === "PRESENT" || status === "LATE") {
+        minutes += sessionMinutes(s);
+        pay(s, sessionMinutes(s));
+      }
+      if (status === "LATE") {
+        const late = Math.min(Math.max(0, s.lateMinutes), sessionMinutes(s));
+        lateMinutes += late;
+        lateCost += late * (rateOf(s) ?? 0);
+      }
     } else if (status === "REPLACED" && s.replacementTeacherId === teacherId) {
       const m = sessionMinutes(s);
       minutes += m;
       replacementMinutes += m;
+      pay(s, m);
     }
   }
-  const honoraires = Math.round((minutes * rate) / 60);
-  const lateDeduction = lateRule === "PRORATA" ? Math.round((lateMinutes * rate) / 60) : 0;
+  const payParts = [...parts.values()]
+    .map((p) => ({ ...p, amount: Math.round((p.minutes * (p.rate ?? 0)) / 60) }))
+    .sort((a, b) => a.subject.localeCompare(b.subject, "fr") || (a.rate ?? 0) - (b.rate ?? 0));
+  const honoraires = payParts.reduce((sum, p) => sum + p.amount, 0);
+  const unpricedMinutes = payParts.filter((p) => p.rate == null).reduce((sum, p) => sum + p.minutes, 0);
+  const lateDeduction = lateRule === "PRORATA" ? Math.round(lateCost / 60) : 0;
   const advances = adjustments.filter((a) => a.kind === "ADVANCE").reduce((sum, a) => sum + a.amount, 0);
   const otherDeductions = adjustments.filter((a) => a.kind !== "ADVANCE").reduce((sum, a) => sum + a.amount, 0);
   const deductions = lateDeduction + advances + otherDeductions;
   return {
     teacherId,
     hourlyRate,
+    parts: payParts,
+    unpricedMinutes,
     minutes,
     replacementMinutes,
     honoraires,
@@ -310,6 +357,18 @@ export function computeTeacherPay(
     net: honoraires - deductions,
     counts,
   };
+}
+
+/**
+ * Le taux horaire à afficher pour une paie : un seul prix, ou chaque matière
+ * avec le sien. Paies validées avant les prix par matière : le taux de l'enseignant.
+ */
+export function payRates(pay: Pick<TeacherPay, "hourlyRate" | "parts">): { subject: string; rate: number | null }[] {
+  const priced = (pay.parts ?? []).filter((p) => p.minutes > 0);
+  if (priced.length === 0) return [{ subject: "", rate: pay.hourlyRate }];
+  const distinct = new Set(priced.map((p) => p.rate));
+  if (distinct.size === 1) return [{ subject: "", rate: priced[0].rate }];
+  return priced.map((p) => ({ subject: p.subject, rate: p.rate }));
 }
 
 /** Les mois consultables, du plus récent au plus ancien : depuis l'activation du pointage, 12 au plus. */

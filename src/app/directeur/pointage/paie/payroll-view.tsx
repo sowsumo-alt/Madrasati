@@ -11,7 +11,14 @@ import { MonthSelect } from "@/components/timesheet/month-select";
 import { formatMRU } from "@/lib/format";
 import { LATE_DEDUCTION_LABELS, dmy, hoursLabel, monthLabelOf, type LateDeduction } from "@/lib/timesheet";
 import type { PayLine } from "@/lib/timesheet-data";
-import { addPayAdjustment, deletePayAdjustment, setHourlyRate, unlockMonth, validateMonth } from "../actions";
+import { PayParts, PayRates } from "@/components/timesheet/pay-rates";
+import { addPayAdjustment, deletePayAdjustment, setHourlyRate, setSubjectRate, unlockMonth, validateMonth } from "../actions";
+
+interface SubjectRate {
+  id: string;
+  name: string;
+  hourlyRate: number | null;
+}
 
 interface Adjustment {
   id: string;
@@ -55,6 +62,7 @@ export function PayrollView({
   totals,
   adjustments,
   teachers,
+  subjects,
   locked,
   lateDeduction,
   readOnly,
@@ -65,6 +73,7 @@ export function PayrollView({
   totals: { minutes: number; honoraires: number; deductions: number; net: number };
   adjustments: Adjustment[];
   teachers: { id: string; name: string; hourlyRate: number | null }[];
+  subjects: SubjectRate[];
   locked: { at: string; by: string | null } | null;
   lateDeduction: LateDeduction;
   readOnly: boolean;
@@ -74,7 +83,8 @@ export function PayrollView({
   const [confirmValidate, setConfirmValidate] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
   const editable = !readOnly && !locked;
-  const missingRate = lines.filter((l) => l.minutes > 0 && l.hourlyRate == null);
+  // Heures payées sans aucun prix (ni matière ni enseignant) : la matière et l'enseignant concernés.
+  const unpriced = lines.flatMap((l) => (l.parts ?? []).filter((p) => p.rate == null && p.minutes > 0).map((p) => `${p.subject || "?"} (${l.name})`));
 
   return (
     <div className="space-y-4">
@@ -124,9 +134,14 @@ export function PayrollView({
         </div>
       )}
 
-      {missingRate.length > 0 && (
-        <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          Taux horaire à renseigner pour : {missingRate.map((l) => l.name).join(", ")} (leurs honoraires sont à 0 MRU).
+      {!locked && unpriced.length > 0 && (
+        <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" data-testid="unpriced">
+          Prix de l&apos;heure à renseigner pour : {unpriced.join(", ")}. Ces heures comptent 0 MRU pour l&apos;instant.{" "}
+          {editable && (
+            <a href="#prix-matieres" className="font-medium underline">
+              Saisir les prix
+            </a>
+          )}
         </p>
       )}
 
@@ -164,10 +179,13 @@ export function PayrollView({
                     {hoursLabel(l.minutes)}
                     {l.replacementMinutes > 0 && <span className="block text-xs text-foreground/60">dont {hoursLabel(l.replacementMinutes)} de remplacement</span>}
                   </td>
-                  <td className="px-3 py-2.5 text-end">
-                    {editable ? <RateInput teacherId={l.teacherId} rate={l.hourlyRate} /> : l.hourlyRate != null ? formatMRU(l.hourlyRate) : "—"}
+                  <td className="px-3 py-2.5 text-end tabular-nums" data-testid="line-rate">
+                    <PayRates pay={l} />
                   </td>
-                  <td className="px-3 py-2.5 text-end tabular-nums" data-testid="line-honoraires">{formatMRU(l.honoraires)}</td>
+                  <td className="px-3 py-2.5 text-end tabular-nums">
+                    <span data-testid="line-honoraires">{formatMRU(l.honoraires)}</span>
+                    <PayParts pay={l} className="text-xs font-normal text-foreground/60 [&>li]:whitespace-nowrap" />
+                  </td>
                   <td className="px-3 py-2.5 text-end tabular-nums">
                     {l.lateDeduction > 0 ? `−${formatMRU(l.lateDeduction)}` : "—"}
                     {l.lateMinutes > 0 && <span className="block text-xs text-foreground/60">{l.lateMinutes} min</span>}
@@ -241,6 +259,7 @@ export function PayrollView({
         </section>
       )}
 
+      {editable && <SubjectRates subjects={subjects} />}
       {editable && <AllRates teachers={teachers} />}
 
       {adjustFor && <AdjustmentDialog teacher={adjustFor} month={month} onClose={() => setAdjustFor(null)} />}
@@ -275,13 +294,27 @@ export function PayrollView({
   );
 }
 
-function RateInput({ teacherId, rate }: { teacherId: string; rate: number | null }) {
+function RateInput({
+  rate,
+  onSave,
+  label = "Taux horaire en MRU",
+  testId = "rate-input",
+}: {
+  rate: number | null;
+  onSave: (next: number | null) => Promise<{ ok: boolean; error?: string }>;
+  label?: string;
+  testId?: string;
+}) {
   const { busy, run } = useRun();
   const [value, setValue] = useState(rate != null ? String(rate) : "");
   const save = () => {
     const next = value.trim() === "" ? null : Number(value);
-    if (next === rate || (next != null && (!Number.isInteger(next) || next < 0))) return;
-    run(() => setHourlyRate(teacherId, next), "Taux horaire enregistré.");
+    if (next === rate) return;
+    if (next != null && (!Number.isInteger(next) || next < 0)) {
+      toast.error("Saisissez un nombre entier de MRU (ex. : 1300).");
+      return;
+    }
+    run(() => onSave(next), "Prix de l'heure enregistré.");
   };
   return (
     <span className="inline-flex items-center gap-1">
@@ -295,24 +328,53 @@ function RateInput({ teacherId, rate }: { teacherId: string; rate: number | null
         onBlur={save}
         onKeyDown={(e) => e.key === "Enter" && (e.currentTarget as HTMLInputElement).blur()}
         className="h-8 w-24 rounded-lg border border-border bg-surface px-2 text-end tabular-nums"
-        aria-label="Taux horaire en MRU"
-        data-testid="rate-input"
+        aria-label={label}
+        data-testid={testId}
       />
       <span className="text-xs text-foreground/60">MRU/h</span>
     </span>
   );
 }
 
-/** Taux horaires de tous les enseignants : à renseigner avant même leur première séance. */
+/**
+ * Prix de l'heure par matière (Physique 1 300 MRU/h, Maths 200 MRU/h…) : chaque
+ * séance pointée est payée au prix de sa matière, automatiquement.
+ */
+function SubjectRates({ subjects }: { subjects: SubjectRate[] }) {
+  const missing = subjects.filter((s) => s.hourlyRate == null).length;
+  return (
+    <section id="prix-matieres" className="scroll-mt-24 rounded-2xl border border-border bg-surface p-4 shadow-soft" data-testid="subject-rates">
+      <h2 className="text-sm font-semibold text-foreground">Prix de l&apos;heure par matière</h2>
+      <p className="mt-1 text-sm text-foreground/60">
+        Chaque cours pointé est payé au prix de sa matière, sans rien calculer à la main. Matière sans prix : le taux de
+        l&apos;enseignant s&apos;applique.{missing > 0 && ` ${missing} matière(s) sans prix.`}
+      </p>
+      {subjects.length === 0 ? (
+        <p className="mt-3 text-sm text-foreground/60">Aucune matière : ajoutez-les d&apos;abord dans Matières.</p>
+      ) : (
+        <ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {subjects.map((s) => (
+            <li key={s.id} className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 text-sm" data-subject={s.name}>
+              <span className="truncate">{s.name}</span>
+              <RateInput rate={s.hourlyRate} onSave={(next) => setSubjectRate(s.id, next)} label={`Prix de l'heure de ${s.name} en MRU`} testId="subject-rate-input" />
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/** Taux de chaque enseignant : seulement pour les matières qui n'ont pas de prix de l'heure. */
 function AllRates({ teachers }: { teachers: { id: string; name: string; hourlyRate: number | null }[] }) {
   return (
     <details className="rounded-2xl border border-border bg-surface p-4 shadow-soft">
-      <summary className="cursor-pointer text-sm font-semibold text-foreground">Taux horaires de tous les enseignants</summary>
+      <summary className="cursor-pointer text-sm font-semibold text-foreground">Taux par enseignant (matières sans prix de l&apos;heure)</summary>
       <ul className="mt-3 grid gap-2 sm:grid-cols-2" data-testid="all-rates">
         {teachers.map((t) => (
           <li key={t.id} className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 text-sm">
             <span className="truncate">{t.name}</span>
-            <RateInput teacherId={t.id} rate={t.hourlyRate} />
+            <RateInput rate={t.hourlyRate} onSave={(next) => setHourlyRate(t.id, next)} />
           </li>
         ))}
       </ul>

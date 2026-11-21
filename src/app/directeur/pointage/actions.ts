@@ -175,6 +175,35 @@ export async function setHourlyRate(teacherId: string, rate: number | null) {
   });
 }
 
+/**
+ * Prix de l'heure d'une matière (MRU entiers) ; vide = taux de chaque enseignant.
+ * Il s'applique à toutes les séances de la matière du mois en cours (les paies validées restent figées).
+ */
+export async function setSubjectRate(subjectId: string, rate: number | null) {
+  return asResult(async () => {
+    const user = await requireRole(ROLES.DIRECTOR);
+    await assertTimesheetEnabled(user.schoolId);
+    const value = rate == null ? null : z.number().int().min(0).max(1_000_000).parse(rate);
+    const subject = await prisma.subject.findFirst({
+      where: { id: id.parse(subjectId), schoolId: user.schoolId },
+      select: { id: true, name: true, hourlyRate: true },
+    });
+    if (!subject) throw new UserError("Matière introuvable.");
+    if (subject.hourlyRate === value) return {};
+    await prisma.$transaction(async (tx) => {
+      await tx.subject.update({ where: { id: subject.id }, data: { hourlyRate: value } });
+      await logActivity(tx, {
+        schoolId: user.schoolId,
+        userId: user.id,
+        action: ACTIVITY_ACTIONS.TIMESHEET,
+        summary: `Prix de l'heure (${subject.name}) :${value == null ? "retiré (taux de l'enseignant)" : `${formatMRU(value)} / h`}${subject.hourlyRate != null ? ` (avant : ${formatMRU(subject.hourlyRate)} / h)` : ""}`,
+      });
+    });
+    refresh();
+    return {};
+  });
+}
+
 const adjustmentSchema = z.object({
   teacherId: id,
   month: monthKey,

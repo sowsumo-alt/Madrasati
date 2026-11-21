@@ -6,7 +6,7 @@ import { TimesheetDisabled, TimesheetHeader } from "../timesheet-tabs";
 import { PayrollView } from "./payroll-view";
 
 /**
- * Paie du mois : heures pointées × taux horaire, moins les retards, avances
+ * Paie du mois : heures pointées × prix de l'heure de la matière, moins les retards, avances
  * et autres déductions. Une fois validée, la paie est figée.
  */
 export default async function TimesheetPayrollPage({ searchParams }: { searchParams: Promise<{ mois?: string }> }) {
@@ -23,7 +23,7 @@ export default async function TimesheetPayrollPage({ searchParams }: { searchPar
 
   return (
     <div className="space-y-5">
-      <TimesheetHeader current="paie" title="Paie du pointage" subtitle="Heures pointées × taux horaire, moins les retards, avances et déductions." />
+      <TimesheetHeader current="paie" title="Paie du pointage" subtitle="Heures pointées × prix de l'heure de la matière, moins les retards, avances et déductions." />
       <PayrollView
         month={key}
         months={months}
@@ -31,6 +31,7 @@ export default async function TimesheetPayrollPage({ searchParams }: { searchPar
         totals={payroll.totals}
         adjustments={payroll.adjustments.map((a) => ({ ...a, createdAt: a.createdAt.toISOString() }))}
         teachers={payroll.teachers.map((t) => ({ id: t.id, name: `${t.firstName} ${t.lastName}`.trim(), hourlyRate: t.hourlyRate }))}
+        subjects={payroll.subjects}
         locked={payroll.locked ? { at: payroll.locked.at.toISOString(), by: payroll.locked.by } : null}
         lateDeduction={payroll.lateDeduction}
         readOnly={user.readOnly}

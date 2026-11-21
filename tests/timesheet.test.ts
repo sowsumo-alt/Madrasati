@@ -58,10 +58,10 @@ test("GPS : accepté dans le rayon, refusé au-delà, refusé sans position de l
 
 test("séances du jour : depuis l'emploi du temps, aucune un jour férié ni sans enseignant", () => {
   const slots: PlannedSlot[] = [
-    { id: "s1", dayOfWeek: 1, startMinutes: 480, endMinutes: 540, classId: "c1", className: "1AS", subjectName: "Maths", teacherId: "t1" },
-    { id: "s2", dayOfWeek: 1, startMinutes: 600, endMinutes: 690, classId: "c2", className: "2AS", subjectName: "Physique", teacherId: "t1" },
-    { id: "s3", dayOfWeek: 1, startMinutes: 480, endMinutes: 540, classId: "c3", className: "3AS", subjectName: "Arabe", teacherId: null },
-    { id: "s4", dayOfWeek: 2, startMinutes: 480, endMinutes: 540, classId: "c1", className: "1AS", subjectName: "Maths", teacherId: "t1" },
+    { id: "s1", dayOfWeek: 1, startMinutes: 480, endMinutes: 540, classId: "c1", className: "1AS", subjectId: "m", subjectName: "Maths", teacherId: "t1" },
+    { id: "s2", dayOfWeek: 1, startMinutes: 600, endMinutes: 690, classId: "c2", className: "2AS", subjectId: "p", subjectName: "Physique", teacherId: "t1" },
+    { id: "s3", dayOfWeek: 1, startMinutes: 480, endMinutes: 540, classId: "c3", className: "3AS", subjectId: "a", subjectName: "Arabe", teacherId: null },
+    { id: "s4", dayOfWeek: 2, startMinutes: 480, endMinutes: 540, classId: "c1", className: "1AS", subjectId: "m", subjectName: "Maths", teacherId: "t1" },
   ];
   const monday = at("2026-11-16T00:00:00");
   const sessions = plannedSessions(slots, monday, new Set());
@@ -160,4 +160,69 @@ test("activation par le directeur : le pointage commence le jour même, une réa
   });
   assert.deepEqual(timesheetSwitchData(true, at("2026-10-01T00:00:00"), at("2026-11-21T14:30:00")), { timesheetEnabled: true });
   assert.deepEqual(timesheetSwitchData(false, at("2026-10-01T00:00:00"), at("2026-11-21T14:30:00")), { timesheetEnabled: false });
+});
+
+test("prix de l'heure par matière : Physique 1 300 MRU/h, Maths 200 MRU/h, calculé à chaque séance pointée", () => {
+  const physique = { subjectName: "Physique", subjectRate: 1300 };
+  const maths = { subjectName: "Maths", subjectRate: 200 };
+  const sessions = [
+    session({ start: "08:00", end: "09:00", ...physique }),
+    session({ start: "09:00", end: "11:00", ...maths }),
+    session({ start: "11:00", end: "12:00", ...physique, status: "LATE", lateMinutes: 12 }),
+    session({ start: "15:00", end: "16:00", ...physique, status: "ABSENT" }),
+  ];
+  const pay = computeTeacherPay("t1", 500, sessions, [], "PRORATA", NOW);
+  // 2 h de Physique × 1 300 + 2 h de Maths × 200 ; l'absence ne compte pas.
+  assert.equal(pay.honoraires, 2 * 1300 + 2 * 200);
+  assert.deepEqual(
+    pay.parts?.map((p) => [p.subject, p.rate, p.minutes, p.amount]),
+    [
+      ["Maths", 200, 120, 400],
+      ["Physique", 1300, 120, 2600],
+    ],
+  );
+  // Retard au prix de la matière du cours : 12 min × 1 300 / 60 = 260.
+  assert.equal(pay.lateDeduction, 260);
+  assert.equal(pay.net, 3000 - 260);
+  // Une séance de plus pointée : la paie suit d'elle-même.
+  const more = computeTeacherPay("t1", 500, [...sessions, session({ start: "16:00", end: "17:00", ...maths })], [], "PRORATA", NOW);
+  assert.equal(more.honoraires, pay.honoraires + 200);
+});
+
+test("matière sans prix : taux de l'enseignant ; sans aucun prix : 0 MRU et signalé", () => {
+  const sessions = [
+    session({ start: "08:00", end: "09:00", subjectName: "Physique", subjectRate: 1300 }),
+    session({ start: "09:00", end: "10:00", subjectName: "Dessin", subjectRate: null }),
+  ];
+  const withTeacherRate = computeTeacherPay("t1", 150, sessions, [], "PRORATA", NOW);
+  assert.equal(withTeacherRate.honoraires, 1300 + 150);
+  assert.equal(withTeacherRate.unpricedMinutes, 0);
+  const noRate = computeTeacherPay("t1", null, sessions, [], "PRORATA", NOW);
+  assert.equal(noRate.honoraires, 1300);
+  assert.equal(noRate.unpricedMinutes, 60);
+});
+
+test("remplacement : payé au remplaçant, au prix de la matière du cours", () => {
+  const sessions = [session({ start: "08:00", end: "10:00", subjectName: "Physique", subjectRate: 1300, status: "REPLACED", replacementTeacherId: "t2" })];
+  assert.equal(computeTeacherPay("t2", 100, sessions, [], "PRORATA", NOW).honoraires, 2600);
+  assert.equal(computeTeacherPay("t1", 100, sessions, [], "PRORATA", NOW).honoraires, 0);
+});
+
+test("taux affiché : un seul prix, ou chaque matière avec le sien ; anciennes paies validées : taux de l'enseignant", async () => {
+  const { payRates } = await import("../src/lib/timesheet");
+  const one = computeTeacherPay("t1", null, [session({ start: "08:00", end: "09:00", subjectName: "Maths", subjectRate: 200 })], [], "PRORATA", NOW);
+  assert.deepEqual(payRates(one), [{ subject: "", rate: 200 }]);
+  const two = computeTeacherPay(
+    "t1",
+    null,
+    [session({ start: "08:00", end: "09:00", subjectName: "Maths", subjectRate: 200 }), session({ start: "09:00", end: "10:00", subjectName: "Physique", subjectRate: 1300 })],
+    [],
+    "PRORATA",
+    NOW,
+  );
+  assert.deepEqual(payRates(two), [
+    { subject: "Maths", rate: 200 },
+    { subject: "Physique", rate: 1300 },
+  ]);
+  assert.deepEqual(payRates({ hourlyRate: 300 }), [{ subject: "", rate: 300 }]);
 });

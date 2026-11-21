@@ -5,6 +5,7 @@ import { formatMRU } from "@/lib/format";
 import { loadSchoolIdentity } from "@/lib/school-cache";
 import { DocumentHeader } from "@/components/documents/document-header";
 import { MonthSelect } from "@/components/timesheet/month-select";
+import { PayParts, PayRates } from "@/components/timesheet/pay-rates";
 import { ensureSessions, loadTimesheetSchool, monthPayroll, type PayLine } from "@/lib/timesheet-data";
 import { dmy, effectiveStatus, hm, hoursLabel, monthKeyOf, monthLabelOf, monthRange, timesheetMonths } from "@/lib/timesheet";
 import { TimesheetDisabled, TimesheetHeader } from "../timesheet-tabs";
@@ -176,7 +177,9 @@ function Sheet({ identity, line, rows, month }: { identity: Awaited<ReturnType<t
         <tbody>
           <tr className="text-center font-semibold">
             <td className={cell}>{hoursLabel(line.minutes)}</td>
-            <td className={cell}>{line.hourlyRate != null ? formatMRU(line.hourlyRate) : "—"}</td>
+            <td className={cell} data-testid="sheet-rate">
+              <PayRates pay={line} />
+            </td>
             <td className={cell}>{formatMRU(line.honoraires)}</td>
             <td className={cell}>{line.deductions > 0 ? formatMRU(line.deductions) : "—"}</td>
             <td className={cell} data-testid="sheet-net">
@@ -185,6 +188,7 @@ function Sheet({ identity, line, rows, month }: { identity: Awaited<ReturnType<t
           </tr>
         </tbody>
       </table>
+      <PayParts pay={line} className="mt-1 text-[11px] text-black/70" />
       {line.deductions > 0 && (
         <p className="mt-1 text-[11px] text-black/70">
           Déduction : {[line.lateDeduction > 0 && `retards ${formatMRU(line.lateDeduction)} (${line.lateMinutes} min)`, line.advances > 0 && `avances ${formatMRU(line.advances)}`, line.otherDeductions > 0 && `autres ${formatMRU(line.otherDeductions)}`]
@@ -233,7 +237,9 @@ function Recap({
             <tr key={l.teacherId}>
               <td className={cell}>{l.name}</td>
               <td className={`${cell} text-end`}>{hoursLabel(l.minutes)}</td>
-              <td className={`${cell} text-end`}>{l.hourlyRate != null ? formatMRU(l.hourlyRate) : "—"}</td>
+              <td className={`${cell} text-end`}>
+                <PayRates pay={l} />
+              </td>
               <td className={`${cell} text-end`}>{formatMRU(l.honoraires)}</td>
               <td className={`${cell} text-end`}>{l.deductions > 0 ? formatMRU(l.deductions) : "—"}</td>
               <td className={`${cell} text-end font-semibold`}>{formatMRU(l.net)}</td>

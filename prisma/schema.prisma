@@ -312,9 +312,12 @@ model Subject {
   nameAr      String? // ex: "الرياضيات" — imprimé à côté du nom français
   coefficient Int     @default(1)
   isActive    Boolean @default(true)
+  /// Pointage : prix de l'heure de cours de cette matière (MRU). Vide : taux de l'enseignant.
+  hourlyRate  Int?
 
-  classSubjects ClassSubject[]
-  exams         Exam[]
+  classSubjects    ClassSubject[]
+  exams            Exam[]
+  teachingSessions TeachingSession[]
 
   @@index([schoolId])
   @@map("subjects")
@@ -1067,6 +1070,9 @@ model TeachingSession {
   classId              String?
   className            String
   subjectName          String
+  /// La matière du cours : son prix de l'heure fait la paie de la séance.
+  subjectId            String?
+  subject              Subject?      @relation(fields: [subjectId], references: [id], onDelete: SetNull)
   /// PENDING (à venir), PRESENT, LATE, ABSENT, EXCUSED (absent justifié), REPLACED.
   status               String        @default("PENDING")
   checkedInAt          DateTime?
