@@ -20,6 +20,7 @@ const ACTION_STYLE: Record<ActivityAction, string> = {
   USER: "bg-violet-50 text-violet-700",
   EXPORT: "bg-slate-100 text-slate-700",
   TIMESHEET: "bg-cyan-50 text-cyan-800",
+  SCHEDULE: "bg-indigo-50 text-indigo-700",
 };
 
 /**

@@ -27,6 +27,7 @@ import {
 } from "./actions";
 import { Copy, Loader2 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/language-provider";
+import { isValidCoefficient, MAX_COEFFICIENT } from "@/lib/grading";
 
 export interface AssignmentSubject {
   id: string;
@@ -70,7 +71,7 @@ function CoefficientInput({
 
   async function commit() {
     const parsed = Number(text);
-    if (!Number.isInteger(parsed) || parsed < 1 || parsed > 20) {
+    if (!isValidCoefficient(parsed)) {
       setText(String(value));
       return;
     }
@@ -82,7 +83,7 @@ function CoefficientInput({
       autoComplete="off"
       type="number"
       min={1}
-      max={20}
+      max={MAX_COEFFICIENT}
       value={text}
       onChange={(e) => setText(e.target.value)}
       onBlur={commit}

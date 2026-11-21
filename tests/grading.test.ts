@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 import {
   generalAverage,
   gradingSchemeFor,
+  isValidCoefficient,
+  MAX_COEFFICIENT,
   officialSubjectIndex,
   schoolLevelOf,
   SECONDARY_OFFICIAL_SUBJECTS,
@@ -95,4 +97,13 @@ test("la formule du secondaire ne s'applique qu'au collège et au lycée", () =>
   assert.equal(gradingSchemeFor("FONDAMENTAL"), "STANDARD");
   // Un niveau inconnu garde le calcul d'origine plutôt qu'une règle devinée.
   assert.equal(gradingSchemeFor(null), "STANDARD");
+});
+test("coefficients du Fondamental : jusqu'à 100 (Français 50, Arabe 50…)", () => {
+  assert.equal(MAX_COEFFICIENT, 100);
+  for (const ok of [1, 5, 20, 21, 50, 100]) assert.equal(isValidCoefficient(ok), true, String(ok));
+  for (const bad of [0, -3, 2.5, 101, Number.NaN]) assert.equal(isValidCoefficient(bad), false, String(bad));
+  // Le calcul suit : 14 × 50 + 12 × 50 = 1 300 points pour 100 de coefficients.
+  const general = generalAverage([{ average: 14, coefficient: 50 }, { average: 12, coefficient: 50 }]);
+  assert.equal(general.totalCoefficients, 100);
+  assert.equal(general.average, 13);
 });

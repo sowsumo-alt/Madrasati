@@ -12,6 +12,8 @@ import { isSchoolType } from "@/lib/school-levels";
 import { CURRENT_YEAR } from "@/lib/school-year";
 import {
   gradingSchemeFor,
+  isValidCoefficient,
+  MAX_COEFFICIENT,
   officialSubjectIndex,
   schoolLevelOf,
   SECONDARY_OFFICIAL_SUBJECTS,
@@ -262,8 +264,8 @@ export async function setClassSubjectCoefficient(
   coefficient: number | null,
 ) {
   const user = await requireRole(ROLES.DIRECTOR);
-  if (coefficient != null && (!Number.isInteger(coefficient) || coefficient < 1 || coefficient > 20)) {
-    throw new Error("Le coefficient doit être un nombre entier entre 1 et 20.");
+  if (coefficient != null && !isValidCoefficient(coefficient)) {
+    throw new Error(`Le coefficient doit être un nombre entier entre 1 et ${MAX_COEFFICIENT}.`);
   }
 
   const link = await prisma.classSubject.findFirst({

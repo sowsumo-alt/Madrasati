@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_COEFFICIENT } from "@/lib/grading";
 
 /**
  * Une classe se décrit par sa catégorie, son niveau et, s'il y a plusieurs
@@ -18,6 +19,10 @@ export type ClassFormValues = z.infer<typeof classSchema>;
 export const subjectSchema = z.object({
   name: z.string().trim().min(1, "Le nom de la matière est requis"),
   nameAr: z.string().trim().optional().or(z.literal("")),
-  coefficient: z.coerce.number().int().positive("Le coefficient doit être positif"),
+  coefficient: z.coerce
+    .number()
+    .int("Le coefficient doit être un nombre entier")
+    .positive("Le coefficient doit être positif")
+    .max(MAX_COEFFICIENT, `Le coefficient ne dépasse pas ${MAX_COEFFICIENT}`),
 });
 export type SubjectFormValues = z.infer<typeof subjectSchema>;

@@ -9,6 +9,7 @@ import {
   type ScheduleYearOption,
   type SlotRow,
 } from "./schedule-view";
+import type { ImportClassOption } from "./schedule-import-dialog";
 
 const fullName = (t: { firstName: string; lastName: string } | null) =>
   t ? `${t.firstName} ${t.lastName}` : null;
@@ -19,7 +20,7 @@ export default async function SchedulePage() {
 
   // Toutes les années et non la seule année en cours : l'emploi du temps
   // d'une année terminée reste consultable, en lecture seule.
-  const [years, classes, slots, exams, holidays, school] = await Promise.all([
+  const [years, classes, slots, exams, holidays, school, subjects] = await Promise.all([
     prisma.academicYear.findMany({
       where: { schoolId },
       orderBy: { startDate: "desc" },
@@ -35,6 +36,7 @@ export default async function SchedulePage() {
         classSubjects: {
           select: {
             id: true,
+            subjectId: true,
             subject: { select: { name: true } },
             teacher: { select: { id: true, firstName: true, lastName: true } },
           },
@@ -69,6 +71,11 @@ export default async function SchedulePage() {
       select: { id: true, name: true, date: true },
     }),
     prisma.school.findUnique({ where: { id: schoolId }, select: { name: true } }),
+    // Les matières de l'école, pour reconnaître celles d'un emploi du temps importé.
+    prisma.subject.findMany({
+      where: { schoolId, isActive: true },
+      select: { id: true, name: true, nameAr: true },
+    }),
   ]);
 
   const yearOptions: ScheduleYearOption[] = years;
@@ -84,6 +91,16 @@ export default async function SchedulePage() {
       teacherName: fullName(cs.teacher),
     })),
   }));
+
+  const currentYearId = years.find((y) => y.isCurrent)?.id ?? null;
+  const importClasses: ImportClassOption[] = classes
+    .filter((c) => c.academicYearId === currentYearId)
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      subjectIds: c.classSubjects.map((cs) => cs.subjectId),
+      slotCount: slots.filter((s) => s.classId === c.id).length,
+    }));
 
   const slotRows: SlotRow[] = slots.map((s) => ({
     id: s.id,
@@ -119,6 +136,8 @@ export default async function SchedulePage() {
       exams={examEvents}
       holidays={holidayEvents}
       schoolName={school?.name ?? "Madrasati"}
+      importClasses={importClasses}
+      subjects={subjects}
       todayIso={isoDay(new Date())}
     />
   );

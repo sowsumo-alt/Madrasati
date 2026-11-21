@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { AlertTriangle, CalendarDays, ChevronRight, Lock, Plus } from "lucide-react";
+import { AlertTriangle, CalendarDays, ChevronRight, Lock, Plus, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { PrintButton } from "@/components/ui/print-button";
@@ -16,6 +16,8 @@ import { deleteSlot } from "./actions";
 import { ScheduleFilters, type ScheduleViewMode } from "./schedule/schedule-filters";
 import { WeekGrid } from "./schedule/week-grid";
 import { MonthCalendar } from "./schedule/month-calendar";
+import { ScheduleImportDialog, type ImportClassOption } from "./schedule-import-dialog";
+import type { ImportSubject } from "@/lib/schedule-import";
 
 export interface ScheduleYearOption {
   id: string;
@@ -61,6 +63,8 @@ export function ScheduleView({
   holidays,
   schoolName,
   todayIso,
+  importClasses,
+  subjects,
 }: {
   years: ScheduleYearOption[];
   classes: ScheduleClassOption[];
@@ -70,6 +74,10 @@ export function ScheduleView({
   schoolName: string;
   /** Jour du rendu serveur : point de départ des vues, identique côté navigateur. */
   todayIso: string;
+  /** Classes de l'année en cours, pour l'import d'un emploi du temps. */
+  importClasses: ImportClassOption[];
+  /** Matières de l'école. */
+  subjects: ImportSubject[];
 }) {
   const { t } = useLanguage();
   const router = useRouter();
@@ -95,6 +103,7 @@ export function ScheduleView({
   const [form, setForm] = useState<{ day: number; start: string; end: string } | null>(null);
   const [removeTarget, setRemoveTarget] = useState<SlotRow | null>(null);
   const [removing, setRemoving] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
   const year = years.find((y) => y.id === yearId) ?? null;
   // Une année terminée se consulte, mais ne se modifie plus : ses classes sont
@@ -216,6 +225,12 @@ export function ScheduleView({
             labelKey="schedule.exportPdf"
           />
           <PrintButton label={t("common.print")} variant="secondary" />
+          {!readOnly && importClasses.length > 0 && (
+            <Button variant="secondary" onClick={() => setImportOpen(true)} data-testid="schedule-import-open">
+              <Upload className="h-4 w-4" />
+              {t("common.import")}
+            </Button>
+          )}
           <Button
             className="shadow-sm"
             onClick={() => setForm({ day: 1, start: "08:00", end: "09:00" })}
@@ -332,6 +347,16 @@ export function ScheduleView({
           defaultDay={form?.day ?? 1}
           defaultStart={form?.start ?? "08:00"}
           defaultEnd={form?.end ?? "09:00"}
+        />
+      )}
+      {/* Monté à l’ouverture : la classe affichée devient la classe proposée. */}
+      {importOpen && (
+        <ScheduleImportDialog
+          open
+          onOpenChange={setImportOpen}
+          classes={importClasses}
+          subjects={subjects}
+          defaultClassId={selectedClass?.id ?? null}
         />
       )}
       <ConfirmDialog

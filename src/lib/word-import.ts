@@ -26,14 +26,24 @@ const clean = (text: string) => text.replace(/[  ]+/g, " ").trim();
 type Block = { kind: "paragraph"; text: string } | { kind: "table"; rows: string[][] };
 
 /** Le corps du document, dans l'ordre : paragraphes et tableaux (les tableaux imbriqués restent dans leur cellule). */
-export function documentBlocks(xml: string): Block[] {
+export interface WordReadOptions {
+  /**
+   * Recopier une cellule fusionnée dans chaque case qu'elle couvre (un cours de
+   * deux heures dans un emploi du temps). Sans cette option, les cases couvertes
+   * restent vides, comme pour une liste d'élèves.
+   */
+  fillMerged?: boolean;
+}
+
+export function documentBlocks(xml: string, options: WordReadOptions = {}): Block[] {
   const blocks: Block[] = [];
-  const TOKEN = /<(\/?)w:(tbl|tr|tc|p|t|tabs|tab|br|cr|gridSpan)\b([^>]*?)(\/?)>|<[^>]*>|([^<]+)/g;
+  const TOKEN = /<(\/?)w:(tbl|tr|tc|p|t|tabs|tab|br|cr|gridSpan|vMerge)\b([^>]*?)(\/?)>|<[^>]*>|([^<]+)/g;
   let depth = 0; // tableaux ouverts
   let rows: string[][] = [];
   let row: string[] = [];
   let cell: string[] = [];
   let span = 1;
+  let continued = false; // cellule qui prolonge celle du dessus (fusion verticale)
   let paragraph = "";
   let inText = false;
   let inTabStops = false; // <w:tabs> : positions des tabulations, pas du texte
@@ -71,10 +81,16 @@ export function documentBlocks(xml: string): Block[] {
       if (!closing) {
         cell = [];
         span = 1;
+        continued = false;
       } else {
         // Une cellule fusionnée sur plusieurs colonnes garde les suivantes à leur place.
-        row.push(clean(cell.join(" ").replace(/\t/g, " ")), ...Array<string>(span - 1).fill(""));
+        let value = clean(cell.join(" ").replace(/\t/g, " "));
+        if (options.fillMerged && continued) value = rows[rows.length - 1]?.[row.length] ?? value;
+        row.push(value, ...Array<string>(span - 1).fill(options.fillMerged ? value : ""));
       }
+    } else if (depth === 1 && tag === "vMerge") {
+      // <w:vMerge w:val="restart"/> ouvre la fusion ; <w:vMerge/> la prolonge.
+      continued = !/w:val="restart"/.test(attrs);
     } else if (depth === 1 && tag === "gridSpan") {
       span = Math.max(1, Number(/w:val="(\d+)"/.exec(attrs)?.[1] ?? 1));
     }
@@ -85,8 +101,8 @@ export function documentBlocks(xml: string): Block[] {
 const nonEmpty = (rows: string[][]) => rows.filter((r) => r.some(Boolean));
 
 /** Les tableaux de la liste, le plus probable en premier (en-têtes reconnus, puis le plus long). */
-export function wordTables(xml: string): WordTable[] {
-  const blocks = documentBlocks(xml);
+export function wordTables(xml: string, options: WordReadOptions = {}): WordTable[] {
+  const blocks = documentBlocks(xml, options);
   const tables: (WordTable & { score: number })[] = [];
   blocks.forEach((block, index) => {
     if (block.kind !== "table") return;
@@ -122,9 +138,9 @@ export function wordTables(xml: string): WordTable[] {
 }
 
 /** Le fichier .docx entier → ses tableaux. Lève une erreur si ce n'est pas un .docx lisible. */
-export function readWordTables(bytes: Uint8Array): WordTable[] {
+export function readWordTables(bytes: Uint8Array, options: WordReadOptions = {}): WordTable[] {
   const files = unzipSync(bytes, { filter: (f) => f.name === "word/document.xml" });
   const xml = files["word/document.xml"];
   if (!xml) throw new Error("Pas un document Word (.docx)");
-  return wordTables(strFromU8(xml));
+  return wordTables(strFromU8(xml), options);
 }

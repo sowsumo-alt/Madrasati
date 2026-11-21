@@ -65,6 +65,18 @@ export function onTwenty(score: number, maxScore: number): number {
   return maxScore === 20 || maxScore <= 0 ? score : (score / maxScore) * 20;
 }
 
+/**
+ * Plus grand coefficient accepté. Le secondaire va de 1 à 8, mais au
+ * Fondamental certaines écoles notent sur de gros coefficients (Français 50,
+ * Arabe 50…) : 100 laisse la place à chaque école, sans faute de frappe à 1 000.
+ */
+export const MAX_COEFFICIENT = 100;
+
+/** Un coefficient : un nombre entier de 1 à MAX_COEFFICIENT. */
+export function isValidCoefficient(value: number): boolean {
+  return Number.isInteger(value) && value >= 1 && value <= MAX_COEFFICIENT;
+}
+
 /** Arrondi au centième, comme sur le bulletin papier. */
 export function roundHundredth(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;

@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { subjectSchema, type SubjectFormValues } from "./schema";
 import { createSubject, updateSubject } from "./actions";
 import { useLanguage } from "@/lib/i18n/language-provider";
+import { MAX_COEFFICIENT } from "@/lib/grading";
 
 export interface SubjectEditTarget {
   id: string;
@@ -110,7 +111,7 @@ export function SubjectFormDialog({ open, onOpenChange, editTarget }: SubjectFor
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="coefficient">Coefficient</Label>
-            <Input id="coefficient" type="number" min={1} {...register("coefficient")} />
+            <Input id="coefficient" type="number" min={1} max={MAX_COEFFICIENT} {...register("coefficient")} />
             {errors.coefficient && (
               <p className="text-xs text-danger">{errors.coefficient.message}</p>
             )}
